@@ -4,8 +4,8 @@ const G = "#2D6A4F", LT = "#d8f3dc", DK = "#1b4332";
 const AI_API = "https://api.anthropic.com/v1/messages";
 const MODEL  = "claude-sonnet-4-20250514";
 const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_KEY || "";
-const SB_URL = "https://qnxeyoxashvbljjmqkrp.supabase.co";
-const SB_KEY = "sb_publishable_lgRs4KqlUybNQ--KiZP7BA_m-ntu3CC";
+const SB_URL = import.meta.env.VITE_SUPABASE_URL || "https://qnxeyoxashvbljjmqkrp.supabase.co";
+const SB_KEY = import.meta.env.VITE_SUPABASE_KEY || "sb_publishable_lgRs4KqlUybNQ--KiZP7BA_m-ntu3CC";
 
 /* ── Supabase fetch helpers ── */
 const sbHeaders = (token) => ({
