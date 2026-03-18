@@ -659,31 +659,36 @@ const SCORING_CRITERIA = [
   { id:"length",   label:"Length & Sufficient Development",             max:2, desc:"Is the paragraph long enough? Is each section sufficiently developed (minimum 2-3 sentences for Explanation)?" },
 ];
 
+const WORD_MINIMUMS = {
+  Beginner:     { point:10, explanation:20, evidence:10, link:10 },
+  Intermediate: { point:15, explanation:40, evidence:20, link:15 },
+  Advanced:     { point:25, explanation:60, evidence:25, link:20 },
+};
+
 function PeelMod({addXp,onBack,level}) {
-  const [phase,setPhase]=useState("theory"); // theory | bad | good | write | feedback | done
+  const [phase,setPhase]=useState("theory");
   const [c]=useState(()=>rnd(PEEL_TOPICS));
   const [theoryTab,setTheoryTab]=useState(0);
   const [step,setStep]=useState(0);
   const [vals,setVals]=useState({point:"",explanation:"",evidence:"",link:""});
-  const [feedback,setFeedback]=useState(null); // {text, scores, total}
+  const [feedback,setFeedback]=useState(null);
   const [aiLoading,setAiLoading]=useState(false);
+  const [attempts,setAttempts]=useState(0);
   const keys=["point","explanation","evidence","link"];
   const labels=["📌 Point","💬 Explanation","📚 Evidence","🔗 Link"];
-  const minWords={point:15,explanation:40,evidence:20,link:15};
-
+  const minWords = WORD_MINIMUMS[level] || WORD_MINIMUMS.Beginner;
   const wordCount=txt=>txt.trim().split(/\s+/).filter(w=>w.length>0).length;
 
-  const getAI=async()=>{
+  const getAI=async(isRevision=false)=>{
     setAiLoading(true);
     try{
       const res=await fetch("/api/generate",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-          prompt:`You are a strict but fair English writing examiner assessing a PEEL paragraph written by a ${level} university student in Côte d'Ivoire (French speaker). You must provide a detailed, structured assessment and assign a numerical score out of 20.
+          prompt:`You are a strict but fair English writing examiner assessing a PEEL paragraph written by a ${level} university student in Côte d'Ivoire (French speaker). This is attempt number ${attempts+1}.${isRevision?" The student has revised their paragraph based on previous feedback.":""} You must provide a detailed structured assessment with a score out of 20.
 
 TOPIC: "${c.prompt}"
-
 STUDENT'S PARAGRAPH:
 Point: ${vals.point}
 Explanation: ${vals.explanation}
@@ -693,64 +698,75 @@ Link: ${vals.link}
 Your response must follow this EXACT structure:
 
 ---SCORES---
-POINT: [score]/4
-EXPLANATION: [score]/4
-EVIDENCE: [score]/4
-LINK: [score]/3
-GRAMMAR: [score]/3
-LENGTH: [score]/2
-TOTAL: [total]/20
+POINT: [0-4]/4
+EXPLANATION: [0-4]/4
+EVIDENCE: [0-4]/4
+LINK: [0-3]/3
+GRAMMAR: [0-3]/3
+LENGTH: [0-2]/2
+TOTAL: [sum]/20
 ---END SCORES---
 
 ---FEEDBACK---
 
 ## Overall Assessment
-[2-3 sentences giving an honest overall impression. State the total score and what it reflects. Be direct.]
+[2-3 honest sentences about the overall quality. State the score and what it means. If this is a revision, acknowledge improvement or continued weaknesses.]
 
 ## 📌 Point — [score]/4
-[Evaluate: Is the argument clear, specific, and directly addressing the question? Does it avoid vague language?]
-[If below 3/4: Write an improved version of the Point sentence.]
+ISSUES: [List each weak or problematic sentence from the student's Point below, one per line, preceded by ⚠️]
+⚠️ "[exact problematic sentence from student]"
+→ Problem: [specific explanation of what is wrong]
+→ Fix: [rewritten improved version]
+[If the Point is strong (3-4/4), skip the ISSUES block and write: ✅ Strong — [specific praise]]
 
 ## 💬 Explanation — [score]/4
-[Evaluate: Does the explanation develop the point logically? Are linking words used? Does each sentence add new information?]
-[Identify any specific weak sentences and explain why they are weak.]
-[If below 3/4: Provide a model improved explanation of 2-3 sentences.]
+ISSUES: [List each weak or problematic sentence from the student's Explanation]
+⚠️ "[exact problematic sentence]"
+→ Problem: [specific explanation]
+→ Fix: [rewritten improved version]
+[If strong, skip and write: ✅ Strong — [specific praise]]
 
 ## 📚 Evidence — [score]/4
-[Evaluate: Is the evidence specific, credible, and properly introduced? Is a source named? Is a statistic used?]
-[If the evidence is weak or missing, explain exactly what type of evidence is needed and provide a model sentence.]
+ISSUES:
+⚠️ "[exact problematic sentence or 'No evidence provided']"
+→ Problem: [specific explanation]
+→ Fix: [model evidence sentence with named source and statistic]
+[If strong, skip and write: ✅ Strong — [specific praise]]
 
 ## 🔗 Link — [score]/3
-[Evaluate: Does the link reconnect to the question? Does it synthesise without introducing new ideas?]
-[If below 2/3: Provide a model link sentence.]
+ISSUES:
+⚠️ "[exact problematic sentence]"
+→ Problem: [specific explanation]
+→ Fix: [model link sentence]
+[If strong, skip and write: ✅ Strong — [specific praise]]
 
 ## ✏️ Grammar & Academic Vocabulary — [score]/3
-[Identify 2-3 specific errors. For each write:
-❌ Incorrect: "[wrong sentence]"
-✅ Corrected: "[correct sentence]"
-📖 Explanation: [brief grammar rule]]
-[Suggest 2 stronger academic words to replace informal ones used.]
+[List 2-3 specific errors:]
+❌ "[wrong sentence from student]"
+✅ "[corrected version]"
+📖 Rule: [brief grammar explanation]
+
+[Then suggest 2 stronger academic words to replace informal ones, with examples.]
 
 ## 📏 Length & Development — [score]/2
-[Comment on whether each section is sufficiently developed. Minimum standards: Point = 1-2 sentences, Explanation = 3+ sentences, Evidence = 1-2 sentences with source, Link = 1-2 sentences.]
+[Comment on whether each section meets the minimum word requirements for ${level} level: Point=${minWords.point} words, Explanation=${minWords.explanation} words, Evidence=${minWords.evidence} words, Link=${minWords.link} words.]
 
-## 🎯 Priority Actions
-List exactly 3 specific things the student must do to improve their next paragraph:
-1. [Specific action]
-2. [Specific action]
-3. [Specific action]
+## 🎯 Priority Actions — What you MUST improve
+${attempts>=1?"Based on your revision, here are the remaining issues to address:":"Here are the 3 most important things to fix before your next attempt:"}
+1. [Most critical specific action]
+2. [Second specific action]
+3. [Third specific action]
 
 ## 💪 Encouragement
-[1-2 sentences of warm, genuine encouragement that acknowledges specific strengths.]
+[1-2 warm sentences acknowledging specific strengths and motivating continued effort.]
 ---END FEEDBACK---
 
-Be rigorous and honest. A score of 15+/20 should require genuinely strong academic writing. Do not inflate scores.`,
+Be rigorous. A score of 15+/20 requires genuinely strong academic writing. Do not inflate scores.`,
           maxTokens:1500
         })
       });
       const data=await res.json();
       const text=data.text||"";
-      // Parse scores
       const scoreMatch=text.match(/---SCORES---([\s\S]*?)---END SCORES---/);
       const feedbackMatch=text.match(/---FEEDBACK---([\s\S]*?)---END FEEDBACK---/);
       let scores={point:0,expl:0,evidence:0,link:0,grammar:0,length:0,total:0};
@@ -762,60 +778,92 @@ Be rigorous and honest. A score of 15+/20 should require genuinely strong academ
         scores.link=parseInt(s.match(/LINK:\s*(\d)/)?.[1]||0);
         scores.grammar=parseInt(s.match(/GRAMMAR:\s*(\d)/)?.[1]||0);
         scores.length=parseInt(s.match(/LENGTH:\s*(\d)/)?.[1]||0);
-        scores.total=parseInt(s.match(/TOTAL:\s*(\d+)/)?.[1]||0);
+        scores.total=scores.point+scores.expl+scores.evidence+scores.link+scores.grammar+scores.length;
       }
-      setFeedback({text:feedbackMatch?feedbackMatch[1].trim():text,scores});
+      setFeedback({text:feedbackMatch?feedbackMatch[1].trim():text,scores,passed:scores.total>=10});
+      setAttempts(a=>a+1);
       setPhase("feedback");
     }catch{
-      setFeedback({text:"Your paragraph has been received. Unfortunately the detailed AI feedback could not be loaded at this time. Please check your connection and try again.",scores:{point:0,expl:0,evidence:0,link:0,grammar:0,length:0,total:0}});
+      setFeedback({text:"Feedback could not be loaded. Please check your connection.",scores:{point:0,expl:0,evidence:0,link:0,grammar:0,length:0,total:0},passed:false});
       setPhase("feedback");
     }
     setAiLoading(false);
   };
 
-  // PHASE: THEORY
+  // Parse feedback text to highlight problematic sentences
+  const renderFeedbackWithHighlights=(text)=>{
+    if(!text) return null;
+    return text.split("\n").map((line,i)=>{
+      if(line.startsWith("⚠️")){
+        return (
+          <div key={i} style={{background:"#fff3cd",border:"1px solid #ffc107",borderRadius:8,padding:"8px 12px",margin:"6px 0",fontSize:13}}>
+            <span style={{color:"#856404"}}>{line}</span>
+          </div>
+        );
+      }
+      if(line.startsWith("→ Problem:")){
+        return <div key={i} style={{background:"#ffebee",borderLeft:"3px solid #e53935",padding:"6px 10px",margin:"3px 0 3px 12px",fontSize:13,color:"#c62828",lineHeight:1.6}}>{line}</div>;
+      }
+      if(line.startsWith("→ Fix:")){
+        return <div key={i} style={{background:"#e8f5e9",borderLeft:"3px solid "+G,padding:"6px 10px",margin:"3px 0 8px 12px",fontSize:13,color:DK,lineHeight:1.6}}>{line}</div>;
+      }
+      if(line.startsWith("❌")){
+        return <div key={i} style={{background:"#ffebee",borderRadius:6,padding:"6px 10px",margin:"4px 0",fontSize:13,color:"#c62828"}}>{line}</div>;
+      }
+      if(line.startsWith("✅") && !line.includes("Strong")){
+        return <div key={i} style={{background:"#e8f5e9",borderRadius:6,padding:"6px 10px",margin:"4px 0",fontSize:13,color:DK}}>{line}</div>;
+      }
+      if(line.startsWith("📖 Rule:")){
+        return <div key={i} style={{background:"#e3f2fd",borderRadius:6,padding:"6px 10px",margin:"4px 0 8px",fontSize:12,color:"#1565c0"}}>{line}</div>;
+      }
+      if(line.startsWith("##")){
+        return <h4 key={i} style={{color:G,margin:"16px 0 8px",fontSize:14,borderBottom:`1px solid ${LT}`,paddingBottom:4}}>{line.replace(/^#+\s*/,"")}</h4>;
+      }
+      if(line.trim()==="") return <div key={i} style={{height:4}}/>;
+      return <p key={i} style={{margin:"4px 0",fontSize:13,color:"#333",lineHeight:1.7}}>{line}</p>;
+    });
+  };
+
+  // THEORY phase
   if(phase==="theory") return (
     <div>
       <Card style={{background:`linear-gradient(135deg,${DK},${G})`,color:"#fff",marginBottom:16}}>
-        <div style={{fontSize:11,opacity:.8,marginBottom:4}}>📚 Before you write</div>
+        <div style={{fontSize:11,opacity:.8,marginBottom:4}}>📚 Before you write · Level: {level}</div>
         <h3 style={{margin:"0 0 6px",fontSize:18}}>Understanding PEEL</h3>
         <p style={{margin:0,fontSize:13,opacity:.85,lineHeight:1.6}}>{PEEL_THEORY.what}</p>
       </Card>
-      {/* Tab navigation */}
-      <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto"}}>
+      <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",paddingBottom:4}}>
         {["What & Why","P — Point","E — Explanation","E — Evidence","L — Link"].map((t,idx)=>(
           <button key={idx} onClick={()=>setTheoryTab(idx)}
-            style={{background:theoryTab===idx?G:"#fff",color:theoryTab===idx?"#fff":DK,border:`1.5px solid ${theoryTab===idx?G:"#ddd"}`,borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit"}}>
+            style={{background:theoryTab===idx?G:"#fff",color:theoryTab===idx?"#fff":DK,border:`1.5px solid ${theoryTab===idx?G:"#ddd"}`,borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit",flexShrink:0}}>
             {t}
           </button>
         ))}
       </div>
-
       {theoryTab===0&&(
         <div>
-          <Card style={{marginBottom:12}}>
-            <h4 style={{color:G,margin:"0 0 8px"}}>❓ What is PEEL?</h4>
-            <p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>{PEEL_THEORY.what}</p>
-          </Card>
-          <Card style={{marginBottom:12}}>
-            <h4 style={{color:G,margin:"0 0 8px"}}>🎯 Why use PEEL?</h4>
-            <p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>{PEEL_THEORY.why}</p>
-          </Card>
+          <Card style={{marginBottom:12}}><h4 style={{color:G,margin:"0 0 8px"}}>❓ What is PEEL?</h4><p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>{PEEL_THEORY.what}</p></Card>
+          <Card style={{marginBottom:12}}><h4 style={{color:G,margin:"0 0 8px"}}>🎯 Why use PEEL?</h4><p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>{PEEL_THEORY.why}</p></Card>
           <Card style={{background:"#fff8e1",marginBottom:12}}>
             <h4 style={{color:"#e65100",margin:"0 0 10px"}}>📐 The 4 Parts at a Glance</h4>
             {PEEL_THEORY.parts.map(p=>(
               <div key={p.letter+p.name} style={{display:"flex",gap:10,marginBottom:10,alignItems:"flex-start"}}>
                 <div style={{background:p.color,borderRadius:10,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{p.icon}</div>
-                <div>
-                  <div style={{fontWeight:700,color:DK,fontSize:14}}>{p.letter} — {p.name}</div>
-                  <div style={{fontSize:12,color:"#666",lineHeight:1.5}}>{p.role}</div>
-                </div>
+                <div><div style={{fontWeight:700,color:DK,fontSize:14}}>{p.letter} — {p.name}</div><div style={{fontSize:12,color:"#666",lineHeight:1.5}}>{p.role}</div></div>
+              </div>
+            ))}
+          </Card>
+          <Card style={{background:LT,marginBottom:12}}>
+            <h4 style={{color:G,margin:"0 0 8px"}}>📏 Word Minimums for Your Level ({level})</h4>
+            {keys.map(k=>(
+              <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",borderBottom:"1px solid #c8e6c9"}}>
+                <span style={{fontWeight:600,color:DK,textTransform:"capitalize"}}>{k}</span>
+                <span style={{color:G,fontWeight:700}}>min {minWords[k]} words</span>
               </div>
             ))}
           </Card>
         </div>
       )}
-
       {theoryTab>0&&theoryTab<5&&(()=>{
         const p=PEEL_THEORY.parts[theoryTab-1];
         return (
@@ -825,28 +873,19 @@ Be rigorous and honest. A score of 15+/20 should require genuinely strong academ
               <h3 style={{color:DK,margin:"0 0 6px"}}>{p.letter} — {p.name}</h3>
               <p style={{fontSize:14,color:"#444",lineHeight:1.8,margin:0}}>{p.role}</p>
             </Card>
-            <Card style={{background:"#e8f5e9",marginBottom:12}}>
-              <div style={{fontWeight:700,color:G,marginBottom:8,fontSize:13}}>✅ DO</div>
-              <p style={{fontSize:13,color:"#333",lineHeight:1.8,margin:0}}>{p.do}</p>
-            </Card>
-            <Card style={{background:"#ffebee",marginBottom:12}}>
-              <div style={{fontWeight:700,color:"#c62828",marginBottom:8,fontSize:13}}>❌ DON'T</div>
-              <p style={{fontSize:13,color:"#333",lineHeight:1.8,margin:0}}>{p.dont}</p>
-            </Card>
+            <Card style={{background:"#e8f5e9",marginBottom:12}}><div style={{fontWeight:700,color:G,marginBottom:8,fontSize:13}}>✅ DO</div><p style={{fontSize:13,color:"#333",lineHeight:1.8,margin:0}}>{p.do}</p></Card>
+            <Card style={{background:"#ffebee",marginBottom:12}}><div style={{fontWeight:700,color:"#c62828",marginBottom:8,fontSize:13}}>❌ DON'T</div><p style={{fontSize:13,color:"#333",lineHeight:1.8,margin:0}}>{p.dont}</p></Card>
           </div>
         );
       })()}
-
       <div style={{display:"flex",gap:10,marginTop:4}}>
         {theoryTab>0&&<Btn secondary onClick={()=>setTheoryTab(t=>t-1)}>← Previous</Btn>}
-        {theoryTab<4
-          ?<Btn full onClick={()=>setTheoryTab(t=>t+1)}>Next →</Btn>
-          :<Btn full onClick={()=>setPhase("bad")}>See Examples →</Btn>}
+        {theoryTab<4?<Btn full onClick={()=>setTheoryTab(t=>t+1)}>Next →</Btn>:<Btn full onClick={()=>setPhase("bad")}>See Examples →</Btn>}
       </div>
     </div>
   );
 
-  // PHASE: BAD EXAMPLE
+  // BAD EXAMPLE
   if(phase==="bad") return (
     <div>
       <Card style={{background:"#ffebee",marginBottom:14,borderLeft:"4px solid #e53935"}}>
@@ -869,7 +908,7 @@ Be rigorous and honest. A score of 15+/20 should require genuinely strong academ
     </div>
   );
 
-  // PHASE: GOOD EXAMPLE
+  // GOOD EXAMPLE
   if(phase==="good") return (
     <div>
       <Card style={{background:"#e8f5e9",marginBottom:14,borderLeft:"4px solid "+G}}>
@@ -892,29 +931,29 @@ Be rigorous and honest. A score of 15+/20 should require genuinely strong academ
     </div>
   );
 
-  // PHASE: WRITE
+  // WRITE phase
   if(phase==="write") return (
     <div>
+      {attempts>0&&(
+        <Card style={{background:"#fff3e0",marginBottom:12,borderLeft:"3px solid #f57c00"}}>
+          <p style={{margin:0,fontSize:13,color:"#e65100",fontWeight:600}}>🔄 Revision attempt #{attempts} — Apply the feedback and improve your paragraph.</p>
+        </Card>
+      )}
       <Card style={{background:LT,marginBottom:14}}>
-        <div style={{fontSize:11,color:"#888"}}>📝 Your Writing Topic</div>
+        <div style={{fontSize:11,color:"#888"}}>📝 Topic · {level} Level</div>
         <div style={{fontWeight:800,color:DK,fontSize:15,marginTop:2}}>{c.title}</div>
         <div style={{color:"#555",fontSize:13,marginTop:4,lineHeight:1.6}}>{c.prompt}</div>
       </Card>
-
-      {/* Progress */}
       <div style={{display:"flex",gap:6,marginBottom:16}}>
         {keys.map((k,idx)=>(
           <div key={k} style={{flex:1,textAlign:"center"}}>
-            <div style={{height:6,borderRadius:99,background:vals[k]?G:idx===step?"#81c784":"#e0e0e0",marginBottom:4,transition:"background .3s"}}/>
+            <div style={{height:6,borderRadius:99,background:vals[k]&&wordCount(vals[k])>=minWords[k]?G:vals[k]?"#f57c00":idx===step?"#81c784":"#e0e0e0",marginBottom:4,transition:"background .3s"}}/>
             <div style={{fontSize:10,color:idx<=step?G:"#bbb",fontWeight:idx===step?800:400}}>{k.charAt(0).toUpperCase()}</div>
           </div>
         ))}
       </div>
-
-      {/* Current section */}
       {(()=>{
         const p=PEEL_THEORY.parts[step];
-        const topic=c;
         return (
           <div>
             <Card style={{background:p.color,marginBottom:10,borderLeft:`4px solid ${G}`}}>
@@ -923,49 +962,46 @@ Be rigorous and honest. A score of 15+/20 should require genuinely strong academ
                   <div style={{fontWeight:800,color:DK,fontSize:15}}>{p.icon} {labels[step]}</div>
                   <div style={{fontSize:12,color:"#666",marginTop:4,lineHeight:1.5}}>{p.role}</div>
                 </div>
-                <div style={{background:G,color:"#fff",borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,flexShrink:0}}>min {minWords[keys[step]]} words</div>
-              </div>
-              <div style={{marginTop:10,display:"flex",gap:8}}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:11,color:"#888",marginBottom:3}}>✅ DO</div>
-                  <div style={{fontSize:12,color:DK,lineHeight:1.5}}>{p.do}</div>
+                <div style={{background:G,color:"#fff",borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,flexShrink:0,textAlign:"center"}}>
+                  min {minWords[keys[step]]}<br/>words
                 </div>
               </div>
+              <div style={{marginTop:8,fontSize:12,color:"#555"}}><strong>DO:</strong> {p.do}</div>
             </Card>
-
-            {/* Model */}
             <Card style={{background:"#f0f7f4",marginBottom:10}}>
-              <div style={{fontSize:11,color:"#888",marginBottom:6}}>📋 Model from a strong paragraph:</div>
-              <p style={{fontSize:13,color:"#444",margin:0,lineHeight:1.8,fontStyle:"italic"}}>"{topic.example[keys[step]]}"</p>
+              <div style={{fontSize:11,color:"#888",marginBottom:4}}>📋 Model from a strong paragraph:</div>
+              <p style={{fontSize:13,color:"#444",margin:0,lineHeight:1.8,fontStyle:"italic"}}>"{c.example[keys[step]]}"</p>
             </Card>
-
-            {/* Textarea */}
+            {/* Show previous feedback for this section if revision */}
+            {attempts>0&&feedback&&(
+              <Card style={{background:"#fff8e1",marginBottom:10}}>
+                <div style={{fontSize:11,color:"#e65100",fontWeight:700,marginBottom:4}}>⚠️ Previous feedback on your {keys[step]}:</div>
+                <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6,fontStyle:"italic"}}>{vals[keys[step]]}</p>
+              </Card>
+            )}
             <textarea
               value={vals[keys[step]]}
               onChange={e=>setVals(p=>({...p,[keys[step]]:e.target.value}))}
-              placeholder={`Write your ${keys[step]} here… (minimum ${minWords[keys[step]]} words)`}
-              rows={5}
-              style={{width:"100%",boxSizing:"border-box",border:`2px solid ${vals[keys[step]]?G:"#ddd"}`,borderRadius:12,padding:12,fontSize:14,resize:"vertical",outline:"none",fontFamily:"inherit",transition:"border .2s"}}
+              placeholder={`Write your ${keys[step]} here… (minimum ${minWords[keys[step]]} words for ${level} level)`}
+              rows={6}
+              style={{width:"100%",boxSizing:"border-box",border:`2px solid ${vals[keys[step]]&&wordCount(vals[keys[step]])>=minWords[keys[step]]?G:vals[keys[step]]?"#f57c00":"#ddd"}`,borderRadius:12,padding:12,fontSize:14,resize:"vertical",outline:"none",fontFamily:"inherit",transition:"border .2s"}}
             />
-            {/* Word count */}
-            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginTop:4,marginBottom:8}}>
-              <span style={{color:wordCount(vals[keys[step]])>=minWords[keys[step]]?G:"#f57c00",fontWeight:600}}>
-                {wordCount(vals[keys[step]])} / {minWords[keys[step]]} words minimum
-                {wordCount(vals[keys[step]])>=minWords[keys[step]]?" ✅":" ⚠️"}
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginTop:4,marginBottom:10}}>
+              <span style={{color:wordCount(vals[keys[step]])>=minWords[keys[step]]?G:wordCount(vals[keys[step]])>0?"#f57c00":"#aaa",fontWeight:600}}>
+                {wordCount(vals[keys[step]])} / {minWords[keys[step]]} words min
+                {wordCount(vals[keys[step]])>=minWords[keys[step]]?" ✅":wordCount(vals[keys[step]])>0?" ⚠️":""}
               </span>
-              {vals[keys[step]]&&<span style={{color:"#888"}}>{vals[keys[step]].length} characters</span>}
+              <span style={{color:"#aaa"}}>{vals[keys[step]].length} chars</span>
             </div>
-
             {step>0&&vals[keys[step-1]]&&(
               <Card style={{background:"#fafafa",marginBottom:10}}>
-                <div style={{fontSize:11,color:"#888",marginBottom:4}}>📄 Your previous section ({keys[step-1]}):</div>
+                <div style={{fontSize:11,color:"#888",marginBottom:4}}>📄 Your {keys[step-1]}:</div>
                 <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6,fontStyle:"italic"}}>"{vals[keys[step-1]]}"</p>
               </Card>
             )}
-
             <Btn full
               disabled={!vals[keys[step]]||wordCount(vals[keys[step]])<minWords[keys[step]]||aiLoading}
-              onClick={()=>{if(step<3)setStep(s=>s+1);else getAI();}}>
+              onClick={()=>{if(step<3)setStep(s=>s+1);else getAI(attempts>0);}}>
               {aiLoading?"Analysing your paragraph…":step<3?`Next: ${labels[step+1]} →`:"🤖 Submit for Assessment"}
             </Btn>
           </div>
@@ -974,16 +1010,19 @@ Be rigorous and honest. A score of 15+/20 should require genuinely strong academ
     </div>
   );
 
-  // PHASE: FEEDBACK
+  // FEEDBACK phase
   if(phase==="feedback"&&feedback) return (
     <div>
       {/* Score card */}
-      <Card style={{background:`linear-gradient(135deg,${feedback.scores.total>=15?DK:"#c62828"},${feedback.scores.total>=15?G:"#e53935"})`,color:"#fff",marginBottom:16,textAlign:"center"}}>
-        <div style={{fontSize:13,opacity:.85,marginBottom:4}}>📊 Your Score</div>
+      <Card style={{background:`linear-gradient(135deg,${feedback.scores.total>=15?DK:feedback.scores.total>=10?"#f57c00":"#c62828"},${feedback.scores.total>=15?G:feedback.scores.total>=10?"#ff9800":"#e53935"})`,color:"#fff",marginBottom:16,textAlign:"center"}}>
+        <div style={{fontSize:13,opacity:.85,marginBottom:4}}>
+          📊 Attempt #{attempts} · {feedback.passed?"✅ PASSED":"❌ NOT YET PASSED — Revision Required"}
+        </div>
         <div style={{fontSize:52,fontWeight:900,marginBottom:4}}>{feedback.scores.total}<span style={{fontSize:24,fontWeight:400}}>/20</span></div>
         <div style={{fontSize:14,fontWeight:700,opacity:.9}}>
-          {feedback.scores.total>=17?"🏆 Excellent":feedback.scores.total>=14?"👏 Good":feedback.scores.total>=10?"📈 Developing":"💪 Needs Work"}
+          {feedback.scores.total>=17?"🏆 Excellent":feedback.scores.total>=14?"👏 Good":feedback.scores.total>=10?"📈 Satisfactory — Passed":"💪 Below Average — Must Revise"}
         </div>
+        {!feedback.passed&&<div style={{fontSize:12,opacity:.85,marginTop:6,background:"rgba(0,0,0,.2)",borderRadius:8,padding:"6px 12px"}}>You need 10/20 to pass. Read the feedback carefully, revise your paragraph, and resubmit.</div>}
       </Card>
 
       {/* Score breakdown */}
@@ -994,8 +1033,8 @@ Be rigorous and honest. A score of 15+/20 should require genuinely strong academ
           const pct=Math.round((s/cr.max)*100);
           return (
             <div key={cr.id} style={{marginBottom:12}}>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4}}>
-                <span style={{fontWeight:600,color:DK,fontSize:12}}>{cr.label}</span>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
+                <span style={{fontWeight:600,color:DK}}>{cr.label}</span>
                 <span style={{color:pct>=75?G:pct>=50?"#f57c00":"#e53935",fontWeight:700}}>{s}/{cr.max}</span>
               </div>
               <div style={{background:"#e0e0e0",borderRadius:99,height:8}}>
@@ -1006,13 +1045,13 @@ Be rigorous and honest. A score of 15+/20 should require genuinely strong academ
         })}
       </Card>
 
-      {/* Detailed feedback */}
+      {/* Detailed annotated feedback */}
       <Card style={{marginBottom:14}}>
-        <h4 style={{color:G,marginBottom:12}}>🤖 Detailed Feedback</h4>
-        <div style={{fontSize:14,color:"#333",lineHeight:1.9,whiteSpace:"pre-wrap"}}>{feedback.text}</div>
+        <h4 style={{color:G,marginBottom:12}}>🔍 Detailed Analysis</h4>
+        <div>{renderFeedbackWithHighlights(feedback.text)}</div>
       </Card>
 
-      {/* Student's paragraph */}
+      {/* Student paragraph */}
       <Card style={{background:"#f9fbe7",marginBottom:14}}>
         <h5 style={{color:DK,margin:"0 0 12px"}}>📄 Your Submitted Paragraph</h5>
         {keys.map(k=>(
@@ -1023,17 +1062,28 @@ Be rigorous and honest. A score of 15+/20 should require genuinely strong academ
         ))}
       </Card>
 
-      <div style={{display:"flex",gap:10}}>
-        <Btn secondary onClick={()=>{setPhase("write");setStep(0);setVals({point:"",explanation:"",evidence:"",link:""});setFeedback(null);}}>🔄 Try Again</Btn>
-        <Btn full onClick={()=>{addXp(feedback.scores.total>=10?50:25,"peel");setPhase("done");}}>
-          Earn +{feedback.scores.total>=10?50:25} XP →
-        </Btn>
-      </div>
+      {feedback.passed ? (
+        <div>
+          <Card style={{background:LT,textAlign:"center",marginBottom:14}}>
+            <div style={{fontSize:36,marginBottom:4}}>🎉</div>
+            <p style={{color:G,fontWeight:700,margin:0}}>Congratulations! You passed with {feedback.scores.total}/20.</p>
+            <p style={{color:"#555",fontSize:13,margin:"4px 0 0"}}>You earned +50 XP for passing the PEEL assessment.</p>
+          </Card>
+          <Btn full onClick={()=>{addXp(50,"peel");onBack();}}>Claim +50 XP & Continue →</Btn>
+        </div>
+      ) : (
+        <div>
+          <Card style={{background:"#fff3e0",marginBottom:14,borderLeft:"3px solid #f57c00"}}>
+            <h5 style={{color:"#e65100",margin:"0 0 8px"}}>🔄 What to do now:</h5>
+            <p style={{fontSize:13,color:"#555",margin:0,lineHeight:1.8}}>1. Read every ⚠️ highlighted sentence above carefully.<br/>2. Read each "→ Problem" and "→ Fix" explanation.<br/>3. Rewrite your paragraph applying all the corrections.<br/>4. Resubmit — you must reach 10/20 to pass.</p>
+          </Card>
+          <Btn full onClick={()=>{setPhase("write");setStep(0);}}>🔄 Revise My Paragraph →</Btn>
+        </div>
+      )}
     </div>
   );
 
-  // PHASE: DONE
-  return <DoneScreen xp={feedback?.scores?.total>=10?50:25} onBack={onBack} earnNow={()=>{}}/>;
+  return <div style={{padding:20,textAlign:"center"}}><Loader text="Loading…"/></div>;
 }
 
 /* ── Reading ── */
