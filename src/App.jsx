@@ -509,7 +509,25 @@ export default function WriteUpApp() {
   const [doneToday,setDoneToday]=useState([]);
   const [badges,setBadges]=useState([]);
 
-  const loadToday=async(uid,tk)=>{
+  const [swReg, setSwReg] = useState(null);
+
+  useEffect(() => {
+    registerSW().then(reg => {
+      setSwReg(reg);
+      // Schedule daily reminder if already enabled
+      const savedTime = localStorage.getItem("writeup_notif_time");
+      const enabled = localStorage.getItem("writeup_notif_enabled") === "true";
+      if (enabled && savedTime && Notification?.permission === "granted") {
+        scheduleDailyReminder(reg, savedTime);
+      }
+      // Weekly challenge notification every Monday
+      const today = new Date();
+      if (today.getDay() === 1 && localStorage.getItem("writeup_notif_weekly") !== "false") {
+        const msg = NOTIF_MESSAGES.weekly[Math.floor(Math.random() * NOTIF_MESSAGES.weekly.length)];
+        scheduleNotification(reg, { ...msg, delayMs: 5000 });
+      }
+    });
+  }, []);
     const data=await sbGet(`daily_progress?user_id=eq.${uid}&date=eq.${todayStr()}&completed=eq.true&select=module`,tk);
     setDoneToday(Array.isArray(data)?data.map(d=>d.module):[]);
   };
@@ -591,7 +609,7 @@ export default function WriteUpApp() {
           :tab==="home"    ?<Home setMod={setActiveMod} xp={xp} lvl={lvl} pct={pct} level={level} doneToday={doneToday}/>
           :tab==="profile" ?<Profile user={user} xp={xp} lvl={lvl} level={level} badges={badges} streak={streak}/>
           :tab==="board"   ?<Board userId={user?.id} myXp={xp} token={token}/>
-          :<Settings user={user} onLogout={async()=>{setScreen("landing");setUser(null);setToken(null);}}/>
+          :<Settings user={user} xp={xp} placement={placement} onLogout={async()=>{setScreen("landing");setUser(null);setToken(null);}}/>
         }
       </div>
 
@@ -970,9 +988,12 @@ Be rigorous. A score of 15+/20 requires genuinely strong academic writing. Do no
       setFeedback({text:feedbackMatch?feedbackMatch[1].trim():text,scores,passed:scores.total>=10});
       setAttempts(a=>a+1);
       setPhase("feedback");
-      // Save PEEL attempt to DB
-      if(typeof addXp === "function"){
-        // We save via addXp when student claims XP — store data in ref for now
+      // 💪 PEEL low score notification
+      if(scores.total<10 && localStorage.getItem("writeup_notif_peel")!=="false"){
+        setTimeout(()=>{
+          const msg=NOTIF_MESSAGES.peelLow(scores.total);
+          showNotificationNow(msg.title,msg.body);
+        },3000);
       }
     }catch{
       setFeedback({text:"Feedback could not be loaded. Please check your connection.",scores:{point:0,expl:0,evidence:0,link:0,grammar:0,length:0,total:0},passed:false});
@@ -1632,23 +1653,206 @@ function Board({userId,myXp,token}) {
   );
 }
 
+/* ══ NOTIFICATION SYSTEM ══ */
+const NOTIF_MESSAGES = {
+  daily: [
+    { title:"✍️ WriteUP UPGC", body:"Your daily English challenge is ready! Keep your streak going 🔥" },
+    { title:"📚 Time to learn!", body:"New grammar exercise + word of the day waiting for you." },
+    { title:"🎯 Daily challenge!", body:"Complete today's modules and earn XP. Don't break your streak!" },
+    { title:"✏️ WriteUP UPGC", body:"5 minutes of English today = big progress this week. Let's go!" },
+  ],
+  inactive: [
+    { title:"😴 We miss you!", body:"You haven't practised English in 2 days. Come back and keep your progress!" },
+    { title:"⚠️ Your streak is at risk!", body:"Log in now to save your streak and continue your English journey." },
+    { title:"📉 Don't lose your progress!", body:"2 days without practice. Your classmates are moving ahead — come back!" },
+  ],
+  levelUp: (level) => ({ title:"🏆 Level Up!", body:`Congratulations! You just reached ${level} level. Keep pushing! 🎉` }),
+  peelLow: (score) => ({ title:"💪 Keep improving!", body:`Your PEEL score was ${score}/20. Review the feedback and try again — you can do better!` }),
+  weekly: [
+    { title:"📅 Weekly Challenge!", body:"A new weekly challenge just dropped! Complete all 6 modules this week for bonus XP. 🌟" },
+    { title:"🌟 New week, new goals!", body:"This week's challenge: score 15+/20 on your PEEL paragraph. Ready?" },
+  ],
+};
+
+async function registerSW() {
+  if (!("serviceWorker" in navigator)) return null;
+  try {
+    const reg = await navigator.serviceWorker.register("/sw.js");
+    return reg;
+  } catch (e) { console.error("SW registration failed:", e); return null; }
+}
+
+async function requestNotifPermission() {
+  if (!("Notification" in window)) return "unsupported";
+  if (Notification.permission === "granted") return "granted";
+  if (Notification.permission === "denied") return "denied";
+  const result = await Notification.requestPermission();
+  return result;
+}
+
+function scheduleNotification(sw, { title, body, delayMs }) {
+  if (!sw || Notification.permission !== "granted") return;
+  sw.active?.postMessage({ type:"SCHEDULE_NOTIFICATION", title, body, delay:delayMs });
+}
+
+function showNotificationNow(title, body) {
+  if (Notification.permission === "granted") {
+    new Notification(title, { body, icon:"/favicon.svg", vibrate:[200,100,200] });
+  }
+}
+
+function scheduleDailyReminder(sw, timeStr) {
+  // timeStr = "HH:MM"
+  const [h, m] = timeStr.split(":").map(Number);
+  const now = new Date();
+  const next = new Date();
+  next.setHours(h, m, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  const delay = next - now;
+  const msg = NOTIF_MESSAGES.daily[Math.floor(Math.random() * NOTIF_MESSAGES.daily.length)];
+  scheduleNotification(sw, { ...msg, delayMs: delay });
+  // Store in localStorage for persistence
+  localStorage.setItem("writeup_notif_time", timeStr);
+}
+
 /* ── Settings ── */
-function Settings({user,onLogout}) {
+function Settings({user, onLogout, xp, placement}) {
+  const [notifPerm, setNotifPerm] = useState(Notification?.permission || "default");
+  const [notifTime, setNotifTime] = useState(localStorage.getItem("writeup_notif_time") || "08:00");
+  const [notifEnabled, setNotifEnabled] = useState(localStorage.getItem("writeup_notif_enabled") === "true");
+  const [swReg, setSwReg] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    registerSW().then(reg => setSwReg(reg));
+  }, []);
+
+  const enableNotifications = async () => {
+    const perm = await requestNotifPermission();
+    setNotifPerm(perm);
+    if (perm === "granted") {
+      setNotifEnabled(true);
+      localStorage.setItem("writeup_notif_enabled", "true");
+      scheduleDailyReminder(swReg, notifTime);
+      showNotificationNow("✅ Notifications enabled!", "You'll receive your daily challenge reminder at " + notifTime);
+    }
+  };
+
+  const saveNotifSettings = () => {
+    setSaving(true);
+    if (notifEnabled && notifPerm === "granted") {
+      scheduleDailyReminder(swReg, notifTime);
+      localStorage.setItem("writeup_notif_time", notifTime);
+    }
+    setTimeout(() => { setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2000); }, 500);
+  };
+
+  const lvl = getLvl(xp);
+
   return (
     <div style={{padding:18}}>
       <h3 style={{color:DK,marginBottom:16}}>⚙️ Settings</h3>
+
+      {/* Profile card */}
       <Card style={{marginBottom:14,padding:"14px 16px"}}>
         <div style={{fontSize:12,color:"#888",marginBottom:2}}>Logged in as</div>
-        <div style={{fontWeight:700,color:DK}}>{user?.name}</div>
-        <div style={{fontSize:13,color:"#888"}}>{user?.email}</div>
+        <div style={{fontWeight:700,color:DK,fontSize:15}}>{user?.name}</div>
+        <div style={{fontSize:13,color:"#888",marginBottom:8}}>{user?.email}</div>
+        <div style={{display:"flex",gap:10}}>
+          <Tag>{placement?.level||"Beginner"}</Tag>
+          <Tag color="#e3f2fd">⭐ {xp} XP</Tag>
+          <Tag color={lvl.color==="#ffd700"?"#fffde7":LT}>{lvl.name}</Tag>
+        </div>
       </Card>
-      {[["🔔 Notifications","Daily reminder at 8:00 AM"],["📴 Offline Mode","Download today's content"],["🌐 Language","English / Français"],["🔒 Privacy","ARTCI compliance n°2013-450"]].map(([t,d])=>(
-        <Card key={t} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"14px 16px"}}>
-          <div><div style={{fontWeight:600,color:DK,fontSize:14}}>{t}</div><div style={{fontSize:12,color:"#888"}}>{d}</div></div>
-          <span style={{color:"#ccc",fontSize:20}}>›</span>
-        </Card>
-      ))}
-      <button onClick={onLogout} style={{width:"100%",marginTop:12,background:"#ffebee",color:"#c62828",border:"1.5px solid #ffcdd2",borderRadius:12,padding:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Log Out</button>
+
+      {/* 🔔 Notifications */}
+      <Card style={{marginBottom:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div>
+            <div style={{fontWeight:700,color:DK,fontSize:15}}>🔔 Notifications</div>
+            <div style={{fontSize:12,color:"#888",marginTop:2}}>
+              {notifPerm==="granted"?"✅ Enabled":notifPerm==="denied"?"❌ Blocked in browser":"Not yet enabled"}
+            </div>
+          </div>
+          {notifPerm!=="granted" && notifPerm!=="denied" && (
+            <button onClick={enableNotifications}
+              style={{background:G,color:"#fff",border:"none",borderRadius:10,padding:"8px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
+              Enable
+            </button>
+          )}
+          {notifPerm==="denied" && (
+            <span style={{fontSize:11,color:"#e53935",maxWidth:100,textAlign:"right",lineHeight:1.4}}>Enable in browser settings</span>
+          )}
+        </div>
+
+        {notifPerm==="granted" && (
+          <>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:13,fontWeight:600,color:DK,marginBottom:6}}>⏰ Daily reminder time</div>
+              <input type="time" value={notifTime}
+                onChange={e=>setNotifTime(e.target.value)}
+                style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${G}`,borderRadius:10,padding:"10px 14px",fontSize:15,outline:"none",fontFamily:"inherit",color:DK}} />
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:13,fontWeight:600,color:DK,marginBottom:8}}>📬 Notification types</div>
+              {[
+                ["daily","📅 Daily challenge reminder","Every day at your chosen time"],
+                ["inactive","😴 Inactivity alert","After 2 days without practice"],
+                ["peel","💪 PEEL encouragement","After a score below 10/20"],
+                ["level","🏆 Level up celebration","When you reach a new level"],
+                ["weekly","🌟 Weekly challenge","Every Monday morning"],
+              ].map(([key,label,desc])=>{
+                const stored = localStorage.getItem(`writeup_notif_${key}`) !== "false";
+                return (
+                  <div key={key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:600,color:DK}}>{label}</div>
+                      <div style={{fontSize:11,color:"#888"}}>{desc}</div>
+                    </div>
+                    <button onClick={()=>{
+                      const cur=localStorage.getItem(`writeup_notif_${key}`)!=="false";
+                      localStorage.setItem(`writeup_notif_${key}`,(!cur).toString());
+                    }}
+                      style={{background:stored?G:"#e0e0e0",color:stored?"#fff":"#999",border:"none",borderRadius:20,padding:"4px 14px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                      {stored?"ON":"OFF"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <button onClick={saveNotifSettings}
+              style={{width:"100%",background:saved?"#e8f5e9":G,color:saved?G:"#fff",border:saved?`1.5px solid ${G}`:"none",borderRadius:12,padding:"11px",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit",transition:"all .3s"}}>
+              {saving?"Saving…":saved?"✅ Saved!":"Save Notification Settings"}
+            </button>
+          </>
+        )}
+      </Card>
+
+      {/* 📴 Offline */}
+      <Card style={{marginBottom:14,padding:"14px 16px"}}>
+        <div style={{fontWeight:600,color:DK,fontSize:14,marginBottom:4}}>📴 Offline Mode</div>
+        <div style={{fontSize:12,color:"#888",marginBottom:10}}>Grammar and Vocabulary work offline once loaded.</div>
+        <button onClick={async()=>{
+          if("serviceWorker" in navigator){
+            const reg=await navigator.serviceWorker.ready;
+            showNotificationNow("✅ Content cached!","Grammar and Vocabulary are now available offline.");
+          }
+        }} style={{background:LT,color:G,border:"none",borderRadius:10,padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+          📥 Cache for Offline
+        </button>
+      </Card>
+
+      {/* Privacy */}
+      <Card style={{marginBottom:14,padding:"14px 16px"}}>
+        <div style={{fontWeight:600,color:DK,fontSize:14}}>🔒 Privacy</div>
+        <div style={{fontSize:12,color:"#888",marginTop:4}}>ARTCI compliance n°2013-450 · Data stored securely on Supabase</div>
+      </Card>
+
+      <button onClick={onLogout}
+        style={{width:"100%",marginTop:4,background:"#ffebee",color:"#c62828",border:"1.5px solid #ffcdd2",borderRadius:12,padding:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+        Log Out
+      </button>
     </div>
   );
 }
