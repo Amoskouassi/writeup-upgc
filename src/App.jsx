@@ -117,7 +117,163 @@ const PEEL_TOPICS=[
   {title:"English in Côte d'Ivoire",prompt:"English is an essential skill for Ivorian university students today.",guidance:{point:"State clearly why English is (or is not) essential for Ivorian students in the current context.",explanation:"Think about career opportunities, international education, research access, and global communication.",evidence:"Use a fact, statistic, or real example related to English in Africa or Côte d'Ivoire.",link:"Connect to what Ivorian students should do as a practical result of your argument."},example:{point:"Mastering English has become an essential skill for Ivorian university students who wish to compete successfully in today's globalised professional and academic environment.",explanation:"English is the dominant language of international business, scientific research, and global communication, meaning that graduates who are not proficient in English are immediately at a competitive disadvantage when applying for international scholarships, multinational company positions, or postgraduate programmes abroad. Furthermore, the vast majority of the world's most important academic journals, textbooks, and research databases are published exclusively in English, making strong reading and writing skills in English indispensable for any serious university student.",evidence:"The African Development Bank has estimated that English language proficiency can increase an African graduate's starting salary by as much as 25% compared to monolingual French-speaking peers applying for the same positions.",link:"For these compelling reasons, Ivorian students should treat the development of their English writing and communication skills not as an optional extra, but as one of the most strategic and rewarding investments they can make in their academic and professional futures."}},
 ];
 
-/* ══════ PLACEMENT TEST ══════ */
+/* ══ ANALYTICS HELPERS ══ */
+const getWeekNumber=()=>{
+  const d=new Date();
+  const onejan=new Date(d.getFullYear(),0,1);
+  return Math.ceil((((d-onejan)/86400000)+onejan.getDay()+1)/7);
+};
+
+const savePlacementResult=async(userId,token,scores,level,answers=[])=>{
+  try{
+    await sbPost("placement_results",{
+      user_id:userId,
+      grammar_score:scores.Grammar,
+      vocab_score:scores.Vocabulary,
+      reading_score:scores.Reading,
+      total_score:scores.Grammar+scores.Vocabulary+scores.Reading,
+      level_assigned:level,
+      answers_detail:answers,
+      week_number:getWeekNumber()
+    },token);
+    await sbPatch(`users?id=eq.${userId}`,{
+      initial_level:level,
+      initial_score:scores.Grammar+scores.Vocabulary+scores.Reading,
+      current_level:level
+    },token);
+  }catch(e){console.error("placement save error",e);}
+};
+
+const saveModuleSession=async(userId,token,{module,score,total,passed,xpEarned,timeSec,errors=[],title=""})=>{
+  try{
+    const accuracy=total>0?Math.round((score/total)*100):0;
+    await sbPost("module_sessions",{
+      user_id:userId,
+      module,
+      score,
+      total_questions:total,
+      accuracy,
+      passed,
+      xp_earned:xpEarned,
+      time_spent_sec:timeSec,
+      errors_detail:errors,
+      content_title:title
+    },token);
+    // Update user accuracy stats
+    const field={grammar:"grammar_accuracy",vocabulary:"vocab_accuracy",quiz:"quiz_accuracy"}[module];
+    if(field){
+      const prev=await sbGet(`users?id=eq.${userId}&select=${field}`,token);
+      const prevVal=prev?.[0]?.[field]||0;
+      const newVal=prevVal===0?accuracy:Math.round((prevVal+accuracy)/2);
+      await sbPatch(`users?id=eq.${userId}`,{[field]:newVal,total_sessions:undefined,last_active_date:todayStr()},token);
+    }
+    // Update total_sessions
+    const userData=await sbGet(`users?id=eq.${userId}&select=total_sessions,total_time_minutes`,token);
+    const prev=userData?.[0]||{};
+    await sbPatch(`users?id=eq.${userId}`,{
+      total_sessions:(prev.total_sessions||0)+1,
+      total_time_minutes:(prev.total_time_minutes||0)+Math.round(timeSec/60),
+      last_active_date:todayStr()
+    },token);
+  }catch(e){console.error("module session save error",e);}
+};
+
+const savePeelAttempt=async(userId,token,{topic,attemptNum,vals,scores,passed,timeSec})=>{
+  try{
+    const wordTotal=Object.values(vals).reduce((a,v)=>a+(v.trim().split(/\s+/).filter(w=>w).length),0);
+    // Get previous score for improvement calc
+    const prev=await sbGet(`peel_attempts?user_id=eq.${userId}&order=created_at.desc&limit=1&select=total_score`,token);
+    const prevScore=prev?.[0]?.total_score||0;
+    await sbPost("peel_attempts",{
+      user_id:userId,
+      topic,
+      attempt_number:attemptNum,
+      point_text:vals.point,
+      explanation_text:vals.explanation,
+      evidence_text:vals.evidence,
+      link_text:vals.link,
+      score_point:scores.point,
+      score_expl:scores.expl,
+      score_evidence:scores.evidence,
+      score_link:scores.link,
+      score_grammar:scores.grammar,
+      score_length:scores.length,
+      total_score:scores.total,
+      passed,
+      time_spent_sec:timeSec,
+      word_count_total:wordTotal,
+      score_improvement:scores.total-prevScore
+    },token);
+    // Update user peel stats
+    const userData=await sbGet(`users?id=eq.${userId}&select=peel_avg_score,peel_attempts_total`,token);
+    const u=userData?.[0]||{};
+    const prevAvg=u.peel_avg_score||0;
+    const prevCount=u.peel_attempts_total||0;
+    const newAvg=prevCount===0?scores.total:Math.round((prevAvg*prevCount+scores.total)/(prevCount+1));
+    await sbPatch(`users?id=eq.${userId}`,{
+      peel_avg_score:newAvg,
+      peel_attempts_total:prevCount+1,
+      last_active_date:todayStr()
+    },token);
+  }catch(e){console.error("peel attempt save error",e);}
+};
+
+const saveXpHistory=async(userId,token,newXp,moduleId)=>{
+  try{
+    const existing=await sbGet(`xp_history?user_id=eq.${userId}&date=eq.${todayStr()}`,token);
+    const prev=existing?.[0];
+    if(prev){
+      await sbPatch(`xp_history?user_id=eq.${userId}&date=eq.${todayStr()}`,{
+        xp_earned:(prev.xp_earned||0)+(newXp),
+        xp_total:newXp,
+        modules_done:[...(prev.modules_done||[]),moduleId]
+      },token);
+    } else {
+      await sbPost("xp_history",{
+        user_id:userId,
+        date:todayStr(),
+        xp_earned:newXp,
+        xp_total:newXp,
+        modules_done:[moduleId]
+      },token);
+    }
+  }catch(e){console.error("xp history error",e);}
+};
+
+const saveWeeklySnapshot=async(userId,token,userData)=>{
+  try{
+    const weekStart=new Date();
+    weekStart.setDate(weekStart.getDate()-weekStart.getDay());
+    const weekStartStr=weekStart.toISOString().slice(0,10);
+    const weekNum=getWeekNumber();
+    const year=new Date().getFullYear();
+    // Check if snapshot exists for this week
+    const existing=await sbGet(`weekly_snapshots?user_id=eq.${userId}&week_number=eq.${weekNum}&year=eq.${year}`,token);
+    const xpThisWeek=await sbGet(`xp_history?user_id=eq.${userId}&date=gte.${weekStartStr}&select=xp_earned`,token);
+    const weekXp=(xpThisWeek||[]).reduce((a,r)=>a+(r.xp_earned||0),0);
+    const snapshot={
+      user_id:userId,
+      week_start:weekStartStr,
+      week_number:weekNum,
+      year,
+      level:userData.current_level||userData.level||"Beginner",
+      xp_total:userData.xp||0,
+      xp_gained_week:weekXp,
+      days_active:userData.days_active||0,
+      grammar_accuracy:userData.grammar_accuracy||0,
+      vocab_accuracy:userData.vocab_accuracy||0,
+      quiz_accuracy:userData.quiz_accuracy||0,
+      peel_avg_score:userData.peel_avg_score||0,
+      peel_attempts:userData.peel_attempts_total||0,
+      streak_at_snapshot:userData.streak||0
+    };
+    if(existing?.[0]){
+      await sbPatch(`weekly_snapshots?user_id=eq.${userId}&week_number=eq.${weekNum}&year=eq.${year}`,snapshot,token);
+    } else {
+      await sbPost("weekly_snapshots",snapshot,token);
+    }
+  }catch(e){console.error("weekly snapshot error",e);}
+};
 const PLACEMENT=[
   {section:"Grammar",q:"Choose the correct form: 'She ___ to school every day.'",opts:["go","goes","going","gone"],ans:1},
   {section:"Grammar",q:"Identify the error: 'The informations are on the table.'",opts:["The","informations","are","table"],ans:1},
@@ -368,19 +524,35 @@ export default function WriteUpApp() {
   };
   const afterPlacement=async result=>{
     setPlacement(result);
-    if(user?.id)await sbPatch(`users?id=eq.${user.id}`,{level:result.level,placement_done:true},token);
+    if(user?.id){
+      await sbPatch(`users?id=eq.${user.id}`,{level:result.level,placement_done:true},token);
+      await savePlacementResult(user.id,token,result.scores,result.level);
+    }
     setScreen("result");
   };
 
-  const addXp=async(n,moduleId)=>{
+  const addXp=async(n,moduleId,sessionData={})=>{
     const newXp=xp+n;
     setXp(newXp);
     setDoneToday(p=>[...p,moduleId]);
     if(user?.id){
       await sbUpsert("daily_progress",{user_id:user.id,date:todayStr(),module:moduleId,completed:true,xp_earned:n},token);
-      await sbPatch(`users?id=eq.${user.id}`,{xp:newXp},token);
-      if(moduleId==="peel")awardBadge("First Write");
-      if(streak>=7)awardBadge("Streak 7");
+      await sbPatch(`users?id=eq.${user.id}`,{xp:newXp,current_level:placement?.level||"Beginner"},token);
+      await saveXpHistory(user.id,token,n,moduleId);
+      // Save module session if data provided
+      if(sessionData.module){
+        await saveModuleSession(user.id,token,{...sessionData,xpEarned:n});
+      }
+      // Save PEEL attempt if provided
+      if(sessionData.peelData){
+        await savePeelAttempt(user.id,token,sessionData.peelData);
+      }
+      // Weekly snapshot every time (upserts so safe)
+      const userData=await sbGet(`users?id=eq.${user.id}`,token);
+      if(userData?.[0]) await saveWeeklySnapshot(user.id,token,userData[0]);
+      // Badges
+      if(moduleId==="peel") awardBadge("First Write");
+      if(streak>=7) awardBadge("Streak 7");
     }
   };
   const awardBadge=async name=>{
@@ -515,10 +687,17 @@ function GrammarMod({addXp,onBack}) {
   const [c]=useState(()=>rnd(GRAMMAR_BANK));
   const [sel,setSel]=useState(null);
   const [done,setDone]=useState(false);
+  const [startTime]=useState(()=>Date.now());
   const confirmed=sel!==null;
   const correct=sel===c.ans;
 
-  if(done)return <DoneScreen xp={10} onBack={onBack} earnNow={()=>addXp(10,"grammar")}/>;
+  if(done)return <DoneScreen xp={10} onBack={onBack} earnNow={()=>addXp(10,"grammar",{
+    module:"grammar", score:correct?1:0, total:1, passed:correct,
+    timeSec:Math.round((Date.now()-startTime)/1000),
+    errors:correct?[]:[{question:c.question,chosen:c.opts[sel],correct:c.opts[c.ans]}],
+    title:c.title
+  })}/>;
+
   return (
     <div>
       <Card style={{background:LT,marginBottom:14}}>
@@ -562,10 +741,17 @@ function VocabMod({addXp,onBack}) {
   const [phase,setPhase]=useState("learn");
   const [sel,setSel]=useState(null);
   const [done,setDone]=useState(false);
+  const [startTime]=useState(()=>Date.now());
   const confirmed=sel!==null;
   const correct=sel===c.ans;
 
-  if(done)return <DoneScreen xp={5} onBack={onBack} earnNow={()=>addXp(5,"vocabulary")}/>;
+  if(done)return <DoneScreen xp={5} onBack={onBack} earnNow={()=>addXp(5,"vocabulary",{
+    module:"vocabulary", score:correct?1:0, total:1, passed:correct,
+    timeSec:Math.round((Date.now()-startTime)/1000),
+    errors:correct?[]:[{word:c.word,chosen:c.opts[sel],correct:c.opts[c.ans]}],
+    title:c.word
+  })}/>;
+
   if(phase==="learn")return (
     <div>
       <Card style={{borderLeft:`4px solid ${G}`,marginBottom:14}}>
@@ -674,6 +860,7 @@ function PeelMod({addXp,onBack,level}) {
   const [feedback,setFeedback]=useState(null);
   const [aiLoading,setAiLoading]=useState(false);
   const [attempts,setAttempts]=useState(0);
+  const [startTime]=useState(()=>Date.now());
   const keys=["point","explanation","evidence","link"];
   const labels=["📌 Point","💬 Explanation","📚 Evidence","🔗 Link"];
   const minWords = WORD_MINIMUMS[level] || WORD_MINIMUMS.Beginner;
@@ -783,6 +970,10 @@ Be rigorous. A score of 15+/20 requires genuinely strong academic writing. Do no
       setFeedback({text:feedbackMatch?feedbackMatch[1].trim():text,scores,passed:scores.total>=10});
       setAttempts(a=>a+1);
       setPhase("feedback");
+      // Save PEEL attempt to DB
+      if(typeof addXp === "function"){
+        // We save via addXp when student claims XP — store data in ref for now
+      }
     }catch{
       setFeedback({text:"Feedback could not be loaded. Please check your connection.",scores:{point:0,expl:0,evidence:0,link:0,grammar:0,length:0,total:0},passed:false});
       setPhase("feedback");
@@ -1069,7 +1260,16 @@ Be rigorous. A score of 15+/20 requires genuinely strong academic writing. Do no
             <p style={{color:G,fontWeight:700,margin:0}}>Congratulations! You passed with {feedback.scores.total}/20.</p>
             <p style={{color:"#555",fontSize:13,margin:"4px 0 0"}}>You earned +50 XP for passing the PEEL assessment.</p>
           </Card>
-          <Btn full onClick={()=>{addXp(50,"peel");onBack();}}>Claim +50 XP & Continue →</Btn>
+          <Btn full onClick={()=>{addXp(50,"peel",{
+          module:"peel", score:feedback.scores.total, total:20,
+          passed:true, timeSec:Math.round((Date.now()-startTime)/1000),
+          title:c.title,
+          peelData:{
+            topic:c.prompt, attemptNum:attempts,
+            vals, scores:feedback.scores,
+            passed:true, timeSec:Math.round((Date.now()-startTime)/1000)
+          }
+        });onBack();}}>Claim +50 XP & Continue →</Btn>
         </div>
       ) : (
         <div>
@@ -1192,8 +1392,14 @@ function QuizMod({addXp,onBack}) {
   const [score,setScore]=useState(0);
   const [review,setReview]=useState(false);
   const [done,setDone]=useState(false);
+  const [startTime]=useState(()=>Date.now());
 
-  if(done)return <DoneScreen xp={score*6} onBack={onBack} earnNow={()=>addXp(score*6,"quiz")}/>;
+  if(done)return <DoneScreen xp={score*6} onBack={onBack} earnNow={()=>addXp(score*6,"quiz",{
+    module:"quiz", score, total:qs.length, passed:score>=3,
+    timeSec:Math.round((Date.now()-startTime)/1000),
+    title:"Daily Quiz"
+  })}/>;
+
 
   const q=qs[i];
   const confirmed=sel!==null;
