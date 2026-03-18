@@ -509,7 +509,33 @@ export default function WriteUpApp() {
   const [doneToday,setDoneToday]=useState([]);
   const [badges,setBadges]=useState([]);
 
-  const [swReg, setSwReg] = useState(null);
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem("writeup_theme");
+    return THEMES[saved] || THEMES.default;
+  });
+  const G = theme.primary;
+  const LT = theme.light;
+  const DK = theme.dark;
+
+  // Check unlocks when XP changes
+  useEffect(() => {
+    UNLOCKS.forEach(u => {
+      if (xp >= u.xp) {
+        if (u.type === "level" && user?.id) {
+          const newLevel = u.xp >= 1500 ? "Advanced" : "Intermediate";
+          if (placement?.level !== newLevel) {
+            setPlacement(p => ({...p, level: newLevel}));
+            sbPatch(`users?id=eq.${user.id}`, {level: newLevel, current_level: newLevel}, token);
+          }
+        }
+        if (u.type === "theme") {
+          const themeKey = u.xp === 200 ? "forest" : "ocean";
+          localStorage.setItem(`writeup_unlock_${themeKey}`, "true");
+        }
+      }
+    });
+  }, [xp]);
+
 
   useEffect(() => {
     registerSW().then(reg => {
@@ -606,10 +632,10 @@ export default function WriteUpApp() {
       <div style={{flex:1,overflowY:"auto",paddingBottom:70}}>
         {activeMod
           ?<ModShell mod={activeMod} level={level} addXp={addXp} onBack={()=>{setActiveMod(null);loadToday(user?.id,token);}}/>
-          :tab==="home"    ?<Home setMod={setActiveMod} xp={xp} lvl={lvl} pct={pct} level={level} doneToday={doneToday}/>
+          :tab==="home"    ?<Home setMod={setActiveMod} xp={xp} lvl={lvl} pct={pct} level={level} doneToday={doneToday} G={G} LT={LT} DK={DK}/>
           :tab==="profile" ?<Profile user={user} xp={xp} lvl={lvl} level={level} badges={badges} streak={streak}/>
           :tab==="board"   ?<Board userId={user?.id} myXp={xp} token={token}/>
-          :<Settings user={user} xp={xp} placement={placement} onLogout={async()=>{setScreen("landing");setUser(null);setToken(null);}}/>
+          :<Settings user={user} xp={xp} placement={placement} onLogout={async()=>{setScreen("landing");setUser(null);setToken(null);}} onThemeChange={t=>{setTheme(t);}} />
         }
       </div>
 
@@ -626,9 +652,14 @@ export default function WriteUpApp() {
   );
 }
 
-function Home({setMod,xp,lvl,pct,level,doneToday}) {
+function Home({setMod,xp,lvl,pct,level,doneToday,G,LT,DK}) {
+  // Next unlock
+  const nextUnlock = UNLOCKS.find(u => u.xp > xp);
+  const prevUnlock = [...UNLOCKS].reverse().find(u => u.xp <= xp);
+
   return (
     <div style={{padding:18}}>
+      {/* XP Progress card */}
       <Card style={{marginBottom:14,background:`linear-gradient(135deg,${DK},${G})`,color:"#fff"}}>
         <div style={{fontSize:12,opacity:.8,marginBottom:4}}>📅 {todayStr()}</div>
         <div style={{fontWeight:800,fontSize:16,marginBottom:2}}>{doneToday.length>=MODS.length?"🎉 All done today!":"Today's Activities"}</div>
@@ -641,7 +672,9 @@ function Home({setMod,xp,lvl,pct,level,doneToday}) {
           ))}
         </div>
       </Card>
-      <Card style={{marginBottom:18}}>
+
+      {/* XP bar */}
+      <Card style={{marginBottom:10}}>
         <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:6}}>
           <span style={{fontWeight:700,color:G}}>{lvl.name} · {level}</span>
           <span style={{color:"#888"}}>{xp}/{lvl.next} XP</span>
@@ -651,6 +684,28 @@ function Home({setMod,xp,lvl,pct,level,doneToday}) {
         </div>
         <p style={{color:"#888",fontSize:12,marginTop:6}}>{lvl.next-xp} XP to next level</p>
       </Card>
+
+      {/* Next unlock */}
+      {nextUnlock && (
+        <Card style={{marginBottom:14,background:"#fff8e1",borderLeft:`3px solid #f9a825`}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontSize:12,color:"#e65100",fontWeight:700,marginBottom:2}}>🔓 Next Unlock — {nextUnlock.xp} XP</div>
+              <div style={{fontWeight:700,color:DK,fontSize:13}}>{nextUnlock.icon} {nextUnlock.label}</div>
+              <div style={{fontSize:12,color:"#666"}}>{nextUnlock.desc}</div>
+            </div>
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <div style={{fontWeight:800,color:"#e65100",fontSize:16}}>{nextUnlock.xp-xp}</div>
+              <div style={{fontSize:10,color:"#888"}}>XP away</div>
+            </div>
+          </div>
+          <div style={{background:"#ffe082",borderRadius:99,height:6,marginTop:8}}>
+            <div style={{background:"#f9a825",height:6,borderRadius:99,width:`${Math.min(100,Math.round(((xp-(prevUnlock?.xp||0))/(nextUnlock.xp-(prevUnlock?.xp||0)))*100))}%`,transition:"width .5s"}}/>
+          </div>
+        </Card>
+      )}
+
+      {/* Modules */}
       {MODS.map(m=>(
         <button key={m.id} onClick={()=>setMod(m)}
           style={{width:"100%",background:"#fff",border:`1.5px solid ${LT}`,borderRadius:16,padding:"14px 16px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",boxShadow:"0 2px 8px #0001",textAlign:"left",marginBottom:10}}>
@@ -661,7 +716,7 @@ function Home({setMod,xp,lvl,pct,level,doneToday}) {
           </div>
           {doneToday.includes(m.id)
             ?<span style={{background:"#e8f5e9",color:G,borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:700}}>✅ Done</span>
-            :<Tag>+{m.xp} XP</Tag>}
+            :<Tag color={LT}>+{XP_PER_MODULE[m.id]} XP</Tag>}
         </button>
       ))}
     </div>
@@ -1653,7 +1708,161 @@ function Board({userId,myXp,token}) {
   );
 }
 
-/* ══ NOTIFICATION SYSTEM ══ */
+/* ══ XP SYSTEM & UNLOCKS ══ */
+const XP_PER_MODULE = {
+  grammar:5, vocabulary:5, reading:20, mistakes:10, quiz:10, peel:50
+};
+
+const UNLOCKS = [
+  { xp:100,  type:"peel_topics",  label:"Advanced PEEL Topics",     desc:"Unlock 4 challenging writing topics",  icon:"📝" },
+  { xp:200,  type:"theme",        label:"Dark Forest Theme",         desc:"Unlock a deep green visual theme",     icon:"🌲" },
+  { xp:500,  type:"level",        label:"Intermediate Level",        desc:"Automatically move to Intermediate",   icon:"🌿" },
+  { xp:800,  type:"exercises",    label:"Advanced Exercises",        desc:"Unlock harder grammar & quiz sets",    icon:"🎯" },
+  { xp:1000, type:"theme",        label:"Ocean Blue Theme",          desc:"Unlock a blue ocean visual theme",     icon:"🌊" },
+  { xp:1500, type:"level",        label:"Advanced Level",            desc:"Automatically move to Advanced",       icon:"🌳" },
+  { xp:2000, type:"certificate",  label:"Certificate of Achievement",desc:"Download your official PDF certificate",icon:"🏆" },
+];
+
+const THEMES = {
+  default: { primary:"#2D6A4F", light:"#d8f3dc", dark:"#1b4332", name:"Default Green" },
+  forest:  { primary:"#1a3a2a", light:"#c8e6c9", dark:"#0d1f17", name:"Dark Forest" },
+  ocean:   { primary:"#1565c0", light:"#bbdefb", dark:"#0d47a1", name:"Ocean Blue" },
+};
+
+const ENCOURAGE_MESSAGES = [
+  { title:"🔥 Already done today!", body:"You've already earned XP for this module today. Come back tomorrow for more!", sub:"But practice makes perfect — keep going!" },
+  { title:"💪 Great effort!", body:"No XP today — you already earned it! But every practice session counts.", sub:"Consistency is the key to mastery." },
+  { title:"⭐ You're dedicated!", body:"XP already collected today. Your commitment shows real growth!", sub:"See you tomorrow for fresh XP!" },
+  { title:"🎯 Keep practising!", body:"Today's XP is already in your account. Extra practice = extra mastery!", sub:"The best students practise even without rewards." },
+];
+
+/* ══ OFFLINE CACHE (IndexedDB) ══ */
+const DB_NAME = "writeup-offline";
+const DB_VERSION = 1;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains("content"))
+        db.createObjectStore("content", { keyPath:"key" });
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+async function cacheContent(key, data) {
+  try {
+    const db = await openDB();
+    const tx = db.transaction("content","readwrite");
+    tx.objectStore("content").put({ key, data, cachedAt: new Date().toISOString() });
+    await new Promise(r => { tx.oncomplete = r; tx.onerror = r; });
+  } catch(e) { console.error("Cache error:", e); }
+}
+
+async function getCachedContent(key) {
+  try {
+    const db = await openDB();
+    const tx = db.transaction("content","readonly");
+    const req = tx.objectStore("content").get(key);
+    return new Promise(resolve => {
+      req.onsuccess = () => resolve(req.result?.data || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch(e) { return null; }
+}
+
+async function cacheAllOfflineContent() {
+  // Cache all Grammar exercises
+  for (let i = 0; i < GRAMMAR_BANK.length; i++) {
+    await cacheContent(`grammar_${i}`, GRAMMAR_BANK[i]);
+  }
+  // Cache all Vocabulary cards
+  for (let i = 0; i < VOCAB_BANK.length; i++) {
+    await cacheContent(`vocab_${i}`, VOCAB_BANK[i]);
+  }
+  // Cache mistakes
+  for (let i = 0; i < MISTAKES_BANK.length; i++) {
+    await cacheContent(`mistake_${i}`, MISTAKES_BANK[i]);
+  }
+  await cacheContent("offline_ready", { ready:true, cachedAt:new Date().toISOString() });
+  return true;
+}
+
+async function isOfflineReady() {
+  const result = await getCachedContent("offline_ready");
+  return !!result?.ready;
+}
+
+/* ══ CERTIFICATE GENERATOR ══ */
+function generateCertificate(userName, level, xp, date) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 800; canvas.height = 560;
+  const ctx = canvas.getContext("2d");
+  // Background
+  ctx.fillStyle = "#f9fbe7";
+  ctx.fillRect(0, 0, 800, 560);
+  // Border
+  ctx.strokeStyle = "#2D6A4F";
+  ctx.lineWidth = 8;
+  ctx.strokeRect(20, 20, 760, 520);
+  ctx.strokeStyle = "#81c784";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(30, 30, 740, 500);
+  // Header
+  ctx.fillStyle = "#2D6A4F";
+  ctx.font = "bold 36px Georgia, serif";
+  ctx.textAlign = "center";
+  ctx.fillText("WriteUP UPGC", 400, 90);
+  ctx.font = "18px Georgia, serif";
+  ctx.fillStyle = "#555";
+  ctx.fillText("Université Peleforo Gon Coulibaly · Korhogo, Côte d'Ivoire", 400, 120);
+  // Divider
+  ctx.fillStyle = "#2D6A4F";
+  ctx.fillRect(100, 135, 600, 3);
+  // Certificate title
+  ctx.font = "bold 28px Georgia, serif";
+  ctx.fillStyle = "#1b4332";
+  ctx.fillText("Certificate of Achievement", 400, 185);
+  // Body
+  ctx.font = "18px Georgia, serif";
+  ctx.fillStyle = "#333";
+  ctx.fillText("This certifies that", 400, 230);
+  // Student name
+  ctx.font = "bold 42px Georgia, serif";
+  ctx.fillStyle = "#2D6A4F";
+  ctx.fillText(userName, 400, 285);
+  // Underline name
+  const nameWidth = ctx.measureText(userName).width;
+  ctx.fillStyle = "#81c784";
+  ctx.fillRect(400 - nameWidth/2, 295, nameWidth, 3);
+  // Achievement text
+  ctx.font = "18px Georgia, serif";
+  ctx.fillStyle = "#333";
+  ctx.fillText("has successfully completed the WriteUP UPGC Academic English Programme", 400, 335);
+  ctx.fillText(`reaching ${level} level with ${xp} XP earned`, 400, 365);
+  // Stats row
+  ctx.font = "bold 16px Georgia, serif";
+  ctx.fillStyle = "#2D6A4F";
+  [["Level", level], ["XP Earned", xp.toString()], ["Date", date]].forEach(([label, val], i) => {
+    const x = 180 + i * 220;
+    ctx.fillText(label, x, 420);
+    ctx.font = "14px Georgia, serif";
+    ctx.fillStyle = "#555";
+    ctx.fillText(val, x, 440);
+    ctx.font = "bold 16px Georgia, serif";
+    ctx.fillStyle = "#2D6A4F";
+  });
+  // Footer
+  ctx.fillStyle = "#888";
+  ctx.font = "13px Georgia, serif";
+  ctx.fillText("This certificate was issued by WriteUP UPGC — Academic English Platform", 400, 500);
+  ctx.fillText("writeup-upgc.vercel.app", 400, 520);
+  return canvas.toDataURL("image/png");
+}
+
 const NOTIF_MESSAGES = {
   daily: [
     { title:"✍️ WriteUP UPGC", body:"Your daily English challenge is ready! Keep your streak going 🔥" },
@@ -1716,11 +1925,221 @@ function scheduleDailyReminder(sw, timeStr) {
 }
 
 /* ── Settings ── */
-function Settings({user, onLogout, xp, placement}) {
+function Settings({user, onLogout, xp, placement, onThemeChange}) {
   const [notifPerm, setNotifPerm] = useState(Notification?.permission || "default");
   const [notifTime, setNotifTime] = useState(localStorage.getItem("writeup_notif_time") || "08:00");
   const [notifEnabled, setNotifEnabled] = useState(localStorage.getItem("writeup_notif_enabled") === "true");
   const [swReg, setSwReg] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [offlineStatus, setOfflineStatus] = useState("checking");
+  const [caching, setCaching] = useState(false);
+  const [activeTheme, setActiveTheme] = useState(localStorage.getItem("writeup_theme") || "default");
+
+  useEffect(() => {
+    registerSW().then(reg => setSwReg(reg));
+    isOfflineReady().then(ready => setOfflineStatus(ready ? "ready" : "not_cached"));
+  }, []);
+
+  const enableNotifications = async () => {
+    const perm = await requestNotifPermission();
+    setNotifPerm(perm);
+    if (perm === "granted") {
+      setNotifEnabled(true);
+      localStorage.setItem("writeup_notif_enabled", "true");
+      scheduleDailyReminder(swReg, notifTime);
+      showNotificationNow("✅ Notifications enabled!", "Daily reminder set for " + notifTime);
+    }
+  };
+
+  const saveNotifSettings = () => {
+    setSaving(true);
+    if (notifEnabled && notifPerm === "granted") {
+      scheduleDailyReminder(swReg, notifTime);
+      localStorage.setItem("writeup_notif_time", notifTime);
+    }
+    setTimeout(() => { setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2000); }, 500);
+  };
+
+  const handleCacheOffline = async () => {
+    setCaching(true);
+    try {
+      await cacheAllOfflineContent();
+      setOfflineStatus("ready");
+      showNotificationNow("✅ Content cached!", "Grammar, Vocabulary & Mistakes are now available offline.");
+    } catch(e) {
+      alert("Could not cache content. Please try again.");
+    }
+    setCaching(false);
+  };
+
+  const handleThemeChange = (key) => {
+    if (THEMES[key]) {
+      setActiveTheme(key);
+      localStorage.setItem("writeup_theme", key);
+      onThemeChange(THEMES[key]);
+    }
+  };
+
+  const handleCertificate = () => {
+    const dataUrl = generateCertificate(
+      user?.name || "Student",
+      placement?.level || "Beginner",
+      xp,
+      new Date().toLocaleDateString("en-GB", {day:"numeric",month:"long",year:"numeric"})
+    );
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = `WriteUP_UPGC_Certificate_${user?.name?.replace(/\s+/g,"_")}.png`;
+    a.click();
+  };
+
+  const lvl = getLvl(xp);
+  const canForest = xp >= 200;
+  const canOcean = xp >= 1000;
+  const canCertificate = xp >= 2000;
+
+  return (
+    <div style={{padding:18}}>
+      <h3 style={{color:"#1b4332",marginBottom:16}}>⚙️ Settings</h3>
+
+      {/* Profile */}
+      <Card style={{marginBottom:14,padding:"14px 16px"}}>
+        <div style={{fontSize:12,color:"#888",marginBottom:2}}>Logged in as</div>
+        <div style={{fontWeight:700,color:"#1b4332",fontSize:15}}>{user?.name}</div>
+        <div style={{fontSize:13,color:"#888",marginBottom:8}}>{user?.email}</div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <span style={{background:"#d8f3dc",color:"#2D6A4F",borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>{placement?.level||"Beginner"}</span>
+          <span style={{background:"#e3f2fd",color:"#1565c0",borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>⭐ {xp} XP</span>
+          <span style={{background:"#fff8e1",color:"#f57c00",borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>{lvl.name}</span>
+        </div>
+      </Card>
+
+      {/* 🎨 Themes */}
+      <Card style={{marginBottom:14}}>
+        <div style={{fontWeight:700,color:"#1b4332",fontSize:15,marginBottom:12}}>🎨 Visual Themes</div>
+        {[
+          { key:"default", name:"🌿 Default Green", locked:false, xpReq:0 },
+          { key:"forest",  name:"🌲 Dark Forest",   locked:!canForest, xpReq:200 },
+          { key:"ocean",   name:"🌊 Ocean Blue",    locked:!canOcean,  xpReq:1000 },
+        ].map(t=>(
+          <div key={t.key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"10px 12px",borderRadius:12,background:activeTheme===t.key?"#e8f5e9":t.locked?"#f5f5f5":"#fff",border:activeTheme===t.key?"2px solid #2D6A4F":"1.5px solid #eee",opacity:t.locked?.6:1}}>
+            <div>
+              <div style={{fontWeight:700,color:"#1b4332",fontSize:13}}>{t.name}</div>
+              {t.locked&&<div style={{fontSize:11,color:"#f57c00"}}>🔒 Unlock at {t.xpReq} XP ({t.xpReq-xp} more needed)</div>}
+            </div>
+            {!t.locked&&(
+              <button onClick={()=>handleThemeChange(t.key)}
+                style={{background:activeTheme===t.key?"#2D6A4F":"#e0e0e0",color:activeTheme===t.key?"#fff":"#555",border:"none",borderRadius:10,padding:"6px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
+                {activeTheme===t.key?"Active":"Apply"}
+              </button>
+            )}
+          </div>
+        ))}
+      </Card>
+
+      {/* 🏆 Certificate */}
+      <Card style={{marginBottom:14,background:canCertificate?"#f9fbe7":"#f5f5f5",opacity:canCertificate?1:.7}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontWeight:700,color:"#1b4332",fontSize:15}}>🏆 Certificate of Achievement</div>
+            <div style={{fontSize:12,color:"#888",marginTop:3}}>
+              {canCertificate
+                ?"Download your official achievement certificate as PNG"
+                :`🔒 Unlock at 2000 XP — you need ${2000-xp} more XP`}
+            </div>
+          </div>
+          {canCertificate&&(
+            <button onClick={handleCertificate}
+              style={{background:"#2D6A4F",color:"#fff",border:"none",borderRadius:10,padding:"8px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>
+              ⬇️ Download
+            </button>
+          )}
+        </div>
+        {!canCertificate&&(
+          <div style={{background:"#ffe082",borderRadius:99,height:6,marginTop:10}}>
+            <div style={{background:"#f9a825",height:6,borderRadius:99,width:`${Math.min(100,Math.round((xp/2000)*100))}%`,transition:"width .5s"}}/>
+          </div>
+        )}
+      </Card>
+
+      {/* 📴 Offline Mode */}
+      <Card style={{marginBottom:14}}>
+        <div style={{fontWeight:700,color:"#1b4332",fontSize:15,marginBottom:6}}>📴 Offline Mode</div>
+        <div style={{fontSize:12,color:"#888",marginBottom:12}}>
+          Cache Grammar, Vocabulary & Mistakes locally so you can practise without internet.
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{width:10,height:10,borderRadius:"50%",background:offlineStatus==="ready"?"#4caf50":offlineStatus==="checking"?"#ff9800":"#bbb"}}/>
+            <span style={{fontSize:13,color:"#555",fontWeight:600}}>
+              {offlineStatus==="ready"?"Content cached ✅":offlineStatus==="checking"?"Checking…":"Not cached yet"}
+            </span>
+          </div>
+        </div>
+        <button onClick={handleCacheOffline} disabled={caching||offlineStatus==="ready"}
+          style={{width:"100%",background:offlineStatus==="ready"?"#e8f5e9":"#2D6A4F",color:offlineStatus==="ready"?"#2D6A4F":"#fff",border:offlineStatus==="ready"?"1.5px solid #2D6A4F":"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:14,cursor:caching||offlineStatus==="ready"?"default":"pointer",fontFamily:"inherit",opacity:caching?.7:1}}>
+          {caching?"⏳ Caching content…":offlineStatus==="ready"?"✅ Already cached — Ready offline":"📥 Cache for Offline Use"}
+        </button>
+        {offlineStatus==="ready"&&(
+          <button onClick={async()=>{
+            await cacheContent("offline_ready",{ready:false});
+            setOfflineStatus("not_cached");
+          }} style={{width:"100%",background:"none",border:"none",color:"#bbb",fontSize:12,cursor:"pointer",marginTop:6,fontFamily:"inherit"}}>
+            Clear cache
+          </button>
+        )}
+      </Card>
+
+      {/* 🔔 Notifications */}
+      <Card style={{marginBottom:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div>
+            <div style={{fontWeight:700,color:"#1b4332",fontSize:15}}>🔔 Notifications</div>
+            <div style={{fontSize:12,color:"#888",marginTop:2}}>
+              {notifPerm==="granted"?"✅ Enabled":notifPerm==="denied"?"❌ Blocked in browser settings":"Not yet enabled"}
+            </div>
+          </div>
+          {notifPerm!=="granted"&&notifPerm!=="denied"&&(
+            <button onClick={enableNotifications}
+              style={{background:"#2D6A4F",color:"#fff",border:"none",borderRadius:10,padding:"8px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
+              Enable
+            </button>
+          )}
+        </div>
+        {notifPerm==="granted"&&(
+          <>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:13,fontWeight:600,color:"#1b4332",marginBottom:6}}>⏰ Daily reminder time</div>
+              <input type="time" value={notifTime} onChange={e=>setNotifTime(e.target.value)}
+                style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #2D6A4F",borderRadius:10,padding:"10px 14px",fontSize:15,outline:"none",fontFamily:"inherit",color:"#1b4332"}}/>
+            </div>
+            <button onClick={saveNotifSettings}
+              style={{width:"100%",background:saved?"#e8f5e9":"#2D6A4F",color:saved?"#2D6A4F":"#fff",border:saved?"1.5px solid #2D6A4F":"none",borderRadius:12,padding:"11px",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit",transition:"all .3s"}}>
+              {saving?"Saving…":saved?"✅ Saved!":"Save Settings"}
+            </button>
+          </>
+        )}
+      </Card>
+
+      {/* Privacy */}
+      <Card style={{marginBottom:14,padding:"14px 16px"}}>
+        <div style={{fontWeight:600,color:"#1b4332",fontSize:14}}>🔒 Privacy</div>
+        <div style={{fontSize:12,color:"#888",marginTop:4}}>ARTCI compliance n°2013-450 · Secured by Supabase</div>
+      </Card>
+
+      <button onClick={onLogout}
+        style={{width:"100%",marginTop:4,background:"#ffebee",color:"#c62828",border:"1.5px solid #ffcdd2",borderRadius:12,padding:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+        Log Out
+      </button>
+    </div>
+  );
+}
+  const [notifPerm, setNotifPerm] = useState(Notification?.permission || "default");
+  const [notifTime, setNotifTime] = useState(localStorage.getItem("writeup_notif_time") || "08:00");
+  const [notifEnabled, setNotifEnabled] = useState(localStorage.getItem("writeup_notif_enabled") === "true");
+  const [swReg, setSwReg] = useState(null);
+  const [showEncourage, setShowEncourage] = useState(null); // {title,body,sub}
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
