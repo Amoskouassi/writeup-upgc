@@ -1,38 +1,36 @@
 import { useState, useEffect } from "react";
 
-const G = "#2D6A4F", LT = "#d8f3dc", DK = "#1b4332";
-const SB_URL = import.meta.env.VITE_SUPABASE_URL || "https://qnxeyoxashvbljjmqkrp.supabase.co";
-const SB_KEY = import.meta.env.VITE_SUPABASE_KEY || "sb_publishable_lgRs4KqlUybNQ--KiZP7BA_m-ntu3CC";
+const G="#2D6A4F",LT="#d8f3dc",DK="#1b4332";
+const SB_URL=import.meta.env.VITE_SUPABASE_URL||"https://qnxeyoxashvbljjmqkrp.supabase.co";
+const SB_KEY=import.meta.env.VITE_SUPABASE_KEY||"sb_publishable_lgRs4KqlUybNQ--KiZP7BA_m-ntu3CC";
 
-/* ── Supabase ── */
-const sbH = t => ({ "Content-Type":"application/json","apikey":SB_KEY,"Authorization":`Bearer ${t||SB_KEY}`,"Prefer":"return=representation" });
-const sbGet = (p,t) => fetch(`${SB_URL}/rest/v1/${p}`,{headers:sbH(t)}).then(r=>r.json());
-const sbPost = (p,b,t) => fetch(`${SB_URL}/rest/v1/${p}`,{method:"POST",headers:sbH(t),body:JSON.stringify(b)}).then(r=>r.json());
-const sbPatch = (p,b,t) => fetch(`${SB_URL}/rest/v1/${p}`,{method:"PATCH",headers:{...sbH(t),"Prefer":"return=representation"},body:JSON.stringify(b)}).then(r=>r.json());
-const sbUpsert = (p,b,t) => fetch(`${SB_URL}/rest/v1/${p}`,{method:"POST",headers:{...sbH(t),"Prefer":"resolution=merge-duplicates,return=representation"},body:JSON.stringify(b)}).then(r=>r.json());
-const authSignUp = (e,p) => fetch(`${SB_URL}/auth/v1/signup`,{method:"POST",headers:{"Content-Type":"application/json","apikey":SB_KEY},body:JSON.stringify({email:e,password:p})}).then(r=>r.json());
-const authSignIn = (e,p) => fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{method:"POST",headers:{"Content-Type":"application/json","apikey":SB_KEY},body:JSON.stringify({email:e,password:p})}).then(r=>r.json());
+const sbH=t=>({"Content-Type":"application/json","apikey":SB_KEY,"Authorization":`Bearer ${t||SB_KEY}`,"Prefer":"return=representation"});
+const sbGet=(p,t)=>fetch(`${SB_URL}/rest/v1/${p}`,{headers:sbH(t)}).then(r=>r.json());
+const sbPost=(p,b,t)=>fetch(`${SB_URL}/rest/v1/${p}`,{method:"POST",headers:sbH(t),body:JSON.stringify(b)}).then(r=>r.json());
+const sbPatch=(p,b,t)=>fetch(`${SB_URL}/rest/v1/${p}`,{method:"PATCH",headers:{...sbH(t),"Prefer":"return=representation"},body:JSON.stringify(b)}).then(r=>r.json());
+const sbUpsert=(p,b,t)=>fetch(`${SB_URL}/rest/v1/${p}`,{method:"POST",headers:{...sbH(t),"Prefer":"resolution=merge-duplicates,return=representation"},body:JSON.stringify(b)}).then(r=>r.json());
+const authSignUp=(e,p)=>fetch(`${SB_URL}/auth/v1/signup`,{method:"POST",headers:{"Content-Type":"application/json","apikey":SB_KEY},body:JSON.stringify({email:e,password:p})}).then(r=>r.json());
+const authSignIn=(e,p)=>fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{method:"POST",headers:{"Content-Type":"application/json","apikey":SB_KEY},body:JSON.stringify({email:e,password:p})}).then(r=>r.json());
 
-const todayStr = () => new Date().toISOString().slice(0,10);
-const getLvl = xp => {
-  if(xp<500)  return {name:"Bronze", color:"#cd7f32",min:0,   next:500 };
-  if(xp<1500) return {name:"Silver", color:"#9e9e9e",min:500, next:1500};
-  if(xp<3000) return {name:"Gold",   color:"#ffd700",min:1500,next:3000};
-  return              {name:"Platinum",color:"#4fc3f7",min:3000,next:5000};
+const todayStr=()=>new Date().toISOString().slice(0,10);
+const getLvl=xp=>{
+  if(xp<500)  return{name:"Bronze", color:"#cd7f32",min:0,   next:500};
+  if(xp<1500) return{name:"Silver", color:"#9e9e9e",min:500, next:1500};
+  if(xp<3000) return{name:"Gold",   color:"#ffd700",min:1500,next:3000};
+  return             {name:"Platinum",color:"#4fc3f7",min:3000,next:5000};
 };
-const rnd = arr => arr[Math.floor(Math.random()*arr.length)];
+const rnd=arr=>arr[Math.floor(Math.random()*arr.length)];
 
-/* ── UI ── */
-const Btn = ({onClick,children,full,secondary,disabled,style={}})=>(
+const Btn=({onClick,children,full,secondary,disabled,style={}})=>(
   <button onClick={onClick} disabled={disabled} style={{width:full?"100%":"auto",background:secondary?"transparent":G,color:secondary?G:"#fff",border:secondary?`2px solid ${G}`:"none",borderRadius:12,padding:"12px 20px",fontWeight:700,fontSize:14,cursor:disabled?"not-allowed":"pointer",opacity:disabled?.5:1,marginTop:8,fontFamily:"inherit",...style}}>{children}</button>
 );
-const Card = ({children,style={}})=>(
+const Card=({children,style={}})=>(
   <div style={{background:"#fff",borderRadius:16,padding:18,boxShadow:"0 2px 12px #0001",...style}}>{children}</div>
 );
-const Tag = ({children,color})=>(
+const Tag=({children,color})=>(
   <span style={{background:color||LT,color:G,borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>{children}</span>
 );
-const Loader = ({text="Chargement…"})=>(
+const Loader=({text="Loading…"})=>(
   <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:48,gap:16}}>
     <div style={{width:40,height:40,border:`4px solid ${LT}`,borderTop:`4px solid ${G}`,borderRadius:"50%",animation:"spin 1s linear infinite"}}/>
     <p style={{color:G,fontWeight:600,fontSize:14,textAlign:"center"}}>{text}</p>
@@ -40,83 +38,102 @@ const Loader = ({text="Chargement…"})=>(
   </div>
 );
 
-/* ════════════════════════════════════════
-   CONTENT BANKS
-════════════════════════════════════════ */
-const GRAMMAR_BANK = [
-  {title:"Present Simple vs Continuous",instruction:"Choose the correct verb form.",question:"She ___ to the library every Tuesday morning.",opts:["go","goes","is going","has gone"],ans:1,explanation:"With 'every Tuesday', we use present simple for habits. 'She goes' is correct.",tip:"Use present simple for habits and routines. Use present continuous for actions happening right now."},
-  {title:"Countable vs Uncountable Nouns",instruction:"Identify the correct sentence.",question:"Which sentence is correct?",opts:["She gave me some advices.","She gave me some advice.","She gave me an advice.","She gave me advices."],ans:1,explanation:"'Advice' is uncountable — it has no plural form. Never say 'advices' or 'an advice'.",tip:"Uncountable nouns: advice, information, furniture, equipment, news. No -s, no 'a/an'."},
-  {title:"Second Conditional",instruction:"Choose the correct form.",question:"If I ___ more time, I would study harder.",opts:["have","had","has","will have"],ans:1,explanation:"Second conditional = If + past simple + would + base verb. Used for hypothetical situations.",tip:"Second conditional: 'If + past simple, would + verb'. It describes unreal or unlikely situations."},
-  {title:"Relative Clauses",instruction:"Choose the correct relative pronoun.",question:"The student ___ scored highest received a prize.",opts:["which","whose","who","whom"],ans:2,explanation:"Use 'who' for people in relative clauses. 'Which' is for things.",tip:"Who = people. Which = things/animals. Whose = possession. That = people or things (informal)."},
-  {title:"Articles: A, An, The",instruction:"Choose the correct article.",question:"She is studying at ___ university in Abidjan.",opts:["a","an","the","no article"],ans:0,explanation:"'University' starts with a /j/ sound (consonant sound), so we use 'a', not 'an'.",tip:"Use 'an' before vowel sounds (an hour, an umbrella), 'a' before consonant sounds (a university, a European)."},
-  {title:"Past Perfect",instruction:"Choose the correct tense.",question:"By the time the teacher arrived, the students ___ their work.",opts:["finish","finished","had finished","have finished"],ans:2,explanation:"Past perfect (had + past participle) is used for an action completed BEFORE another past action.",tip:"Past perfect = had + past participle. Use it when one past action happened before another."},
-  {title:"Passive Voice",instruction:"Choose the correct passive form.",question:"The essay ___ by all students before Friday.",opts:["must submit","must be submitted","must submitted","must be submit"],ans:1,explanation:"Passive voice = must + be + past participle. The subject receives the action.",tip:"Active: 'Students must submit essays.' Passive: 'Essays must be submitted by students.'"},
-  {title:"Gerund vs Infinitive",instruction:"Choose the correct form.",question:"She avoided ___ the difficult questions in the exam.",opts:["to answer","answer","answering","answered"],ans:2,explanation:"'Avoid' is always followed by a gerund (-ing form), not an infinitive.",tip:"Verbs followed by gerund: avoid, enjoy, finish, consider, suggest. Verbs + infinitive: want, need, decide, hope."},
-  {title:"Reported Speech",instruction:"Choose the correct reported speech.",question:"He said: 'I am studying.' → He said that he ___ studying.",opts:["is","was","were","has been"],ans:1,explanation:"In reported speech, present continuous (am studying) shifts to past continuous (was studying).",tip:"Reported speech tense shifts: am/is → was, have → had, will → would, can → could."},
-  {title:"Subject-Verb Agreement",instruction:"Choose the correct verb form.",question:"Neither the students nor the teacher ___ aware of the change.",opts:["were","are","was","is"],ans:2,explanation:"With 'neither...nor', the verb agrees with the nearest subject. 'Teacher' is singular → 'was'.",tip:"Neither...nor / either...or: the verb agrees with the subject closest to it."},
+/* ══════ CONTENT BANKS ══════ */
+
+const GRAMMAR_BANK=[
+  {title:"Present Simple — Habits",instruction:"Choose the correct verb form.",question:"She ___ to the library every Tuesday morning.",opts:["go","goes","is going","has gone"],ans:1,explanation:"We use present simple for habits and routines. 'Every Tuesday' signals a habit, so 'goes' is correct.",tip:"Present simple = habits/routines. Key words: always, usually, every day, never, sometimes."},
+  {title:"Uncountable Nouns",instruction:"Choose the correct sentence.",question:"Which sentence is grammatically correct?",opts:["She gave me some advices.","She gave me some advice.","She gave me an advice.","She gave me advices."],ans:1,explanation:"'Advice' is uncountable — it has no plural. You can never say 'advices' or 'an advice'. Always say 'some advice' or 'a piece of advice'.",tip:"Uncountable nouns (no plural -s): advice, information, furniture, equipment, news, progress, knowledge, research."},
+  {title:"Second Conditional",instruction:"Choose the correct form.",question:"If I ___ more time, I would read every day.",opts:["have","had","has","will have"],ans:1,explanation:"Second conditional = If + past simple + would + base verb. It describes hypothetical or unreal situations in the present or future.",tip:"Second conditional structure: 'If + subject + past simple, subject + would + base verb.' Example: If I had money, I would travel."},
+  {title:"Relative Clauses",instruction:"Choose the correct relative pronoun.",question:"The student ___ scored highest in the test received a prize.",opts:["which","whose","who","whom"],ans:2,explanation:"Use 'who' for people in relative clauses. 'Which' is used for things and animals. 'Whose' shows possession.",tip:"Who = people. Which = things. Whose = possession. That = people or things (informal). Example: The book which I read was excellent."},
+  {title:"Articles: A, An, The",instruction:"Choose the correct article.",question:"She is studying at ___ university in Korhogo.",opts:["a","an","the","—"],ans:0,explanation:"'University' starts with a /j/ sound (consonant sound), so we use 'a', not 'an'. The rule depends on SOUND, not spelling.",tip:"Use 'an' before vowel SOUNDS: an hour /aʊə/, an umbrella. Use 'a' before consonant SOUNDS: a university /juː/, a European."},
+  {title:"Past Perfect",instruction:"Choose the correct tense.",question:"By the time the teacher arrived, the students ___ their essays.",opts:["finish","finished","had finished","have finished"],ans:2,explanation:"Past perfect (had + past participle) is used for an action completed BEFORE another past action. The students finished before the teacher arrived.",tip:"Past perfect = had + past participle. Use it when one past action happened before another. Signal words: by the time, already, before, after."},
+  {title:"Passive Voice",instruction:"Choose the correct passive form.",question:"All assignments ___ before the end of the semester.",opts:["must submit","must be submitted","must submitted","must be submit"],ans:1,explanation:"Passive voice = modal + be + past participle. 'Must be submitted' means the assignments receive the action (someone submits them).",tip:"Passive voice formula: subject + be + past participle. Active: 'Students submit essays.' Passive: 'Essays are submitted by students.'"},
+  {title:"Gerund vs Infinitive",instruction:"Choose the correct form.",question:"She avoided ___ the difficult questions during the debate.",opts:["to answer","answer","answering","answered"],ans:2,explanation:"'Avoid' must always be followed by a gerund (-ing form). Using an infinitive after 'avoid' is incorrect.",tip:"Verbs + gerund (-ing): avoid, enjoy, finish, consider, suggest, practise, keep. Verbs + infinitive (to): want, need, decide, hope, plan, agree, refuse."},
+  {title:"Subject-Verb Agreement",instruction:"Choose the correct verb.",question:"Neither the students nor the teacher ___ aware of the schedule change.",opts:["were","are","was","is"],ans:2,explanation:"With 'neither...nor', the verb agrees with the NEAREST subject. 'Teacher' is singular, so we use 'was'.",tip:"Neither...nor / either...or: the verb agrees with the closest subject. If the closest subject is plural, use a plural verb."},
+  {title:"Reported Speech",instruction:"Choose the correct reported speech form.",question:"She said: 'I am preparing for my exams.' → She said that she ___ for her exams.",opts:["is preparing","was preparing","has been preparing","prepares"],ans:1,explanation:"In reported speech, present continuous (am preparing) shifts back to past continuous (was preparing). This is called 'backshift'.",tip:"Reported speech backshift: am/is/are → was/were | have/has → had | will → would | can → could | present simple → past simple."},
+  {title:"Prepositions with Adjectives",instruction:"Choose the correct preposition.",question:"She is very good ___ mathematics and statistics.",opts:["in","on","at","for"],ans:2,explanation:"In English, we say 'good at' a subject or skill. This is a fixed expression — 'good in' or 'good on' are incorrect.",tip:"Fixed preposition expressions: good at, bad at, interested in, responsible for, afraid of, proud of, similar to, different from."},
+  {title:"Present Perfect vs Past Simple",instruction:"Choose the correct tense.",question:"I ___ my homework, so I can go out now.",opts:["finish","finished","have finished","had finished"],ans:2,explanation:"Present perfect is used when a past action has a result or relevance in the present. 'I have finished' explains why I can go out now.",tip:"Present perfect = have/has + past participle. Use it for: recent actions with present results, life experiences, actions continuing until now."},
 ];
 
-const VOCAB_BANK = [
-  {word:"Analyse",phonetic:"/ˈæn.ə.laɪz/",french:"Analyser",partOfSpeech:"verb",definition:"To examine something carefully and in detail in order to understand it.",example:"The students must ___ the poem before writing their essay.",blank:"analyse",opts:["analyse","ignore","copy","avoid"],ans:0,memory_tip:"Think of 'ana' + 'lyse' — to loosen apart (Greek). You break something into pieces to understand it."},
-  {word:"Significant",phonetic:"/sɪɡˈnɪf.ɪ.kənt/",french:"Important / Significatif",partOfSpeech:"adjective",definition:"Important or large enough to have a noticeable effect or to be worth attention.",example:"There has been a ___ improvement in her writing since last semester.",blank:"significant",opts:["significant","small","boring","strange"],ans:0,memory_tip:"'Sign' is inside — something significant gives a sign that it matters."},
-  {word:"Coherent",phonetic:"/kəʊˈhɪə.rənt/",french:"Cohérent / Logique",partOfSpeech:"adjective",definition:"Logical, well-organised, and easy to understand.",example:"A good essay must present a ___ argument from beginning to end.",blank:"coherent",opts:["emotional","coherent","confusing","short"],ans:1,memory_tip:"'Co' = together, 'here' = stick. Coherent ideas stick together logically."},
-  {word:"Evidence",phonetic:"/ˈev.ɪ.dəns/",french:"Preuve / Élément de preuve",partOfSpeech:"noun",definition:"Facts, information, or signs that show whether something is true.",example:"You must provide ___ to support every argument in your essay.",blank:"evidence",opts:["opinion","evidence","feeling","title"],ans:1,memory_tip:"'Evident' comes from the same root — something evident is easy to see, like evidence."},
-  {word:"Conclude",phonetic:"/kənˈkluːd/",french:"Conclure",partOfSpeech:"verb",definition:"To decide that something is true after considering all the information.",example:"Based on the data, we can ___ that education reduces poverty.",blank:"conclude",opts:["begin","wonder","conclude","forget"],ans:2,memory_tip:"'Con' + 'clude' (close). To conclude is to close your thinking with a final decision."},
-  {word:"Approach",phonetic:"/əˈprəʊtʃ/",french:"Approche / Méthode",partOfSpeech:"noun/verb",definition:"A way of dealing with a situation or problem; to come near to something.",example:"The teacher used a creative ___ to explain the grammar rule.",blank:"approach",opts:["problem","mistake","approach","question"],ans:2,memory_tip:"Think of 'approach' as getting closer to solving a problem — step by step."},
-  {word:"Fundamental",phonetic:"/ˌfʌn.dəˈmen.təl/",french:"Fondamental / Essentiel",partOfSpeech:"adjective",definition:"Forming the base or foundation; of central importance.",example:"Reading is a ___ skill for all university students.",blank:"fundamental",opts:["optional","fundamental","difficult","rare"],ans:1,memory_tip:"'Fund' = foundation (like a building's base). Fundamental = forming the base of everything."},
-  {word:"Illustrate",phonetic:"/ˈɪl.ə.streɪt/",french:"Illustrer / Démontrer",partOfSpeech:"verb",definition:"To make the meaning of something clearer by using examples or pictures.",example:"This graph will ___ how students' scores improved over time.",blank:"illustrate",opts:["hide","illustrate","remove","question"],ans:1,memory_tip:"'Illustrate' contains 'lustre' (light) — you shed light on an idea with an example."},
-  {word:"Consequence",phonetic:"/ˈkɒn.sɪ.kwəns/",french:"Conséquence",partOfSpeech:"noun",definition:"A result or effect of an action or condition.",example:"Failing to revise regularly is a major ___ of poor time management.",blank:"consequence",opts:["reason","consequence","beginning","title"],ans:1,memory_tip:"'Con' + 'sequence' — things that follow in sequence after an action."},
-  {word:"Emphasise",phonetic:"/ˈem.fə.saɪz/",french:"Souligner / Insister sur",partOfSpeech:"verb",definition:"To show that something is especially important or deserves special attention.",example:"The professor always ___ the importance of proofreading essays.",blank:"emphasise",opts:["ignore","forget","emphasise","remove"],ans:2,memory_tip:"'Em' + 'phase' — to put something in focus, like a camera emphasising one object."},
+const VOCAB_BANK=[
+  {word:"Analyse",phonetic:"/ˈæn.ə.laɪz/",french:"Analyser",partOfSpeech:"verb",definition:"To examine something carefully and in detail in order to understand it fully.",example:"The students must ___ the poem before writing their critical essay.",blank:"analyse",opts:["analyse","ignore","copy","avoid"],ans:0,memory_tip:"Think of 'ana' (apart) + 'lyse' (loosen). To analyse is to break something apart to understand each piece."},
+  {word:"Significant",phonetic:"/sɪɡˈnɪf.ɪ.kənt/",french:"Important / Significatif",partOfSpeech:"adjective",definition:"Important or large enough to have a noticeable effect or to be worth attention.",example:"There has been a ___ improvement in her academic writing since last semester.",blank:"significant",opts:["significant","small","boring","strange"],ans:0,memory_tip:"'Sign' is inside significant — something significant gives a clear sign that it matters."},
+  {word:"Coherent",phonetic:"/kəʊˈhɪə.rənt/",french:"Cohérent / Logique",partOfSpeech:"adjective",definition:"Logical, well-organised, and easy to understand; all parts connecting well together.",example:"A well-written essay must present a ___ argument that flows from beginning to end.",blank:"coherent",opts:["emotional","coherent","confusing","short"],ans:1,memory_tip:"'Co' (together) + 'here' (stick). Coherent ideas stick together in a logical way."},
+  {word:"Evidence",phonetic:"/ˈev.ɪ.dəns/",french:"Preuve / Élément de preuve",partOfSpeech:"noun (uncountable)",definition:"Facts, information, or signs that show whether a claim or belief is true or valid.",example:"Every argument in an academic essay must be supported by reliable ___.",blank:"evidence",opts:["opinion","evidence","feeling","title"],ans:1,memory_tip:"'Evident' comes from the same root — something evident is easy to see, just like evidence makes the truth visible."},
+  {word:"Conclude",phonetic:"/kənˈkluːd/",french:"Conclure",partOfSpeech:"verb",definition:"To decide that something is true after carefully considering all available information.",example:"Based on the research findings, we can ___ that education significantly reduces poverty.",blank:"conclude",opts:["begin","wonder","conclude","forget"],ans:2,memory_tip:"'Con' + 'clude' (close). To conclude is to close your thinking with a final, well-reasoned decision."},
+  {word:"Fundamental",phonetic:"/ˌfʌn.dəˈmen.təl/",french:"Fondamental / Essentiel",partOfSpeech:"adjective",definition:"Forming the necessary base or core of something; of central and essential importance.",example:"Critical thinking is a ___ skill that all university students must develop.",blank:"fundamental",opts:["optional","fundamental","difficult","rare"],ans:1,memory_tip:"'Fund' = foundation (like a building's base). Fundamental = what everything else is built upon."},
+  {word:"Illustrate",phonetic:"/ˈɪl.ə.streɪt/",french:"Illustrer / Démontrer",partOfSpeech:"verb",definition:"To make the meaning of something clearer or more vivid by providing examples, diagrams, or evidence.",example:"This graph will clearly ___ how students' scores have improved over three years.",blank:"illustrate",opts:["hide","illustrate","remove","question"],ans:1,memory_tip:"'Illustrate' contains 'lustre' (light/brightness). You illuminate or shed light on an idea with a clear example."},
+  {word:"Consequence",phonetic:"/ˈkɒn.sɪ.kwəns/",french:"Conséquence / Résultat",partOfSpeech:"noun",definition:"A result or effect of an action, decision, or condition — often an important or negative one.",example:"Poor time management can have serious academic ___s, including failing examinations.",blank:"consequence",opts:["reason","consequence","beginning","title"],ans:1,memory_tip:"'Con' + 'sequence' — consequences follow in sequence after an action, like dominoes falling."},
+  {word:"Emphasise",phonetic:"/ˈem.fə.saɪz/",french:"Souligner / Insister sur",partOfSpeech:"verb",definition:"To show that something is especially important or deserves particular attention.",example:"The professor always ___ the importance of proofreading before submitting any assignment.",blank:"emphasise",opts:["ignore","forget","emphasise","remove"],ans:2,memory_tip:"'Em' + 'phase' — to put something in sharp focus, like a camera emphasising one subject over others."},
+  {word:"Approach",phonetic:"/əˈprəʊtʃ/",french:"Approche / Méthode",partOfSpeech:"noun / verb",definition:"A way of dealing with a situation or problem; to come near to something physically or conceptually.",example:"The researcher used a qualitative ___ to study students' writing habits.",blank:"approach",opts:["problem","mistake","approach","question"],ans:2,memory_tip:"Think of 'approach' as stepping closer to a solution — you get nearer to it step by step."},
+  {word:"Relevant",phonetic:"/ˈrel.ɪ.vənt/",french:"Pertinent / Approprié",partOfSpeech:"adjective",definition:"Closely connected or appropriate to the subject or matter being discussed.",example:"Make sure all the evidence you include in your essay is ___ to your main argument.",blank:"relevant",opts:["relevant","old","boring","random"],ans:0,memory_tip:"'Relevant' shares a root with 'relate'. Relevant information relates directly to your topic."},
+  {word:"Justify",phonetic:"/ˈdʒʌs.tɪ.faɪ/",french:"Justifier",partOfSpeech:"verb",definition:"To show or prove that a decision, action, or statement is reasonable and has good reason.",example:"You must ___ every claim you make in an academic essay with reliable evidence.",blank:"justify",opts:["hide","justify","ignore","repeat"],ans:1,memory_tip:"'Just' = fair/right. To justify means to show that something is fair, right, or well-reasoned."},
 ];
 
-const READING_BANK = [
-  {title:"Education and Development in Africa",topic:"Education · Development",passage:"Education is widely recognised as one of the most powerful tools for development in Africa. Countries that invest in schools and universities tend to experience stronger economic growth and lower poverty rates. In Côte d'Ivoire, the government has increased spending on education significantly over the past decade. However, challenges remain, including a lack of qualified teachers in rural areas and limited access to technology. Students who complete secondary education are three times more likely to find formal employment than those who drop out. Experts argue that improving the quality of education, not just access to it, must be the priority for the next generation of African leaders.",glossary:[{word:"recognised",definition:"accepted or acknowledged by people generally"},{word:"investment",definition:"spending money or time to get a future benefit"},{word:"challenges",definition:"difficult problems that require effort to solve"}],questions:[{q:"What does the passage say about countries that invest in education?",opts:["They face more problems","They experience stronger economic growth","They have fewer schools","They spend less on health"],ans:1},{q:"What challenge is mentioned regarding teachers?",opts:["Too many teachers","Lack of qualified teachers in rural areas","Teachers earn too much","Teachers don't speak English"],ans:1},{q:"How much more likely are secondary school graduates to find work?",opts:["Twice as likely","Four times as likely","Three times as likely","Five times as likely"],ans:2}]},
-  {title:"The Power of Reading",topic:"Literacy · Academic Skills",passage:"Reading is one of the most important habits a university student can develop. Research consistently shows that students who read widely outside of their coursework perform better in examinations and produce higher quality essays. Reading expands vocabulary, improves comprehension, and sharpens critical thinking skills. In many African universities, however, access to books remains limited. Digital libraries and mobile reading applications are beginning to change this situation. A student who reads for just thirty minutes each day can improve their academic performance significantly within a single semester. The habit of reading is not a luxury — it is a necessity for academic success.",glossary:[{word:"consistently",definition:"always happening in the same way"},{word:"comprehension",definition:"the ability to understand something"},{word:"luxury",definition:"something pleasant but not absolutely necessary"}],questions:[{q:"What benefit of reading is NOT mentioned in the passage?",opts:["Expanding vocabulary","Improving comprehension","Learning to speak faster","Sharpening critical thinking"],ans:2},{q:"How long should a student read each day according to the passage?",opts:["One hour","Thirty minutes","Two hours","Fifteen minutes"],ans:1},{q:"What does the author say about reading?",opts:["It is a luxury","It is not important","It is a necessity for academic success","It is only for weak students"],ans:2}]},
-  {title:"Chinua Achebe and African Literature",topic:"African Literature · Culture",passage:"Chinua Achebe is considered one of the greatest African writers of the twentieth century. His novel Things Fall Apart, published in 1958, tells the story of Okonkwo, a proud Igbo warrior whose life is torn apart by the arrival of European colonisers. The novel was groundbreaking because it presented African culture from an African perspective, challenging the negative portrayals found in European literature of the time. Achebe wrote in English but incorporated Igbo proverbs and storytelling traditions, creating a unique literary style. The novel has been translated into over fifty languages and is studied in schools and universities around the world. Achebe believed that literature had the power to change how people see themselves and others.",glossary:[{word:"groundbreaking",definition:"new and very important; doing something that has never been done before"},{word:"perspective",definition:"a particular way of thinking about something"},{word:"incorporated",definition:"included something as part of a larger whole"}],questions:[{q:"When was Things Fall Apart published?",opts:["1945","1958","1962","1970"],ans:1},{q:"Why was the novel considered groundbreaking?",opts:["It was the first African novel","It presented African culture from an African perspective","It was written in Igbo","It was very long"],ans:1},{q:"Into how many languages has the novel been translated?",opts:["Over 20","Over 30","Over 40","Over 50"],ans:3}]},
+const READING_BANK=[
+  {title:"Education and Development in Africa",topic:"Education · Development",passage:`Education is widely recognised as one of the most powerful tools for sustainable development in Africa. Countries that invest seriously in schools and universities tend to experience stronger economic growth, lower poverty rates, and more stable governments. In Côte d'Ivoire, the government has significantly increased spending on education over the past decade, resulting in higher enrolment rates at both primary and secondary levels.
+
+However, significant challenges remain. A shortage of qualified teachers in rural areas, limited access to technology, and inadequate school infrastructure continue to hinder progress. Many students in remote regions must walk several kilometres each day simply to attend school.
+
+Despite these obstacles, research consistently shows the transformative power of education. Students who complete secondary school are three times more likely to find formal employment than those who drop out. Experts argue that improving the quality of education — not merely access to it — must be the central priority for Africa's next generation of leaders and policymakers.`,glossary:[{word:"sustainable",definition:"able to continue over a long period without causing damage"},{word:"enrolment",definition:"the process of officially registering in a school or course"},{word:"infrastructure",definition:"the basic physical structures needed for a society to function, such as roads and buildings"},{word:"transformative",definition:"causing a major positive change"},{word:"policymakers",definition:"people in positions of authority who create official rules and plans"}],questions:[{q:"What does the passage say about countries that invest in education?",opts:["They face more economic problems","They experience stronger growth and lower poverty","They have fewer qualified teachers","They spend less on healthcare"],ans:1},{q:"What challenge regarding teachers is mentioned in the passage?",opts:["Too many teachers in cities","Shortage of qualified teachers in rural areas","Teachers are not well paid","Teachers refuse to work in villages"],ans:1},{q:"How much more likely are secondary school graduates to find employment?",opts:["Twice as likely","Four times as likely","Three times as likely","Five times as likely"],ans:2}]},
+  {title:"The Power of Reading",topic:"Literacy · Academic Success",passage:`Reading is arguably the single most important habit that a university student can cultivate. Research consistently demonstrates that students who read widely — both within and beyond their coursework — perform significantly better in examinations and produce higher quality written work. Reading expands vocabulary, sharpens comprehension skills, and develops the kind of critical thinking that academic success demands.
+
+In many African universities, however, access to books and academic journals remains severely limited. Physical libraries are often under-resourced, and the cost of purchasing textbooks places a heavy financial burden on students and their families. Digital libraries and mobile reading applications are beginning to address this situation, but internet access remains unreliable in many areas.
+
+A student who commits to reading for just thirty minutes each day can experience a measurable improvement in their academic performance within a single semester. The habit of reading is not a luxury reserved for those with abundant time — it is a daily discipline and a fundamental necessity for anyone who aspires to academic and professional excellence.`,glossary:[{word:"cultivate",definition:"to develop a skill or habit through regular effort and attention"},{word:"comprehension",definition:"the ability to understand something fully"},{word:"aspires",definition:"has a strong desire to achieve something great"},{word:"discipline",definition:"the ability to control your behaviour and follow a regular practice"},{word:"measurable",definition:"large enough to be noticed and evaluated"}],questions:[{q:"According to the passage, what is the most important habit for a university student?",opts:["Attending all lectures","Reading widely","Taking detailed notes","Joining study groups"],ans:1},{q:"What financial challenge related to reading is mentioned?",opts:["Libraries are too expensive to build","Students cannot afford textbooks","Professors charge for reading lists","Digital books are too costly"],ans:1},{q:"What does the author say about reading for 30 minutes a day?",opts:["It is too little to make a difference","It leads to measurable academic improvement","It is only useful in the first year","It replaces the need to attend lectures"],ans:1}]},
+  {title:"Chinua Achebe and African Literature",topic:"African Literature · Cultural Identity",passage:`Chinua Achebe is widely regarded as the father of modern African literature in English. His landmark novel, Things Fall Apart, published in 1958, tells the story of Okonkwo — a proud and complex Igbo warrior whose life is profoundly disrupted by the arrival of European colonisers in Nigeria. The novel was groundbreaking not only for its compelling narrative but also because it presented African culture, values, and social structures entirely from an African perspective.
+
+Prior to Achebe's work, Africa had largely been portrayed in European literature as a dark, primitive, and voiceless continent. Achebe deliberately set out to challenge and correct this misrepresentation. He wrote in English, the language of the coloniser, but filled his prose with Igbo proverbs, oral traditions, and cultural references, creating a literary style that was entirely his own.
+
+Things Fall Apart has since been translated into more than fifty languages and is studied in schools and universities across the world. Achebe believed deeply that literature had the power to change how individuals and societies understand themselves. He once wrote that a writer must stand on the side of life and of humanity.`,glossary:[{word:"landmark",definition:"something important that marks a significant change or achievement"},{word:"disrupted",definition:"seriously disturbed or interrupted"},{word:"groundbreaking",definition:"new and very important; doing something never done before"},{word:"misrepresentation",definition:"a false or misleading description of something"},{word:"prose",definition:"written language in its ordinary form, not poetry"}],questions:[{q:"Why is Things Fall Apart considered groundbreaking?",opts:["It was the first novel written in Africa","It presented African culture from an African perspective","It was written in the Igbo language","It was the longest African novel ever written"],ans:1},{q:"How did Achebe incorporate African culture into his English writing?",opts:["By refusing to use English grammar","By translating directly from Igbo","By using Igbo proverbs and oral traditions","By writing only about traditional ceremonies"],ans:2},{q:"Into how many languages has Things Fall Apart been translated?",opts:["Over 20","Over 30","Over 40","More than 50"],ans:3}]},
+  {title:"Climate Change and Africa",topic:"Environment · Science",passage:`Climate change poses one of the most serious threats to Africa's development, even though the continent contributes relatively little to global greenhouse gas emissions. Rising temperatures, unpredictable rainfall, and increasingly frequent extreme weather events are already disrupting agriculture, threatening food security, and displacing communities across the continent.
+
+In the Sahel region, which stretches across sub-Saharan Africa from Senegal to Sudan, prolonged droughts have made farming increasingly difficult. Millions of people who depend on rain-fed agriculture for their livelihoods are being forced to migrate to cities, placing enormous pressure on urban infrastructure and services.
+
+At the same time, Africa possesses extraordinary natural resources that could support a green energy transition. The continent receives more solar energy than any other region on Earth, and its vast rivers offer significant hydroelectric potential. Experts argue that with the right investment and political will, Africa could not only adapt to climate change but also become a global leader in renewable energy production.`,glossary:[{word:"emissions",definition:"gases released into the atmosphere, especially those causing climate change"},{word:"livelihoods",definition:"ways of earning money and supporting oneself"},{word:"transition",definition:"a process of changing from one state or system to another"},{word:"hydroelectric",definition:"producing electricity using the power of flowing water"},{word:"renewable",definition:"naturally replenished and not permanently depleted when used"}],questions:[{q:"What does the passage say about Africa's contribution to climate change?",opts:["Africa is the biggest contributor","Africa contributes very little to global emissions","Africa produces no greenhouse gases","Africa is not affected by climate change"],ans:1},{q:"What is happening in the Sahel region according to the passage?",opts:["Farmers are becoming very wealthy","Cities are being abandoned","Droughts are forcing farmers to migrate","New farms are being created"],ans:2},{q:"What natural advantage does Africa have for green energy?",opts:["The most wind energy in the world","The largest coal reserves","More solar energy than any other region","The deepest ocean currents"],ans:2}]},
 ];
 
-const MISTAKES_BANK = [
-  {title:"'Make' vs 'Do'",french_pattern:"Faire une erreur / Faire un devoir",wrong_english:"I did a mistake in my essay.",correct_english:"I made a mistake in my essay.",rule:"Use 'make' for mistakes, decisions, progress, and noise. Use 'do' for homework, exercises, work, and tasks. This is one of the most common errors for French speakers.",extra_examples:[{wrong:"She did a good decision.",right:"She made a good decision."},{wrong:"He is doing progress in English.",right:"He is making progress in English."}]},
-  {title:"'Since' vs 'For'",french_pattern:"J'étudie l'anglais depuis 3 ans.",wrong_english:"I study English since 3 years.",correct_english:"I have been studying English for 3 years.",rule:"'Since' refers to a specific point in time (since 2020, since Monday). 'For' refers to a duration (for 3 years, for two hours). Both require the present perfect tense in English.",extra_examples:[{wrong:"She lives here since 5 years.",right:"She has lived here for 5 years."},{wrong:"I wait for you since 2 hours.",right:"I have been waiting for you for 2 hours."}]},
-  {title:"'Actually' ≠ 'Actuellement'",french_pattern:"Actuellement, je travaille à l'UPGC.",wrong_english:"Actually, I work at UPGC.",correct_english:"Currently, I work at UPGC.",rule:"'Actually' is a false friend! In English, 'actually' means 'in fact' or 'to tell the truth'. For the French 'actuellement' (meaning 'right now' or 'at present'), use 'currently' or 'at the moment'.",extra_examples:[{wrong:"Actually, the situation is difficult.",right:"Currently, the situation is difficult. (if meaning 'at present')"},{wrong:"He is actually studying medicine.",right:"He is currently studying medicine. (if meaning 'at present')"}]},
-  {title:"Double Negatives",french_pattern:"Je n'ai rien dit. / Je ne vais nulle part.",wrong_english:"I didn't say nothing.",correct_english:"I didn't say anything. / I said nothing.",rule:"English does not allow double negatives. You must choose ONE negative form: either use 'not...anything' or use 'nothing' alone. Using both is grammatically incorrect in standard English.",extra_examples:[{wrong:"She doesn't know nobody here.",right:"She doesn't know anybody here."},{wrong:"He never says nothing in class.",right:"He never says anything in class."}]},
-  {title:"'Assist' vs 'Attend'",french_pattern:"J'ai assisté au cours ce matin.",wrong_english:"I assisted the lecture this morning.",correct_english:"I attended the lecture this morning.",rule:"'Assist' means to help someone (assister quelqu'un). 'Attend' means to be present at an event (assister à un événement). This is a classic false friend that confuses French speakers.",extra_examples:[{wrong:"She assisted the wedding last Sunday.",right:"She attended the wedding last Sunday."},{wrong:"Did you assist the meeting?",right:"Did you attend the meeting?"}]},
-  {title:"Overusing 'Very'",french_pattern:"Très important / Très bien / Très grand",wrong_english:"This essay is very very important for our life.",correct_english:"This essay is crucial for our lives.",rule:"In academic writing, avoid repeating 'very'. Instead, use stronger, more precise vocabulary. This makes your writing sound more professional and sophisticated.",extra_examples:[{wrong:"The results were very bad.",right:"The results were terrible / poor / disappointing."},{wrong:"She is very good at writing.",right:"She is excellent at writing."}]},
-  {title:"Plural of Uncountable Nouns",french_pattern:"Des informations / Des conseils / Des bagages",wrong_english:"She gave me some informations and advices.",correct_english:"She gave me some information and advice.",rule:"'Information', 'advice', 'furniture', 'equipment', 'baggage', and 'news' are uncountable in English. They never take a plural -s and cannot be used with 'a/an'.",extra_examples:[{wrong:"I need some furnitures for my room.",right:"I need some furniture for my room."},{wrong:"The news are very bad today.",right:"The news is very bad today."}]},
+const MISTAKES_BANK=[
+  {title:"'Make' vs 'Do'",french_pattern:"Faire une erreur / Faire ses devoirs / Faire un effort",wrong_english:"I did a mistake in my essay and I must do an effort to improve.",correct_english:"I made a mistake in my essay and I must make an effort to improve.",rule:"Use MAKE for: mistakes, decisions, progress, noise, suggestions, an effort, a difference, friends. Use DO for: homework, exercises, work, research, a course, one's best, a favour. There is no simple rule — these are fixed collocations that must be memorised.",extra_examples:[{wrong:"She did a good decision to study English.",right:"She made a good decision to study English."},{wrong:"He is doing progress in his writing.",right:"He is making progress in his writing."},{wrong:"Can you make this exercise for me?",right:"Can you do this exercise for me?"}]},
+  {title:"'Since' vs 'For'",french_pattern:"J'étudie l'anglais depuis 3 ans / depuis 2021",wrong_english:"I study English since 3 years and I am at UPGC since 2022.",correct_english:"I have been studying English for 3 years and I have been at UPGC since 2022.",rule:"'Since' refers to a specific point in time (since 2021, since Monday, since I was a child). 'For' refers to a duration — a period of time (for 3 years, for two months, for a long time). Both expressions require the present perfect tense in English, NOT the present simple.",extra_examples:[{wrong:"She lives here since 5 years.",right:"She has lived here for 5 years."},{wrong:"I wait for you since 2 o'clock.",right:"I have been waiting for you since 2 o'clock."},{wrong:"He works at this school since a long time.",right:"He has worked at this school for a long time."}]},
+  {title:"'Actually' ≠ 'Actuellement'",french_pattern:"Actuellement, je travaille à l'UPGC / il étudie actuellement",wrong_english:"Actually, I am a student at UPGC. Actually, I am studying for my exams.",correct_english:"Currently, I am a student at UPGC. At the moment, I am studying for my exams.",rule:"'Actually' is a very common false friend for French speakers. In English, 'actually' does NOT mean 'at this present time'. It means 'in fact', 'in reality', or 'to tell the truth'. For the French meaning of 'actuellement', always use 'currently', 'at present', 'at the moment', or 'right now'.",extra_examples:[{wrong:"Actually, the economy is growing fast.",right:"Currently, the economy is growing fast. (meaning 'at present')"},{wrong:"He actually studies medicine.",right:"He is currently studying medicine. (meaning 'right now')"},{wrong:"Actually, she lives in Abidjan.",right:"She actually lives in Abidjan. (meaning 'in fact, surprisingly')"}]},
+  {title:"Double Negatives",french_pattern:"Je n'ai rien dit / Je ne vais nulle part / Je ne connais personne",wrong_english:"I didn't say nothing. I don't know nobody here. I never go nowhere.",correct_english:"I didn't say anything. I don't know anybody here. I never go anywhere.",rule:"Standard English does NOT allow double negatives. When you use 'not' or 'didn't' in a sentence, you must use positive words like 'anything', 'anybody', 'anywhere', 'ever'. Alternatively, you can use 'nothing', 'nobody', 'nowhere' WITHOUT 'not'. Two negatives cancel each other out in English logic.",extra_examples:[{wrong:"She doesn't know nothing about grammar.",right:"She doesn't know anything about grammar. / She knows nothing about grammar."},{wrong:"He never tells nobody his problems.",right:"He never tells anybody his problems."},{wrong:"I can't find it nowhere.",right:"I can't find it anywhere. / I can find it nowhere."}]},
+  {title:"'Assist' vs 'Attend'",french_pattern:"J'ai assisté au cours / J'ai assisté à la conférence",wrong_english:"I assisted the lecture this morning. Did you assist the meeting yesterday?",correct_english:"I attended the lecture this morning. Did you attend the meeting yesterday?",rule:"'Assist' in English means to help or support someone (aider quelqu'un). 'Attend' means to be present at an event, meeting, or class (assister à quelque chose). This is one of the most common false friends for French speakers in academic and professional contexts.",extra_examples:[{wrong:"She assisted the wedding ceremony last Saturday.",right:"She attended the wedding ceremony last Saturday."},{wrong:"All students must assist the orientation day.",right:"All students must attend the orientation day."},{wrong:"He assisted me with my homework. ✅ (This one is correct — 'assist' = help)",right:"He assisted me with my homework. ✅"}]},
+  {title:"Plural of Uncountable Nouns",french_pattern:"Des informations importantes / Des conseils utiles / Des bagages lourds",wrong_english:"She gave me some useful informations and good advices for my essay.",correct_english:"She gave me some useful information and good advice for my essay.",rule:"Several nouns that are countable in French are UNCOUNTABLE in English — they have no plural form and cannot be used with 'a/an'. The most important ones are: information, advice, furniture, equipment, luggage/baggage, news, research, knowledge, progress, evidence, feedback.",extra_examples:[{wrong:"The news are very bad today.",right:"The news is very bad today."},{wrong:"I need some furnitures for my new room.",right:"I need some furniture for my new room."},{wrong:"Can you give me some advices?",right:"Can you give me some advice?"}]},
+  {title:"Verb Tense: Present for Future Plans",french_pattern:"Le cours commence demain / Le match a lieu vendredi",wrong_english:"Tomorrow the lecture begins at 8am. The exam takes place next Monday.",correct_english:"Tomorrow the lecture begins at 8am. ✅ (This is acceptable for fixed schedules.)",rule:"In English, the present simple CAN be used for scheduled future events (timetables, programmes). However, for personal plans and intentions, use 'going to' or 'will'. Example: 'I am going to study tonight' (personal plan). 'The train leaves at 9am' (fixed schedule). French speakers often overuse the present simple for all future events.",extra_examples:[{wrong:"I study tomorrow instead of going out.",right:"I am going to study tomorrow instead of going out."},{wrong:"She travels to Abidjan next week.",right:"She is travelling to Abidjan next week. / She is going to travel to Abidjan next week."},{wrong:"The conference starts at 10. ✅",right:"The conference starts at 10. ✅ (Fixed timetable — correct)"}]},
 ];
 
-const QUIZ_BANK = [
-  [{q:"Which sentence is correct?",opts:["She don't study hard.","She doesn't study hard.","She not study hard.","She studies not hard."],ans:1,exp:"Negative sentences: Subject + doesn't/don't + base verb. 'She doesn't study' is correct."},{q:"What does 'evidence' mean?",opts:["An opinion","A question","Facts that support an argument","A type of essay"],ans:2,exp:"Evidence = facts or information that prove something is true."},{q:"In PEEL writing, 'L' stands for:",opts:["Language","Link","List","Literature"],ans:1,exp:"PEEL = Point, Explanation, Evidence, Link. The Link connects back to the main argument."},{q:"'She gave me some ___.' Which is correct?",opts:["advices","an advice","advice","the advices"],ans:2,exp:"'Advice' is uncountable — no plural, no article 'a/an'. Say 'some advice'."},{q:"'Actually' in English means:",opts:["Currently / At the moment","In fact / To be honest","Actually (same as French)","Often"],ans:1,exp:"'Actually' is a false friend! It means 'in fact', not 'currently'. Use 'currently' for 'actuellement'."}],
-  [{q:"Choose the correct form: 'I ___ here since 2020.'",opts:["live","lived","have lived","am living"],ans:2,exp:"'Since' + a point in time requires present perfect: 'I have lived here since 2020'."},{q:"What does 'coherent' mean?",opts:["Confusing","Logical and well-organised","Emotional","Very long"],ans:1,exp:"Coherent = logical, well-structured, easy to understand. Essential for academic writing."},{q:"Which is correct?",opts:["He made a homework.","He did a mistake.","He made a mistake.","He did a progress."],ans:2,exp:"'Make a mistake' is correct. Use 'make' for mistakes, decisions, noise. Use 'do' for homework, work."},{q:"'The ___ showed that education reduces poverty.' Best word:",opts:["evidence","advices","informations","furniture"],ans:0,exp:"'Evidence' = facts that support a claim. It is uncountable (no plural -s)."},{q:"What is a PEEL paragraph used for?",opts:["Writing a story","Organising an academic argument","Taking notes","Reading a text"],ans:1,exp:"PEEL (Point, Explanation, Evidence, Link) is a structure for writing clear academic paragraphs."}],
-  [{q:"'Despite ___ tired, she continued studying.'",opts:["be","to be","been","being"],ans:3,exp:"After 'despite', always use the gerund (-ing form): 'Despite being tired'."},{q:"What does 'fundamental' mean?",opts:["Optional","Very difficult","Forming the base; essential","Interesting"],ans:2,exp:"Fundamental = forming the foundation; of central importance. 'Reading is a fundamental skill.'"},{q:"Which sentence uses passive voice correctly?",opts:["The essay must submit by Friday.","The essay must be submitted by Friday.","The essay must submitted by Friday.","The essay must be submit by Friday."],ans:1,exp:"Passive voice = must + be + past participle. 'The essay must be submitted'."},{q:"'I assisted the conference yesterday.' What is wrong?",opts:["'I' should be 'We'","'assisted' should be 'attended'","'conference' is wrong","Nothing is wrong"],ans:1,exp:"'Assist' means to help. 'Attend' means to be present at an event. Use 'attended the conference'."},{q:"In reported speech: 'I am studying.' → He said that he ___.",opts:["is studying","was studying","has studied","will study"],ans:1,exp:"Reported speech: present continuous (am studying) → past continuous (was studying)."}],
+const QUIZ_BANK=[
+  [{q:"Which sentence is correct?",opts:["She don't study hard.","She doesn't study hard.","She not study hard.","She studies not hard."],ans:1,exp:"Negative sentences: subject + doesn't/don't + base verb. 'She doesn't study' is the correct form."},{q:"What does 'evidence' mean in academic writing?",opts:["A personal opinion","A question to ask","Facts that support an argument","A type of paragraph"],ans:2,exp:"Evidence = facts, data, or information that prove or support a claim. It is uncountable (no plural -s)."},{q:"In PEEL writing, the letter 'L' stands for:",opts:["Language","Link","List","Literature"],ans:1,exp:"PEEL = Point, Explanation, Evidence, Link. The Link reconnects the argument back to the main topic or question."},{q:"'She gave me some ___.' Which is correct?",opts:["advices","an advice","advice","the advices"],ans:2,exp:"'Advice' is uncountable in English — it has no plural form. Always say 'some advice' or 'a piece of advice'."},{q:"'Actually' in English means:",opts:["Currently / At this moment","In fact / To tell the truth","Truly / Really fast","Often / Sometimes"],ans:1,exp:"'Actually' is a false friend! It means 'in fact' or 'to be honest', NOT 'currently'. Use 'currently' for the French 'actuellement'."}],
+  [{q:"Choose the correct form: 'I ___ here since 2020.'",opts:["live","lived","have lived","am living"],ans:2,exp:"'Since' + point in time requires present perfect: 'I have lived here since 2020'. Present simple is incorrect here."},{q:"What does 'coherent' mean?",opts:["Confusing and disorganised","Logical, well-structured, and clear","Emotional and passionate","Very long and detailed"],ans:1,exp:"Coherent = logical, well-organised, easy to understand. A coherent essay flows logically from beginning to end."},{q:"Which is the correct sentence?",opts:["He made a homework.","He did a mistake in his essay.","He made a mistake in his essay.","He did a progress this semester."],ans:2,exp:"'Make a mistake' is the correct collocation. Use 'make' for mistakes, decisions, progress. Use 'do' for homework, exercises, work."},{q:"What type of noun is 'information'?",opts:["Countable noun","Uncountable noun","Proper noun","Abstract noun only"],ans:1,exp:"'Information' is uncountable — no plural -s, no 'a/an'. Say 'some information' or 'a piece of information', never 'informations'."},{q:"Which sentence correctly uses the passive voice?",opts:["The essay must submit by Friday.","The essay must be submitted by Friday.","The essay must submitted by Friday.","The essay must be submit by Friday."],ans:1,exp:"Passive voice = modal + be + past participle. 'Must be submitted' is correct. The essay receives the action of submitting."}],
+  [{q:"'Despite ___ tired, she continued studying all night.'",opts:["be","to be","been","being"],ans:3,exp:"After 'despite', always use the gerund (-ing form): 'Despite being tired'. 'Despite' is a preposition and must be followed by a noun or gerund."},{q:"What does 'fundamental' mean?",opts:["Optional and unimportant","Very difficult to understand","Forming the essential base; of core importance","Interesting and unusual"],ans:2,exp:"Fundamental = forming the foundation; of central, essential importance. Example: 'Reading is a fundamental academic skill.'"},{q:"'I assisted the conference yesterday.' What is the error?",opts:["'I' should be 'We'","'assisted' should be 'attended'","'conference' is the wrong word","There is no error"],ans:1,exp:"'Assist' means to help someone. 'Attend' means to be present at an event. Always say 'attended the conference'."},{q:"In reported speech: 'I am preparing my essay.' → She said that she ___ her essay.",opts:["is preparing","was preparing","has prepared","prepares"],ans:1,exp:"Reported speech backshift: present continuous (am preparing) → past continuous (was preparing). This is mandatory in formal reported speech."},{q:"Which word is the correct academic synonym for 'show'?",opts:["Demonstrate","Tell","Say","Speak"],ans:0,exp:"'Demonstrate' is the academic equivalent of 'show'. Other strong academic verbs: illustrate, indicate, reveal, suggest, argue, contend."}],
+  [{q:"Choose the correct sentence about a future plan:",opts:["I study tonight instead of watching TV.","I am going to study tonight instead of watching TV.","I will to study tonight.","I studying tonight."],ans:1,exp:"For personal future plans, use 'going to' + base verb. Present simple is only used for fixed schedules like timetables."},{q:"What does 'relevant' mean?",opts:["Very important and impressive","Closely connected and appropriate to the topic","Old and out of date","Difficult to understand"],ans:1,exp:"Relevant = directly connected to and appropriate for the subject being discussed. In essays, all evidence must be relevant to your argument."},{q:"Which sentence correctly uses 'since' and 'for'?",opts:["I have studied here since two years.","I have studied here for 2019.","I have studied here for two years.","I study here since two years."],ans:2,exp:"'For' + duration (two years, six months). 'Since' + point in time (since 2019, since Monday). Both require present perfect tense."},{q:"'She ___ her assignment before the deadline.' Best option:",opts:["submits","submitted","had submitted","submitting"],ans:1,exp:"Past simple (submitted) is used for a completed action at a specific past time. 'Before the deadline' tells us it happened in the past."},{q:"What is the purpose of the 'Evidence' section in a PEEL paragraph?",opts:["To restate the main point","To provide facts or examples that prove your argument","To conclude the essay","To introduce a new topic"],ans:1,exp:"Evidence in PEEL provides concrete proof for your argument — statistics, quotes, examples, or research findings that make your point credible."}],
 ];
 
-const PEEL_TOPICS = [
-  {title:"Technology in Education",prompt:"Should technology be used more in African universities?",guidance:{point:"State your position clearly in 1-2 sentences.",explanation:"Explain WHY technology would help (or not) — give 2 reasons.",evidence:"Include a statistic, fact, or reference to support your point.",link:"Connect back to the main question about African universities."},example:{point:"Technology should be integrated more widely into African universities because it improves access to quality education.",explanation:"With smartphones and the internet, students can access academic resources, research papers, and online courses that are unavailable in local libraries. This levels the playing field between students in urban and rural areas.",evidence:"According to UNESCO (2022), students who use digital learning tools score 35% higher on average in standardised assessments.",link:"Therefore, increasing the use of technology in African universities would directly improve educational outcomes and prepare students for a globalised workforce."}},
-  {title:"Gender Equality in Education",prompt:"Boys and girls should have equal access to education.",guidance:{point:"State whether you agree or disagree with this statement.",explanation:"Give 2-3 reasons to support your position.",evidence:"Use a statistic or real-world example as proof.",link:"Connect your argument back to national or African development."},example:{point:"Boys and girls must have equal access to education to ensure the full development of African societies.",explanation:"When girls are denied education, communities lose half of their potential talent and productivity. Educated women contribute to healthier families, stronger economies, and more stable communities.",evidence:"The World Bank (2021) reports that every additional year a girl spends in school can increase her future earnings by up to 10%.",link:"For these reasons, gender equality in education is not just a moral obligation — it is an economic necessity for Africa's future."}},
-  {title:"Social Media and Students",prompt:"Social media does more harm than good to university students.",guidance:{point:"State your view on social media's impact on students.",explanation:"Explain the main ways social media affects student life — positive or negative.",evidence:"Support your argument with data or a specific example.",link:"Return to the question: does the harm outweigh the benefit?"},example:{point:"Social media causes more harm than good for the majority of university students.",explanation:"Students spend an average of three to four hours daily on platforms like TikTok and Instagram, significantly reducing time available for studying, reading, and sleeping. This distraction directly affects academic performance and mental health.",evidence:"A Harvard University study (2020) found that students who spent more than three hours daily on social media had a 20% lower GPA than those who limited their usage.",link:"While social media has some benefits, its negative impact on focus and academic performance means that students must develop strict digital discipline."}},
-  {title:"Importance of English in Côte d'Ivoire",prompt:"English is an essential skill for Ivorian university students.",guidance:{point:"State why English is (or is not) essential for Ivorian students.",explanation:"Give specific reasons related to careers, education, or global communication.",evidence:"Include a fact or statistic about English in the African context.",link:"Connect to what students should do as a result."},example:{point:"Mastering English is essential for Ivorian students who wish to succeed in today's interconnected world.",explanation:"English is the dominant language of international business, scientific research, and global communication. Students who speak English fluently have access to a vastly wider range of opportunities, scholarships, and career paths than those who do not.",evidence:"The African Development Bank reports that English proficiency can increase an African graduate's starting salary by up to 25% compared to monolingual peers.",link:"Given these advantages, Ivorian students should treat English not as a foreign language requirement, but as a critical investment in their professional future."}},
+const PEEL_TOPICS=[
+  {title:"Technology in Education",prompt:"Should technology be used more widely in African universities?",guidance:{point:"State your main position clearly and directly in 1-2 sentences. Avoid vague openings.",explanation:"Explain WHY technology would help (or harm) — give at least 2 specific, well-developed reasons.",evidence:"Include a specific statistic, research finding, or real example. Name your source if possible.",link:"Connect your argument back to the original question about African universities specifically."},example:{point:"Technology should be integrated more widely into African universities because it significantly improves both access to knowledge and the quality of learning.",explanation:"With smartphones, laptops, and reliable internet connections, students can access thousands of academic journals, textbooks, and online courses that are entirely unavailable in most African university libraries. Furthermore, digital tools such as educational apps and video lectures allow students to learn at their own pace, reinforcing content that is difficult to grasp in a single classroom session.",evidence:"According to a UNESCO report published in 2022, students who regularly use digital learning tools score on average 35% higher on standardised assessments than those who rely solely on traditional teaching methods.",link:"Given this evidence, increasing technological integration in African universities is not merely a matter of modernisation — it is an urgent educational priority that would directly improve academic outcomes and better prepare graduates for an increasingly digital global economy."}},
+  {title:"Gender Equality in Education",prompt:"Boys and girls should have equal access to education.",guidance:{point:"State whether you agree or disagree clearly. Do not sit on the fence.",explanation:"Give 2-3 well-developed reasons that go beyond the obvious. Think about economic, social, and cultural arguments.",evidence:"Include a specific statistic or real-world example. Avoid general statements without proof.",link:"Connect your conclusion to national development, African progress, or global equality."},example:{point:"Boys and girls must have completely equal access to education if African nations are to achieve their full economic and social potential.",explanation:"When girls are systematically denied education, entire communities lose half of their intellectual potential. Educated women are statistically more likely to invest in their children's health and schooling, creating a positive generational cycle of development. Moreover, gender equality in education reduces harmful social practices, promotes civic participation, and strengthens democracy.",evidence:"The World Bank reported in 2021 that every additional year a girl spends in formal education can increase her future earnings by up to 10%, with cumulative effects that dramatically raise household and national income.",link:"For these reasons, gender equality in education is not simply a question of moral fairness — it is a strategic economic investment whose returns benefit entire communities, nations, and the African continent as a whole."}},
+  {title:"Social Media and Students",prompt:"Social media does more harm than good to university students.",guidance:{point:"Take a clear position. Do not try to argue both sides equally in a single PEEL paragraph.",explanation:"Focus on 2-3 specific, concrete ways social media affects student life. Use precise language.",evidence:"Use a specific study, statistic, or well-known example. Avoid saying 'studies show' without details.",link:"Return directly to the question. Does the harm outweigh any benefit for university students specifically?"},example:{point:"For the majority of university students, social media causes significantly more harm than good, particularly in terms of academic performance and mental health.",explanation:"Students who spend excessive time on platforms such as TikTok, Instagram, and Facebook frequently report difficulty concentrating during lectures and study sessions, as the constant stimulation of social media trains the brain to expect rapid, fragmented information. This directly undermines the deep, sustained focus that academic reading and essay writing require. Additionally, the culture of comparison promoted by social media platforms has been linked to rising rates of anxiety and low self-esteem among university students.",evidence:"A longitudinal study conducted by researchers at Harvard University in 2020 found that students who spent more than three hours daily on social media had a grade point average (GPA) that was 20% lower than those who limited their usage to under one hour per day.",link:"While social media does offer some benefits for networking and information sharing, the weight of evidence suggests that its negative impact on concentration, mental health, and academic performance makes it far more harmful than helpful for university students who wish to succeed."}},
+  {title:"English in Côte d'Ivoire",prompt:"English is an essential skill for Ivorian university students today.",guidance:{point:"State clearly why English is (or is not) essential for Ivorian students in the current context.",explanation:"Think about career opportunities, international education, research access, and global communication.",evidence:"Use a fact, statistic, or real example related to English in Africa or Côte d'Ivoire.",link:"Connect to what Ivorian students should do as a practical result of your argument."},example:{point:"Mastering English has become an essential skill for Ivorian university students who wish to compete successfully in today's globalised professional and academic environment.",explanation:"English is the dominant language of international business, scientific research, and global communication, meaning that graduates who are not proficient in English are immediately at a competitive disadvantage when applying for international scholarships, multinational company positions, or postgraduate programmes abroad. Furthermore, the vast majority of the world's most important academic journals, textbooks, and research databases are published exclusively in English, making strong reading and writing skills in English indispensable for any serious university student.",evidence:"The African Development Bank has estimated that English language proficiency can increase an African graduate's starting salary by as much as 25% compared to monolingual French-speaking peers applying for the same positions.",link:"For these compelling reasons, Ivorian students should treat the development of their English writing and communication skills not as an optional extra, but as one of the most strategic and rewarding investments they can make in their academic and professional futures."}},
 ];
 
-/* ═══════════════════════════════════
-   PLACEMENT TEST
-═══════════════════════════════════ */
-const PLACEMENT = [
+/* ══════ PLACEMENT TEST ══════ */
+const PLACEMENT=[
   {section:"Grammar",q:"Choose the correct form: 'She ___ to school every day.'",opts:["go","goes","going","gone"],ans:1},
   {section:"Grammar",q:"Identify the error: 'The informations are on the table.'",opts:["The","informations","are","table"],ans:1},
   {section:"Grammar",q:"'If I ___ rich, I would travel the world.'",opts:["am","was","were","be"],ans:2},
   {section:"Grammar",q:"Choose the correct sentence:",opts:["She don't like coffee.","She doesn't likes coffee.","She doesn't like coffee.","She not like coffee."],ans:2},
   {section:"Grammar",q:"'Despite ___ tired, he finished the essay.'",opts:["be","being","been","to be"],ans:1},
-  {section:"Vocabulary",q:"What does 'analyse' mean?",opts:["To ignore","To study carefully","To write quickly","To memorise"],ans:1},
+  {section:"Vocabulary",q:"What does 'analyse' mean?",opts:["To ignore","To study carefully in detail","To write quickly","To memorise"],ans:1},
   {section:"Vocabulary",q:"'Her essay was well-organised — it was very ___.'",opts:["confusing","coherent","boring","long"],ans:1},
   {section:"Vocabulary",q:"'Evidence' in academic writing means:",opts:["A feeling","A guess","Facts that support an argument","A question"],ans:2},
   {section:"Vocabulary",q:"Which word is a FALSE FRIEND for French speakers?",opts:["Book","Actually","Table","School"],ans:1},
   {section:"Vocabulary",q:"'The study requires ___ data, not just opinions.'",opts:["emotional","empirical","fictional","random"],ans:1},
-  {section:"Reading",q:"'Okonkwo worked hard to overcome his father's failures.' — Why?",opts:["To become rich","To travel","To overcome his father's failures","To win a prize"],ans:2},
-  {section:"Reading",q:"'Education was the light.' — Literary device?",opts:["Simile","Metaphor","Rhyme","Alliteration"],ans:1},
-  {section:"Reading",q:"'Jaja's face was expressionless, but his hand shook.' — This suggests:",opts:["He was happy","He was calm","He was hiding emotions","He was cold"],ans:2},
+  {section:"Reading",q:"'Okonkwo worked hard to overcome his father's failures.' — Why did he work hard?",opts:["To become rich","To travel abroad","To overcome his father's failures","To win a wrestling prize"],ans:2},
+  {section:"Reading",q:"'Education was the light that would lead Njoroge out of poverty.' — Literary device?",opts:["Simile","Metaphor","Rhyme","Alliteration"],ans:1},
+  {section:"Reading",q:"'Jaja's face was expressionless, but his hand shook slightly.' — What does this suggest?",opts:["He was happy","He was calm","He was hiding strong emotions","He was cold"],ans:2},
   {section:"Reading",q:"In academic texts, a 'glossary' is:",opts:["A list of questions","A list of word definitions","A summary","A bibliography"],ans:1},
-  {section:"Reading",q:"'The researcher concluded that technology improves learning.' — 'Concluded' means:",opts:["Started","Wondered","Reached a final decision","Forgot"],ans:2},
+  {section:"Reading",q:"'The researcher concluded that technology improves learning.' — 'Concluded' means:",opts:["Started an argument","Wondered about something","Reached a final decision","Forgot the main point"],ans:2},
 ];
 
 function PlacementTest({onDone}) {
@@ -143,7 +160,6 @@ function PlacementTest({onDone}) {
       onDone({level:total>=11?"Advanced":total>=6?"Intermediate":"Beginner",scores:fs,total});
     }
   };
-
   return (
     <div style={{minHeight:"100vh",background:"#f0f7f4",display:"flex",flexDirection:"column",alignItems:"center",padding:20,fontFamily:"'Segoe UI',sans-serif"}}>
       <div style={{width:"100%",maxWidth:440}}>
@@ -193,7 +209,7 @@ function PlacementTest({onDone}) {
 
 function LevelResult({result,onContinue}) {
   const icons={Beginner:"🌱",Intermediate:"🌿",Advanced:"🌳"};
-  const descs={Beginner:"Your content will focus on basic grammar, essential vocabulary, and simple reading.",Intermediate:"Your content will challenge you with more complex grammar and academic vocabulary.",Advanced:"Your content will push your academic writing and critical reading skills."};
+  const descs={Beginner:"Your content will focus on essential grammar, core vocabulary, and accessible reading passages.",Intermediate:"Your content will challenge you with more complex grammar, academic vocabulary, and analytical reading.",Advanced:"Your content will develop your academic writing, sophisticated vocabulary, and critical reading skills."};
   return (
     <div style={{minHeight:"100vh",background:"#f0f7f4",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',sans-serif"}}>
       <div style={{width:"100%",maxWidth:440}}>
@@ -229,9 +245,7 @@ function LevelResult({result,onContinue}) {
   );
 }
 
-/* ═══════════════════════════════════
-   AUTH
-═══════════════════════════════════ */
+/* ══════ AUTH ══════ */
 function Landing({go}) {
   return (
     <div style={{minHeight:"100vh",background:`linear-gradient(160deg,${DK} 0%,${G} 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:28,color:"#fff",textAlign:"center",fontFamily:"'Segoe UI',sans-serif"}}>
@@ -308,23 +322,21 @@ function AuthForm({mode,onDone,onSwitch}) {
   );
 }
 
-/* ═══════════════════════════════════
-   MAIN APP
-═══════════════════════════════════ */
+/* ══════ MAIN APP ══════ */
 const MODS=[
-  {id:"grammar",   icon:"✏️",name:"Daily Grammar",    sub:"Random exercise every session",  xp:10,color:"#e3f2fd"},
-  {id:"vocabulary",icon:"🔤",name:"Word of the Day",   sub:"Random word every session",      xp:5, color:"#fff3e0"},
-  {id:"peel",      icon:"📝",name:"Guided Writing",    sub:"PEEL paragraph + AI feedback",   xp:50,color:"#fce4ec"},
-  {id:"reading",   icon:"📖",name:"Reading Room",      sub:"Random passage every session",   xp:20,color:"#f3e5f5"},
-  {id:"mistakes",  icon:"🇫🇷",name:"Common Mistakes",  sub:"Random error lesson every session",xp:10,color:"#e0f2f1"},
-  {id:"quiz",      icon:"🧪",name:"Daily Quiz",        sub:"5 random questions every session",xp:30,color:"#fff8e1"},
+  {id:"grammar",   icon:"✏️",name:"Daily Grammar",    sub:"Random exercise every session",     xp:10,color:"#e3f2fd"},
+  {id:"vocabulary",icon:"🔤",name:"Word of the Day",   sub:"Random word every session",         xp:5, color:"#fff3e0"},
+  {id:"peel",      icon:"📝",name:"Guided Writing",    sub:"PEEL paragraph + AI feedback",      xp:50,color:"#fce4ec"},
+  {id:"reading",   icon:"📖",name:"Reading Room",      sub:"Random passage every session",      xp:20,color:"#f3e5f5"},
+  {id:"mistakes",  icon:"🇫🇷",name:"Common Mistakes",  sub:"Random error lesson every session", xp:10,color:"#e0f2f1"},
+  {id:"quiz",      icon:"🧪",name:"Daily Quiz",        sub:"5 random questions every session",  xp:30,color:"#fff8e1"},
 ];
 
 const BADGES_DEF=[
-  {icon:"✍️",name:"First Write",  desc:"Submit your first paragraph"},
+  {icon:"✍️",name:"First Write",  desc:"Submit your first PEEL paragraph"},
   {icon:"🔥",name:"Streak 7",     desc:"Log in 7 days in a row"},
   {icon:"📐",name:"Grammar Master",desc:"Complete 30 grammar exercises"},
-  {icon:"📖",name:"Vocab Champion",desc:"Learn 30 words"},
+  {icon:"📖",name:"Vocab Champion",desc:"Learn 30 vocabulary words"},
   {icon:"🍃",name:"PEEL Expert",  desc:"Submit 5 PEEL paragraphs"},
   {icon:"🌍",name:"African Reader",desc:"Complete 10 reading passages"},
 ];
@@ -359,8 +371,11 @@ export default function WriteUpApp() {
     if(user?.id)await sbPatch(`users?id=eq.${user.id}`,{level:result.level,placement_done:true},token);
     setScreen("result");
   };
+
   const addXp=async(n,moduleId)=>{
-    const newXp=xp+n;setXp(newXp);setDoneToday(p=>[...p,moduleId]);
+    const newXp=xp+n;
+    setXp(newXp);
+    setDoneToday(p=>[...p,moduleId]);
     if(user?.id){
       await sbUpsert("daily_progress",{user_id:user.id,date:todayStr(),module:moduleId,completed:true,xp_earned:n},token);
       await sbPatch(`users?id=eq.${user.id}`,{xp:newXp},token);
@@ -397,15 +412,17 @@ export default function WriteUpApp() {
           <div style={{background:lvl.color,color:"#000",borderRadius:8,padding:"3px 9px",fontSize:11,fontWeight:800}}>{lvl.name}</div>
         </div>
       </div>
+
       <div style={{flex:1,overflowY:"auto",paddingBottom:70}}>
         {activeMod
-          ?<ModShell mod={activeMod} level={level} addXp={addXp} onBack={()=>{setActiveMod(null);loadToday(user?.id,token);}} token={token}/>
+          ?<ModShell mod={activeMod} level={level} addXp={addXp} onBack={()=>{setActiveMod(null);loadToday(user?.id,token);}}/>
           :tab==="home"    ?<Home setMod={setActiveMod} xp={xp} lvl={lvl} pct={pct} level={level} doneToday={doneToday}/>
           :tab==="profile" ?<Profile user={user} xp={xp} lvl={lvl} level={level} badges={badges} streak={streak}/>
           :tab==="board"   ?<Board userId={user?.id} myXp={xp} token={token}/>
           :<Settings user={user} onLogout={async()=>{setScreen("landing");setUser(null);setToken(null);}}/>
         }
       </div>
+
       {!activeMod&&(
         <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:440,background:"#fff",borderTop:"1px solid #e8f5e9",display:"flex"}}>
           {[["home","🏠","Home"],["profile","👤","Profile"],["board","🏆","Ranks"],["settings","⚙️","More"]].map(([t,ic,lb])=>(
@@ -461,8 +478,7 @@ function Home({setMod,xp,lvl,pct,level,doneToday}) {
   );
 }
 
-function ModShell({mod,level,addXp,onBack,token}) {
-  const earn=async n=>{await addXp(n,mod.id);};
+function ModShell({mod,level,addXp,onBack}) {
   return (
     <div style={{padding:18}}>
       <button onClick={onBack} style={{background:"none",border:"none",color:G,fontWeight:700,fontSize:15,cursor:"pointer",padding:0,marginBottom:16}}>← Back</button>
@@ -470,18 +486,19 @@ function ModShell({mod,level,addXp,onBack,token}) {
         <div style={{background:mod.color,borderRadius:14,width:52,height:52,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>{mod.icon}</div>
         <div><h2 style={{margin:0,color:DK,fontSize:18}}>{mod.name}</h2><p style={{margin:0,color:"#888",fontSize:12}}>{mod.sub}</p></div>
       </div>
-      {mod.id==="grammar"    &&<GrammarMod    earn={earn} onBack={onBack}/>}
-      {mod.id==="vocabulary" &&<VocabMod      earn={earn} onBack={onBack}/>}
-      {mod.id==="peel"       &&<PeelMod       earn={earn} onBack={onBack} level={level}/>}
-      {mod.id==="reading"    &&<ReadingMod    earn={earn} onBack={onBack}/>}
-      {mod.id==="mistakes"   &&<MistakesMod   earn={earn} onBack={onBack}/>}
-      {mod.id==="quiz"       &&<QuizMod       earn={earn} onBack={onBack}/>}
+      {mod.id==="grammar"    &&<GrammarMod    addXp={addXp} onBack={onBack}/>}
+      {mod.id==="vocabulary" &&<VocabMod      addXp={addXp} onBack={onBack}/>}
+      {mod.id==="peel"       &&<PeelMod       addXp={addXp} onBack={onBack} level={level}/>}
+      {mod.id==="reading"    &&<ReadingMod    addXp={addXp} onBack={onBack}/>}
+      {mod.id==="mistakes"   &&<MistakesMod   addXp={addXp} onBack={onBack}/>}
+      {mod.id==="quiz"       &&<QuizMod       addXp={addXp} onBack={onBack}/>}
     </div>
   );
 }
 
-function DoneScreen({xp,onBack,addXp}) {
-  useEffect(()=>{ if(addXp) addXp(xp); },[]);
+/* ── Done Screen ── */
+function DoneScreen({xp,onBack,earnNow}) {
+  useEffect(()=>{if(earnNow)earnNow();},[]);
   return (
     <div style={{textAlign:"center",padding:48}}>
       <div style={{fontSize:64,marginBottom:12}}>🎉</div>
@@ -494,11 +511,14 @@ function DoneScreen({xp,onBack,addXp}) {
 }
 
 /* ── Grammar ── */
-function GrammarMod({earn,onBack}) {
+function GrammarMod({addXp,onBack}) {
   const [c]=useState(()=>rnd(GRAMMAR_BANK));
-  const [sel,setSel]=useState(null);const [done,setDone]=useState(false);
+  const [sel,setSel]=useState(null);
+  const [done,setDone]=useState(false);
   const confirmed=sel!==null;
-  if(done)return <DoneScreen xp={10} onBack={onBack}/>;
+  const correct=sel===c.ans;
+
+  if(done)return <DoneScreen xp={10} onBack={onBack} earnNow={()=>addXp(10,"grammar")}/>;
   return (
     <div>
       <Card style={{background:LT,marginBottom:14}}>
@@ -508,34 +528,44 @@ function GrammarMod({earn,onBack}) {
       </Card>
       <Card style={{marginBottom:14}}><p style={{fontWeight:600,color:DK,fontSize:15,lineHeight:1.7,margin:0}}>{c.question}</p></Card>
       {c.opts.map((o,oi)=>{
-        const correct=oi===c.ans,picked=oi===sel;
+        const isCorrect=oi===c.ans,isPicked=oi===sel;
         let bg="#fff",border="#e0e0e0";
-        const isWrong = confirmed && picked && !correct;
-        const isCorrectReveal = confirmed && correct && sel === c.ans;
-        if(confirmed){ if(picked&&correct){bg="#e8f5e9";border=G} else if(isWrong){bg="#ffebee";border="#e53935"} }
-        else if(picked){bg=LT;border=G}
-        return <button key={oi} onClick={()=>!confirmed&&setSel(oi)} style={{display:"block",width:"100%",background:bg,border:`2px solid ${border}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:confirmed?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit"}}>
-          {confirmed&&picked&&correct?"✅ ":isWrong?"❌ ":""}{o}
+        if(confirmed){
+          if(isPicked&&isCorrect){bg="#e8f5e9";border=G;}
+          else if(isPicked&&!isCorrect){bg="#ffebee";border="#e53935";}
+          else if(!isPicked&&isCorrect&&!correct){bg="#fff9c4";border="#f9a825";}
+        } else if(isPicked){bg=LT;border=G;}
+        return <button key={oi} onClick={()=>!confirmed&&setSel(oi)} style={{display:"block",width:"100%",background:bg,border:`2px solid ${border}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:confirmed?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit",transition:"all .2s"}}>
+          {confirmed&&isPicked&&isCorrect?"✅ ":confirmed&&isPicked&&!isCorrect?"❌ ":confirmed&&!isPicked&&isCorrect&&!correct?"💡 ":""}{o}
         </button>;
       })}
       {confirmed&&<>
-        {sel===c.ans
-          ?<Card style={{background:"#e8f5e9",marginBottom:10}}><p style={{margin:0,fontSize:13,color:DK,lineHeight:1.7}}>💡 {c.explanation}</p></Card>
-          :<Card style={{background:"#ffebee",marginBottom:10}}><p style={{margin:0,fontSize:13,color:"#c62828",lineHeight:1.7}}>❌ Incorrect. Review the rule and try again next time!</p></Card>
-        }
-        <Card style={{background:"#e3f2fd",marginBottom:14}}><p style={{margin:0,fontSize:13,color:"#1565c0"}}>📐 {c.tip}</p></Card>
-        <Btn full onClick={()=>setDone(true)}>Earn +10 XP →</Btn>
+        <Card style={{background:correct?"#e8f5e9":"#fff3e0",marginBottom:10}}>
+          <p style={{margin:0,fontSize:13,color:correct?DK:"#e65100",lineHeight:1.7}}>
+            {correct?"✅ Correct! ":"⚠️ Not quite. "}{c.explanation}
+          </p>
+        </Card>
+        <Card style={{background:"#e3f2fd",marginBottom:14}}>
+          <p style={{margin:0,fontSize:13,color:"#1565c0"}}>📐 <strong>Rule:</strong> {c.tip}</p>
+        </Card>
+        {correct
+          ?<Btn full onClick={()=>setDone(true)}>Earn +10 XP →</Btn>
+          :<Btn full secondary onClick={onBack}>← Try another exercise</Btn>}
       </>}
     </div>
   );
 }
 
 /* ── Vocabulary ── */
-function VocabMod({earn,onBack}) {
+function VocabMod({addXp,onBack}) {
   const [c]=useState(()=>rnd(VOCAB_BANK));
-  const [phase,setPhase]=useState("learn");const [sel,setSel]=useState(null);const [done,setDone]=useState(false);
+  const [phase,setPhase]=useState("learn");
+  const [sel,setSel]=useState(null);
+  const [done,setDone]=useState(false);
   const confirmed=sel!==null;
-  if(done)return <DoneScreen xp={5} onBack={onBack}/>;
+  const correct=sel===c.ans;
+
+  if(done)return <DoneScreen xp={5} onBack={onBack} earnNow={()=>addXp(5,"vocabulary")}/>;
   if(phase==="learn")return (
     <div>
       <Card style={{borderLeft:`4px solid ${G}`,marginBottom:14}}>
@@ -559,34 +589,37 @@ function VocabMod({earn,onBack}) {
   return (
     <div>
       <Card style={{marginBottom:14}}>
-        <div style={{fontSize:12,color:"#888",marginBottom:6}}>Complete the sentence:</div>
+        <div style={{fontSize:12,color:"#888",marginBottom:6}}>💬 Complete the sentence:</div>
         <p style={{fontWeight:600,color:DK,fontSize:15,lineHeight:1.7}}>{c.example}</p>
       </Card>
       {c.opts.map((o,oi)=>{
-        const correct=oi===c.ans,picked=oi===sel;
+        const isCorrect=oi===c.ans,isPicked=oi===sel;
         let bg="#fff",border="#e0e0e0";
-        if(confirmed){if(correct){bg="#e8f5e9";border=G}else if(picked){bg="#ffebee";border="#e53935"}}
-        else if(picked){bg=LT;border=G}
+        if(confirmed){
+          if(isPicked&&isCorrect){bg="#e8f5e9";border=G;}
+          else if(isPicked&&!isCorrect){bg="#ffebee";border="#e53935";}
+          else if(!isPicked&&isCorrect&&!correct){bg="#fff9c4";border="#f9a825";}
+        } else if(isPicked){bg=LT;border=G;}
         return <button key={oi} onClick={()=>!confirmed&&setSel(oi)} style={{display:"block",width:"100%",background:bg,border:`2px solid ${border}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:confirmed?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit"}}>
-          {confirmed&&correct?"✅ ":confirmed&&picked&&!correct?"❌ ":""}{o}
+          {confirmed&&isPicked&&isCorrect?"✅ ":confirmed&&isPicked&&!isCorrect?"❌ ":confirmed&&!isPicked&&isCorrect&&!correct?"💡 ":""}{o}
         </button>;
       })}
-      {confirmed&&(
-        sel===c.ans
+      {confirmed&&<>
+        <Card style={{background:correct?"#e8f5e9":"#fff3e0",marginBottom:10}}>
+          <p style={{margin:0,fontSize:13,color:correct?DK:"#e65100",lineHeight:1.7}}>
+            {correct?`✅ Correct! "${c.word}" fits perfectly here.`:`⚠️ Not quite. The correct word is "${c.opts[c.ans]}". Review the definition and try again!`}
+          </p>
+        </Card>
+        {correct
           ?<Btn full onClick={()=>setDone(true)}>Earn +5 XP →</Btn>
-          :<>
-            <Card style={{background:"#ffebee",marginBottom:10}}>
-              <p style={{margin:0,fontSize:13,color:"#c62828",lineHeight:1.7}}>❌ Incorrect. The correct answer is: <strong>{c.opts[c.ans]}</strong>. Review the definition and try again!</p>
-            </Card>
-            <Btn full onClick={onBack}>← Try another word</Btn>
-          </>
-      )}
+          :<Btn full secondary onClick={onBack}>← Try another word</Btn>}
+      </>}
     </div>
   );
 }
 
-/* ── PEEL (with AI feedback) ── */
-function PeelMod({earn,onBack,level}) {
+/* ── PEEL ── */
+function PeelMod({addXp,onBack,level}) {
   const [c]=useState(()=>rnd(PEEL_TOPICS));
   const [step,setStep]=useState(0);
   const [vals,setVals]=useState({point:"",explanation:"",evidence:"",link:""});
@@ -614,50 +647,55 @@ Link: ${vals.link}
 
 Write your feedback in clearly labelled sections as follows:
 
-**Overall Impression** (2-3 sentences): Describe the general quality of the paragraph. Is the argument clear? Is the structure logical?
+**Overall Impression** (2-3 sentences): Describe the general quality of the paragraph. Is the argument clear? Is the structure logical? What is the strongest aspect?
 
-**Point**: Evaluate whether the student stated their main argument clearly and directly. If not, explain what is missing and give a corrected or improved version.
+**Point**: Evaluate whether the student stated their main argument clearly and directly. If not, explain specifically what is missing and provide an improved version of their sentence.
 
-**Explanation**: Assess whether the explanation develops the point logically. Point out any vague or repetitive sentences. Suggest a specific improvement with an example.
+**Explanation**: Assess whether the explanation genuinely develops the point with logical reasoning. Identify any vague, repetitive, or off-topic sentences. Suggest a specific improvement with a model example.
 
-**Evidence**: Check whether the evidence is relevant, specific, and properly introduced. If the evidence is weak or missing, suggest the type of evidence that would strengthen the argument (e.g. statistics, quotes, real examples).
+**Evidence**: Check whether the evidence is relevant, specific, and properly introduced into the paragraph. If it is weak, too vague, or missing, suggest the exact type of evidence needed (e.g. a statistic, a named study, a real-world example) and give a model sentence.
 
-**Link**: Evaluate whether the link effectively connects back to the topic. If not, provide a model sentence they can use as a guide.
+**Link**: Evaluate whether the link effectively connects the argument back to the original topic or question. If not, provide a model link sentence the student can adapt.
 
-**Grammar & Vocabulary** (2-3 sentences): Identify 2 specific grammar or vocabulary errors. For each error, write the incorrect version and then the corrected version. Suggest one stronger academic word they could use.
+**Grammar & Vocabulary** (3-4 sentences): Identify 2-3 specific grammar or vocabulary errors. For each error, write: ❌ [incorrect version] → ✅ [corrected version]. Then suggest one stronger academic word or phrase they could use to improve the register of their writing.
 
-**Final Encouragement** (1-2 sentences): End with a warm, specific, and motivating closing remark that acknowledges their effort and progress.
+**Final Encouragement** (2 sentences): End with a warm, specific, and motivating closing remark that acknowledges the student's genuine effort and encourages continued improvement.
 
-Be thorough, specific, and always explain WHY something needs to change. Use simple, clear English that a French-speaking student can understand.`,
+Be thorough, specific, and always explain clearly WHY something needs to change. Write in simple, clear English that a French-speaking student can fully understand.`,
           maxTokens:1200
         })
       });
       const data=await res.json();
-      setFeedback(data.text||"Great effort! Keep practising your PEEL structure.");
-    }catch{setFeedback("Great effort! Your paragraph structure is developing well. Focus on making your evidence more specific and your link more directly connected to the topic. Keep practising — you are making excellent progress!");}
+      setFeedback(data.text||"Great effort! Your paragraph shows real commitment to the PEEL structure. Keep practising!");
+    }catch{setFeedback("Great effort! Your paragraph structure is developing well. Focus on making your evidence more specific by naming a real source or statistic, and ensure your link sentence directly restates the question. Keep practising — consistent effort always leads to improvement!");}
     setAiLoading(false);
   };
 
-  if(done)return <DoneScreen xp={50} onBack={onBack}/>;
+  if(done)return <DoneScreen xp={50} onBack={onBack} earnNow={()=>addXp(50,"peel")}/>;
+
   if(feedback)return (
     <div>
       <Card style={{borderLeft:`4px solid ${G}`,marginBottom:14}}>
         <h4 style={{color:G,marginBottom:10}}>🤖 AI Tutor Feedback</h4>
-        <p style={{color:"#444",lineHeight:1.8,fontSize:14}}>{feedback}</p>
+        <div style={{color:"#333",lineHeight:1.9,fontSize:14,whiteSpace:"pre-wrap"}}>{feedback}</div>
       </Card>
       <Card style={{background:"#f9fbe7",marginBottom:14}}>
-        <h5 style={{color:DK,margin:"0 0 8px"}}>📄 Your Paragraph</h5>
-        {keys.map(k=>vals[k]&&<p key={k} style={{fontSize:13,color:"#555",margin:"4px 0",lineHeight:1.6}}><strong style={{color:G}}>{k.charAt(0).toUpperCase()+k.slice(1)}:</strong> {vals[k]}</p>)}
+        <h5 style={{color:DK,margin:"0 0 10px"}}>📄 Your Paragraph</h5>
+        {keys.map(k=>vals[k]&&<div key={k} style={{marginBottom:8}}>
+          <span style={{fontSize:12,fontWeight:700,color:G,textTransform:"uppercase"}}>{k}</span>
+          <p style={{fontSize:13,color:"#444",margin:"2px 0 0",lineHeight:1.7}}>{vals[k]}</p>
+        </div>)}
       </Card>
       <Btn full onClick={()=>setDone(true)}>Earn +50 XP 🎉</Btn>
     </div>
   );
+
   return (
     <div>
       <Card style={{background:LT,marginBottom:14}}>
-        <div style={{fontSize:11,color:"#888"}}>📝 Topic</div>
+        <div style={{fontSize:11,color:"#888"}}>📝 Writing Topic</div>
         <div style={{fontWeight:800,color:DK,fontSize:15,marginTop:2}}>{c.title}</div>
-        <div style={{color:"#555",fontSize:13,marginTop:4}}>{c.prompt}</div>
+        <div style={{color:"#555",fontSize:13,marginTop:4,lineHeight:1.6}}>{c.prompt}</div>
       </Card>
       <div style={{display:"flex",gap:6,marginBottom:14}}>
         {keys.map((k,idx)=>(
@@ -668,12 +706,13 @@ Be thorough, specific, and always explain WHY something needs to change. Use sim
         ))}
       </div>
       <h4 style={{color:G,margin:"0 0 4px"}}>{labels[step]}</h4>
-      <p style={{color:"#777",fontSize:12,marginBottom:6}}>{c.guidance[keys[step]]}</p>
-      <div style={{background:"#f0f7f4",borderRadius:10,padding:10,marginBottom:10,fontSize:12,color:"#555",lineHeight:1.6}}>
-        <strong>Example:</strong> {c.example[keys[step]]}
-      </div>
+      <p style={{color:"#777",fontSize:12,marginBottom:8,lineHeight:1.6}}>{c.guidance[keys[step]]}</p>
+      <Card style={{background:"#f0f7f4",marginBottom:12}}>
+        <div style={{fontSize:11,color:"#888",marginBottom:4}}>📋 Model Example:</div>
+        <p style={{fontSize:13,color:"#444",margin:0,lineHeight:1.7,fontStyle:"italic"}}>{c.example[keys[step]]}</p>
+      </Card>
       <textarea value={vals[keys[step]]} onChange={e=>setVals(p=>({...p,[keys[step]]:e.target.value}))}
-        placeholder={`Write your ${keys[step]}…`} rows={4}
+        placeholder={`Write your ${keys[step]} here…`} rows={5}
         style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${G}`,borderRadius:12,padding:12,fontSize:14,resize:"vertical",outline:"none",fontFamily:"inherit"}}/>
       <Btn full disabled={!vals[keys[step]]||aiLoading} onClick={()=>{if(step<3)setStep(s=>s+1);else getAI();}}>
         {aiLoading?"Getting AI Feedback…":step<3?`Next: ${labels[step+1]} →`:"🤖 Get AI Feedback"}
@@ -683,48 +722,56 @@ Be thorough, specific, and always explain WHY something needs to change. Use sim
 }
 
 /* ── Reading ── */
-function ReadingMod({earn,onBack}) {
+function ReadingMod({addXp,onBack}) {
   const [c]=useState(()=>rnd(READING_BANK));
   const [phase,setPhase]=useState("read");
   const [ans,setAns]=useState([null,null,null]);
   const [checked,setChecked]=useState(false);
   const [done,setDone]=useState(false);
-  if(done)return <DoneScreen xp={20} onBack={onBack}/>;
+  if(done)return <DoneScreen xp={20} onBack={onBack} earnNow={()=>addXp(20,"reading")}/>;
   const score=ans.filter((a,i)=>a===c.questions[i]?.ans).length;
   if(phase==="read")return (
     <div>
       <Card style={{marginBottom:14}}>
         <div style={{fontSize:11,color:"#888",marginBottom:4}}>📖 {c.topic}</div>
         <h3 style={{color:G,margin:"0 0 12px"}}>{c.title}</h3>
-        <p style={{lineHeight:1.9,fontSize:14,color:"#333"}}>{c.passage}</p>
+        {c.passage.split("\n\n").map((p,i)=><p key={i} style={{lineHeight:1.9,fontSize:14,color:"#333",marginBottom:12}}>{p}</p>)}
       </Card>
       <Card style={{background:"#fff8e1",marginBottom:14}}>
-        <div style={{fontWeight:700,color:"#e65100",marginBottom:8,fontSize:13}}>📖 Glossary</div>
-        {c.glossary.map(g=><div key={g.word} style={{display:"flex",gap:8,marginBottom:6,fontSize:13}}><strong style={{color:DK,minWidth:100}}>{g.word}</strong><span style={{color:"#555"}}>{g.definition}</span></div>)}
+        <div style={{fontWeight:700,color:"#e65100",marginBottom:10,fontSize:13}}>📖 Glossary</div>
+        {c.glossary.map(g=><div key={g.word} style={{display:"flex",gap:8,marginBottom:8,fontSize:13}}>
+          <strong style={{color:DK,minWidth:110,flexShrink:0}}>{g.word}</strong>
+          <span style={{color:"#555",lineHeight:1.5}}>{g.definition}</span>
+        </div>)}
       </Card>
       <Btn full onClick={()=>setPhase("quiz")}>Answer Questions →</Btn>
     </div>
   );
   return (
     <div>
+      <h4 style={{color:DK,marginBottom:14}}>📝 Comprehension Questions</h4>
       {c.questions.map((q,qi)=>(
         <Card key={qi} style={{marginBottom:14}}>
-          <p style={{fontWeight:600,color:DK,fontSize:14,marginBottom:10}}>{qi+1}. {q.q}</p>
+          <p style={{fontWeight:600,color:DK,fontSize:14,marginBottom:10,lineHeight:1.6}}>{qi+1}. {q.q}</p>
           {q.opts.map((o,oi)=>{
-            const correct=oi===q.ans,picked=oi===ans[qi];
+            const isCorrect=oi===q.ans,isPicked=oi===ans[qi];
             let bg="#f9f9f9",border="#e0e0e0";
-            if(checked){if(correct){bg="#e8f5e9";border=G}else if(picked){bg="#ffebee";border="#e53935"}}
-            else if(picked){bg=LT;border=G}
+            if(checked){
+              if(isPicked&&isCorrect){bg="#e8f5e9";border=G;}
+              else if(isPicked&&!isCorrect){bg="#ffebee";border="#e53935";}
+              else if(!isPicked&&isCorrect){bg="#fff9c4";border="#f9a825";}
+            } else if(isPicked){bg=LT;border=G;}
             return <button key={oi} onClick={()=>{if(!checked)setAns(a=>{const n=[...a];n[qi]=oi;return n;})}} style={{display:"block",width:"100%",background:bg,border:`1.5px solid ${border}`,borderRadius:10,padding:"10px 14px",marginBottom:8,cursor:checked?"default":"pointer",textAlign:"left",fontSize:13,fontFamily:"inherit"}}>
-              {checked&&correct?"✅ ":checked&&picked&&!correct?"❌ ":""}{o}
+              {checked&&isPicked&&isCorrect?"✅ ":checked&&isPicked&&!isCorrect?"❌ ":checked&&!isPicked&&isCorrect?"💡 ":""}{o}
             </button>;
           })}
         </Card>
       ))}
-      {!checked?<Btn full disabled={ans.includes(null)} onClick={()=>setChecked(true)}>Check Answers</Btn>:
-        <div>
-          <Card style={{background:LT,textAlign:"center",marginBottom:14}}>
-            <strong style={{color:G,fontSize:16}}>{score}/3 correct! {score===3?"🎉":""}</strong>
+      {!checked
+        ?<Btn full disabled={ans.includes(null)} onClick={()=>setChecked(true)}>Check Answers</Btn>
+        :<div>
+          <Card style={{background:score===3?LT:"#fff3e0",textAlign:"center",marginBottom:14}}>
+            <strong style={{color:score===3?G:"#e65100",fontSize:16}}>{score}/3 correct {score===3?"🎉":"— keep reading to improve!"}</strong>
           </Card>
           <Btn full onClick={()=>setDone(true)}>Earn +20 XP</Btn>
         </div>}
@@ -733,36 +780,36 @@ function ReadingMod({earn,onBack}) {
 }
 
 /* ── Mistakes ── */
-function MistakesMod({earn,onBack}) {
+function MistakesMod({addXp,onBack}) {
   const [c]=useState(()=>rnd(MISTAKES_BANK));
   const [done,setDone]=useState(false);
-  if(done)return <DoneScreen xp={10} onBack={onBack}/>;
+  if(done)return <DoneScreen xp={10} onBack={onBack} earnNow={()=>addXp(10,"mistakes")}/>;
   return (
     <div>
       <Card style={{borderLeft:`4px solid #ff9800`,marginBottom:14}}>
         <Tag color="#fff3e0">{c.title}</Tag>
         <div style={{display:"flex",alignItems:"center",gap:8,marginTop:12}}>
           <span style={{fontSize:18}}>🇫🇷</span>
-          <span style={{fontSize:13,color:"#666",fontStyle:"italic"}}>French: <strong>{c.french_pattern}</strong></span>
+          <span style={{fontSize:13,color:"#666",fontStyle:"italic",lineHeight:1.5}}>French pattern: <strong>{c.french_pattern}</strong></span>
         </div>
       </Card>
       <Card style={{background:"#ffebee",marginBottom:10}}>
-        <div style={{fontSize:12,color:"#c62828",fontWeight:700,marginBottom:6}}>❌ Common Error</div>
-        <p style={{color:"#333",fontSize:14,margin:0}}>"{c.wrong_english}"</p>
+        <div style={{fontSize:12,color:"#c62828",fontWeight:700,marginBottom:8}}>❌ Common Error</div>
+        <p style={{color:"#333",fontSize:14,margin:0,fontStyle:"italic"}}>"{c.wrong_english}"</p>
       </Card>
       <Card style={{background:"#e8f5e9",marginBottom:10}}>
-        <div style={{fontSize:12,color:G,fontWeight:700,marginBottom:6}}>✅ Correct English</div>
-        <p style={{color:"#333",fontSize:14,margin:0}}>"{c.correct_english}"</p>
+        <div style={{fontSize:12,color:G,fontWeight:700,marginBottom:8}}>✅ Correct English</div>
+        <p style={{color:"#333",fontSize:14,margin:0,fontStyle:"italic"}}>"{c.correct_english}"</p>
       </Card>
       <Card style={{background:"#e3f2fd",marginBottom:14}}>
-        <div style={{fontSize:12,color:"#1565c0",fontWeight:700,marginBottom:6}}>📐 Rule</div>
-        <p style={{color:"#333",fontSize:13,margin:0,lineHeight:1.7}}>{c.rule}</p>
+        <div style={{fontSize:12,color:"#1565c0",fontWeight:700,marginBottom:8}}>📐 Rule & Explanation</div>
+        <p style={{color:"#333",fontSize:13,margin:0,lineHeight:1.8}}>{c.rule}</p>
       </Card>
       <Card style={{marginBottom:14}}>
-        <div style={{fontSize:13,fontWeight:700,color:DK,marginBottom:10}}>More examples:</div>
+        <div style={{fontSize:13,fontWeight:700,color:DK,marginBottom:12}}>📝 More Examples</div>
         {c.extra_examples.map((e,i)=>(
-          <div key={i} style={{marginBottom:10}}>
-            <div style={{fontSize:13,color:"#c62828"}}>❌ {e.wrong}</div>
+          <div key={i} style={{marginBottom:12,paddingBottom:12,borderBottom:i<c.extra_examples.length-1?"1px solid #f0f0f0":"none"}}>
+            <div style={{fontSize:13,color:"#c62828",marginBottom:4}}>❌ {e.wrong}</div>
             <div style={{fontSize:13,color:G}}>✅ {e.right}</div>
           </div>
         ))}
@@ -773,49 +820,66 @@ function MistakesMod({earn,onBack}) {
 }
 
 /* ── Quiz ── */
-function QuizMod({earn,onBack}) {
+function QuizMod({addXp,onBack}) {
   const [qs]=useState(()=>rnd(QUIZ_BANK));
-  const [i,setI]=useState(0);const [sel,setSel]=useState(null);const [score,setScore]=useState(0);const [review,setReview]=useState(false);const [done,setDone]=useState(false);
-  if(done)return <DoneScreen xp={30} onBack={onBack}/>;
-  const q=qs[i];const confirmed=sel!==null;
+  const [i,setI]=useState(0);
+  const [sel,setSel]=useState(null);
+  const [score,setScore]=useState(0);
+  const [review,setReview]=useState(false);
+  const [done,setDone]=useState(false);
+
+  if(done)return <DoneScreen xp={score*6} onBack={onBack} earnNow={()=>addXp(score*6,"quiz")}/>;
+
+  const q=qs[i];
+  const confirmed=sel!==null;
+  const correct=sel===q?.ans;
+
   if(review)return (
     <div>
       <Card style={{textAlign:"center",marginBottom:16}}>
         <div style={{fontSize:52}}>{score>=4?"🏆":score>=2?"👏":"💪"}</div>
         <h3 style={{color:G,margin:"8px 0 4px"}}>Quiz Complete!</h3>
         <p style={{color:"#666",fontSize:14}}>Score: <strong style={{color:G,fontSize:20}}>{score}/{qs.length}</strong></p>
-        <p style={{color:"#888",fontSize:13}}>{score>=4?"Excellent work!":score>=2?"Good effort — keep practising!":"Review the lessons and try again!"}</p>
+        <p style={{color:"#888",fontSize:13}}>{score>=4?"Excellent work! You have strong English foundations.":score>=2?"Good effort — review the explanations and keep practising!":"Review the lessons carefully and try again — every attempt is progress!"}</p>
       </Card>
-      <Btn full onClick={()=>setDone(true)}>Claim +30 XP →</Btn>
+      <Card style={{background:LT,marginBottom:14}}>
+        <p style={{margin:0,fontSize:13,color:G,fontWeight:600}}>⭐ XP earned: +{score*6} (6 XP per correct answer)</p>
+      </Card>
+      <Btn full onClick={()=>setDone(true)}>Claim +{score*6} XP →</Btn>
     </div>
   );
+
   const next=()=>{if(i<qs.length-1){setI(p=>p+1);setSel(null);}else setReview(true);};
+
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#888",marginBottom:8}}>
         <span>Q {i+1}/{qs.length}</span>
-        <span style={{color:G,fontWeight:700}}>Score: {score}</span>
+        <span style={{color:G,fontWeight:700}}>Score: {score}/{i+(confirmed?1:0)}</span>
       </div>
       <div style={{background:"#e8f5e9",borderRadius:8,height:6,marginBottom:14}}>
         <div style={{background:G,height:6,borderRadius:8,width:`${(i/qs.length)*100}%`,transition:"width .4s"}}/>
       </div>
       <Card style={{marginBottom:14}}><p style={{fontWeight:700,color:DK,fontSize:15,lineHeight:1.6,margin:0}}>{q.q}</p></Card>
       {q.opts.map((o,oi)=>{
-        const correct=oi===q.ans,picked=oi===sel;
+        const isCorrect=oi===q.ans,isPicked=oi===sel;
         let bg="#fff",border="#e0e0e0";
-        if(confirmed){if(correct){bg="#e8f5e9";border=G}else if(picked){bg="#ffebee";border="#e53935"}}
-        else if(picked){bg=LT;border=G}
-        return <button key={oi} onClick={()=>!confirmed&&(setSel(oi),correct&&setScore(s=>s+1))} style={{display:"block",width:"100%",background:bg,border:`2px solid ${border}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:confirmed?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit"}}>
-          {confirmed&&correct?"✅ ":confirmed&&picked&&!correct?"❌ ":""}{o}
+        if(confirmed){
+          if(isPicked&&isCorrect){bg="#e8f5e9";border=G;}
+          else if(isPicked&&!isCorrect){bg="#ffebee";border="#e53935";}
+          else if(!isPicked&&isCorrect&&!correct){bg="#fff9c4";border="#f9a825";}
+        } else if(isPicked){bg=LT;border=G;}
+        return <button key={oi} onClick={()=>{if(!confirmed){setSel(oi);if(oi===q.ans)setScore(s=>s+1);}}} style={{display:"block",width:"100%",background:bg,border:`2px solid ${border}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:confirmed?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit"}}>
+          {confirmed&&isPicked&&isCorrect?"✅ ":confirmed&&isPicked&&!isCorrect?"❌ ":confirmed&&!isPicked&&isCorrect&&!correct?"💡 ":""}{o}
         </button>;
       })}
       {confirmed&&<>
-        <Card style={{background: sel===q.ans?"#e8f5e9":"#ffebee",marginBottom:10}}>
-          <p style={{margin:0,fontSize:13,color:sel===q.ans?DK:"#c62828",lineHeight:1.7}}>
-            {sel===q.ans?"💡 "+q.exp:"❌ Incorrect. "+q.exp}
+        <Card style={{background:correct?"#e8f5e9":"#fff3e0",marginBottom:10}}>
+          <p style={{margin:0,fontSize:13,color:correct?DK:"#e65100",lineHeight:1.7}}>
+            {correct?"✅ Correct! ":"⚠️ Not quite. "}{q.exp}
           </p>
         </Card>
-        <Btn full onClick={next}>{i<qs.length-1?"Next →":"See Results"}</Btn>
+        <Btn full onClick={next}>{i<qs.length-1?"Next Question →":"See Results"}</Btn>
       </>}
     </div>
   );
@@ -843,7 +907,7 @@ function Profile({user,xp,lvl,level,badges,streak}) {
           return <div key={b.name} style={{background:earned?"#fff":"#f5f5f5",borderRadius:14,padding:14,opacity:earned?1:.55,boxShadow:earned?"0 2px 8px #0002":"none"}}>
             <div style={{fontSize:28}}>{b.icon}</div>
             <div style={{fontWeight:700,fontSize:13,color:DK,marginTop:4}}>{b.name}</div>
-            <div style={{fontSize:11,color:"#777"}}>{b.desc}</div>
+            <div style={{fontSize:11,color:"#777",lineHeight:1.4}}>{b.desc}</div>
             {!earned&&<div style={{fontSize:10,color:"#bbb",marginTop:4}}>🔒 Locked</div>}
           </div>;
         })}
@@ -863,7 +927,7 @@ function Board({userId,myXp,token}) {
   return (
     <div style={{padding:18}}>
       <h3 style={{color:DK,marginBottom:4}}>🏆 Leaderboard</h3>
-      <p style={{color:"#888",fontSize:13,marginBottom:16}}>Top students — Real time</p>
+      <p style={{color:"#888",fontSize:13,marginBottom:16}}>Top students — Live ranking</p>
       {lb.length===0&&<Loader text="Loading leaderboard…"/>}
       {lb.map((l,idx)=>{
         const isMe=l.id===userId;
