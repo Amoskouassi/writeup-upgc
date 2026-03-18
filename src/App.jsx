@@ -619,15 +619,59 @@ function VocabMod({addXp,onBack}) {
 }
 
 /* ── PEEL ── */
+const PEEL_THEORY = {
+  what: "PEEL is a method for writing clear, well-structured academic paragraphs. Each letter stands for one essential part of the paragraph.",
+  why: "Academic writing requires logical organisation. Without a clear structure, even good ideas fail to convince the reader. PEEL ensures every paragraph has a purpose, develops an argument, provides proof, and connects back to the essay question.",
+  parts: [
+    { letter:"P", name:"Point", color:"#e3f2fd", icon:"📌", role:"Your opening sentence. State your main argument clearly and directly. This is your claim — make it specific, not vague.", do:"Start with a strong, confident statement. Avoid 'I think' or 'In my opinion' in formal academic writing.", dont:"Do not begin with a question, a quote, or a general observation. Get straight to the point." },
+    { letter:"E", name:"Explanation", color:"#e8f5e9", icon:"💬", role:"Develop your point by explaining WHY it is true. Give 2-3 logical reasons that build on each other.", do:"Use linking words: 'Furthermore', 'In addition', 'This means that', 'As a result'. Each sentence should add new information.", dont:"Do not simply repeat your Point in different words. Every sentence must add new reasoning or a new dimension to your argument." },
+    { letter:"E", name:"Evidence", color:"#fff3e0", icon:"📚", role:"Provide concrete proof for your argument — a statistic, a study, a real example, or a quote from an expert.", do:"Introduce your evidence: 'According to...', 'Research by...', 'A study conducted by... found that...'. Be as specific as possible.", dont:"Never use vague evidence like 'studies show' without naming the study. Avoid using personal anecdotes as your main evidence in formal essays." },
+    { letter:"L", name:"Link", color:"#fce4ec", icon:"🔗", role:"Close the paragraph by connecting your argument back to the essay question or thesis statement.", do:"Use phrases like: 'Therefore...', 'This demonstrates that...', 'It is clear from the evidence that...', 'For these reasons...'", dont:"Do not introduce new arguments or evidence in the Link. Do not simply copy your Point sentence. Synthesise and reconnect." },
+  ],
+  badExample: {
+    topic: "Should technology be used more in African universities?",
+    paragraph: "Technology is good for students. Many students use phones. The internet has a lot of information. Students can find things easily. So technology is important.",
+    annotations: [
+      { part:"Point", text:"Technology is good for students.", issue:"❌ Too vague. 'Good' is not academic vocabulary. The argument is not specific enough — good in what way? For whom exactly?" },
+      { part:"Explanation", text:"Many students use phones. The internet has a lot of information. Students can find things easily.", issue:"❌ These are three unconnected observations, not a logical explanation. There is no development of WHY technology improves education. No linking words are used." },
+      { part:"Evidence", text:"(No evidence provided)", issue:"❌ There is no evidence at all. This makes the argument unconvincing and unacademic. Any claim in academic writing must be supported by proof." },
+      { part:"Link", text:"So technology is important.", issue:"❌ This is too brief and does not connect back to the specific question about African universities. 'So' is too informal for academic writing." },
+    ]
+  },
+  goodExample: {
+    topic: "Should technology be used more in African universities?",
+    paragraph: "Technology should be integrated more widely into African universities because it significantly improves both access to knowledge and the quality of learning. With smartphones and reliable internet connections, students can access thousands of academic journals and online courses that are entirely unavailable in most African university libraries. Furthermore, digital tools allow students to learn at their own pace, reinforcing difficult content outside the classroom. According to a UNESCO report published in 2022, students who regularly use digital learning tools score on average 35% higher on standardised assessments than those who rely solely on traditional methods. Given this compelling evidence, increasing technological integration in African universities is not merely a matter of modernisation — it is an urgent academic priority that would directly improve educational outcomes across the continent.",
+    annotations: [
+      { part:"Point", text:"Technology should be integrated more widely into African universities because it significantly improves both access to knowledge and the quality of learning.", issue:"✅ Clear, specific, and directly addresses the question. Uses strong academic vocabulary ('integrated', 'significantly'). Includes a 'because' to signal that reasoning will follow." },
+      { part:"Explanation", text:"With smartphones and reliable internet connections, students can access thousands of academic journals and online courses that are entirely unavailable in most African university libraries. Furthermore, digital tools allow students to learn at their own pace, reinforcing difficult content outside the classroom.", issue:"✅ Two well-developed reasons, logically connected with 'Furthermore'. Each sentence adds new information. Uses specific, academic vocabulary." },
+      { part:"Evidence", text:"According to a UNESCO report published in 2022, students who regularly use digital learning tools score on average 35% higher on standardised assessments than those who rely solely on traditional methods.", issue:"✅ Specific, credible, and properly introduced with 'According to'. Names the source (UNESCO) and the year (2022). Includes a precise statistic (35%)." },
+      { part:"Link", text:"Given this compelling evidence, increasing technological integration in African universities is not merely a matter of modernisation — it is an urgent academic priority that would directly improve educational outcomes across the continent.", issue:"✅ Directly reconnects to the question about African universities. Uses 'Given this compelling evidence' to signal synthesis. Elevates the argument with strong academic phrasing." },
+    ]
+  }
+};
+
+const SCORING_CRITERIA = [
+  { id:"point",    label:"Clarity & Precision of Argument (Point)",    max:4, desc:"Is the main argument stated clearly, directly, and specifically? Does it directly address the question?" },
+  { id:"expl",     label:"Logical Development (Explanation)",           max:4, desc:"Does the explanation develop the point with clear reasoning? Are linking words used? Is each sentence adding new information?" },
+  { id:"evidence", label:"Quality & Relevance of Evidence",             max:4, desc:"Is the evidence specific, credible, and properly introduced? Is a source named? Is a statistic or real example used?" },
+  { id:"link",     label:"Cohesion & Return to Topic (Link)",           max:3, desc:"Does the link effectively connect back to the question? Does it synthesise the argument without introducing new ideas?" },
+  { id:"grammar",  label:"Grammar & Academic Vocabulary",               max:3, desc:"Is the grammar accurate? Is academic vocabulary used? Are there false friends or common French-speaker errors?" },
+  { id:"length",   label:"Length & Sufficient Development",             max:2, desc:"Is the paragraph long enough? Is each section sufficiently developed (minimum 2-3 sentences for Explanation)?" },
+];
+
 function PeelMod({addXp,onBack,level}) {
+  const [phase,setPhase]=useState("theory"); // theory | bad | good | write | feedback | done
   const [c]=useState(()=>rnd(PEEL_TOPICS));
+  const [theoryTab,setTheoryTab]=useState(0);
   const [step,setStep]=useState(0);
   const [vals,setVals]=useState({point:"",explanation:"",evidence:"",link:""});
-  const [feedback,setFeedback]=useState("");
+  const [feedback,setFeedback]=useState(null); // {text, scores, total}
   const [aiLoading,setAiLoading]=useState(false);
-  const [done,setDone]=useState(false);
   const keys=["point","explanation","evidence","link"];
   const labels=["📌 Point","💬 Explanation","📚 Evidence","🔗 Link"];
+  const minWords={point:15,explanation:40,evidence:20,link:15};
+
+  const wordCount=txt=>txt.trim().split(/\s+/).filter(w=>w.length>0).length;
 
   const getAI=async()=>{
     setAiLoading(true);
@@ -636,89 +680,360 @@ function PeelMod({addXp,onBack,level}) {
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-          prompt:`You are an experienced English writing tutor working with ${level} university students in Côte d'Ivoire whose first language is French. Your role is to give detailed, constructive, and encouraging feedback on their PEEL paragraph.
+          prompt:`You are a strict but fair English writing examiner assessing a PEEL paragraph written by a ${level} university student in Côte d'Ivoire (French speaker). You must provide a detailed, structured assessment and assign a numerical score out of 20.
 
-Here is the student's paragraph:
-Topic: "${c.prompt}"
+TOPIC: "${c.prompt}"
+
+STUDENT'S PARAGRAPH:
 Point: ${vals.point}
 Explanation: ${vals.explanation}
 Evidence: ${vals.evidence}
 Link: ${vals.link}
 
-Write your feedback in clearly labelled sections as follows:
+Your response must follow this EXACT structure:
 
-**Overall Impression** (2-3 sentences): Describe the general quality of the paragraph. Is the argument clear? Is the structure logical? What is the strongest aspect?
+---SCORES---
+POINT: [score]/4
+EXPLANATION: [score]/4
+EVIDENCE: [score]/4
+LINK: [score]/3
+GRAMMAR: [score]/3
+LENGTH: [score]/2
+TOTAL: [total]/20
+---END SCORES---
 
-**Point**: Evaluate whether the student stated their main argument clearly and directly. If not, explain specifically what is missing and provide an improved version of their sentence.
+---FEEDBACK---
 
-**Explanation**: Assess whether the explanation genuinely develops the point with logical reasoning. Identify any vague, repetitive, or off-topic sentences. Suggest a specific improvement with a model example.
+## Overall Assessment
+[2-3 sentences giving an honest overall impression. State the total score and what it reflects. Be direct.]
 
-**Evidence**: Check whether the evidence is relevant, specific, and properly introduced into the paragraph. If it is weak, too vague, or missing, suggest the exact type of evidence needed (e.g. a statistic, a named study, a real-world example) and give a model sentence.
+## 📌 Point — [score]/4
+[Evaluate: Is the argument clear, specific, and directly addressing the question? Does it avoid vague language?]
+[If below 3/4: Write an improved version of the Point sentence.]
 
-**Link**: Evaluate whether the link effectively connects the argument back to the original topic or question. If not, provide a model link sentence the student can adapt.
+## 💬 Explanation — [score]/4
+[Evaluate: Does the explanation develop the point logically? Are linking words used? Does each sentence add new information?]
+[Identify any specific weak sentences and explain why they are weak.]
+[If below 3/4: Provide a model improved explanation of 2-3 sentences.]
 
-**Grammar & Vocabulary** (3-4 sentences): Identify 2-3 specific grammar or vocabulary errors. For each error, write: ❌ [incorrect version] → ✅ [corrected version]. Then suggest one stronger academic word or phrase they could use to improve the register of their writing.
+## 📚 Evidence — [score]/4
+[Evaluate: Is the evidence specific, credible, and properly introduced? Is a source named? Is a statistic used?]
+[If the evidence is weak or missing, explain exactly what type of evidence is needed and provide a model sentence.]
 
-**Final Encouragement** (2 sentences): End with a warm, specific, and motivating closing remark that acknowledges the student's genuine effort and encourages continued improvement.
+## 🔗 Link — [score]/3
+[Evaluate: Does the link reconnect to the question? Does it synthesise without introducing new ideas?]
+[If below 2/3: Provide a model link sentence.]
 
-Be thorough, specific, and always explain clearly WHY something needs to change. Write in simple, clear English that a French-speaking student can fully understand.`,
-          maxTokens:1200
+## ✏️ Grammar & Academic Vocabulary — [score]/3
+[Identify 2-3 specific errors. For each write:
+❌ Incorrect: "[wrong sentence]"
+✅ Corrected: "[correct sentence]"
+📖 Explanation: [brief grammar rule]]
+[Suggest 2 stronger academic words to replace informal ones used.]
+
+## 📏 Length & Development — [score]/2
+[Comment on whether each section is sufficiently developed. Minimum standards: Point = 1-2 sentences, Explanation = 3+ sentences, Evidence = 1-2 sentences with source, Link = 1-2 sentences.]
+
+## 🎯 Priority Actions
+List exactly 3 specific things the student must do to improve their next paragraph:
+1. [Specific action]
+2. [Specific action]
+3. [Specific action]
+
+## 💪 Encouragement
+[1-2 sentences of warm, genuine encouragement that acknowledges specific strengths.]
+---END FEEDBACK---
+
+Be rigorous and honest. A score of 15+/20 should require genuinely strong academic writing. Do not inflate scores.`,
+          maxTokens:1500
         })
       });
       const data=await res.json();
-      setFeedback(data.text||"Great effort! Your paragraph shows real commitment to the PEEL structure. Keep practising!");
-    }catch{setFeedback("Great effort! Your paragraph structure is developing well. Focus on making your evidence more specific by naming a real source or statistic, and ensure your link sentence directly restates the question. Keep practising — consistent effort always leads to improvement!");}
+      const text=data.text||"";
+      // Parse scores
+      const scoreMatch=text.match(/---SCORES---([\s\S]*?)---END SCORES---/);
+      const feedbackMatch=text.match(/---FEEDBACK---([\s\S]*?)---END FEEDBACK---/);
+      let scores={point:0,expl:0,evidence:0,link:0,grammar:0,length:0,total:0};
+      if(scoreMatch){
+        const s=scoreMatch[1];
+        scores.point=parseInt(s.match(/POINT:\s*(\d)/)?.[1]||0);
+        scores.expl=parseInt(s.match(/EXPLANATION:\s*(\d)/)?.[1]||0);
+        scores.evidence=parseInt(s.match(/EVIDENCE:\s*(\d)/)?.[1]||0);
+        scores.link=parseInt(s.match(/LINK:\s*(\d)/)?.[1]||0);
+        scores.grammar=parseInt(s.match(/GRAMMAR:\s*(\d)/)?.[1]||0);
+        scores.length=parseInt(s.match(/LENGTH:\s*(\d)/)?.[1]||0);
+        scores.total=parseInt(s.match(/TOTAL:\s*(\d+)/)?.[1]||0);
+      }
+      setFeedback({text:feedbackMatch?feedbackMatch[1].trim():text,scores});
+      setPhase("feedback");
+    }catch{
+      setFeedback({text:"Your paragraph has been received. Unfortunately the detailed AI feedback could not be loaded at this time. Please check your connection and try again.",scores:{point:0,expl:0,evidence:0,link:0,grammar:0,length:0,total:0}});
+      setPhase("feedback");
+    }
     setAiLoading(false);
   };
 
-  if(done)return <DoneScreen xp={50} onBack={onBack} earnNow={()=>addXp(50,"peel")}/>;
-
-  if(feedback)return (
+  // PHASE: THEORY
+  if(phase==="theory") return (
     <div>
-      <Card style={{borderLeft:`4px solid ${G}`,marginBottom:14}}>
-        <h4 style={{color:G,marginBottom:10}}>🤖 AI Tutor Feedback</h4>
-        <div style={{color:"#333",lineHeight:1.9,fontSize:14,whiteSpace:"pre-wrap"}}>{feedback}</div>
+      <Card style={{background:`linear-gradient(135deg,${DK},${G})`,color:"#fff",marginBottom:16}}>
+        <div style={{fontSize:11,opacity:.8,marginBottom:4}}>📚 Before you write</div>
+        <h3 style={{margin:"0 0 6px",fontSize:18}}>Understanding PEEL</h3>
+        <p style={{margin:0,fontSize:13,opacity:.85,lineHeight:1.6}}>{PEEL_THEORY.what}</p>
       </Card>
-      <Card style={{background:"#f9fbe7",marginBottom:14}}>
-        <h5 style={{color:DK,margin:"0 0 10px"}}>📄 Your Paragraph</h5>
-        {keys.map(k=>vals[k]&&<div key={k} style={{marginBottom:8}}>
-          <span style={{fontSize:12,fontWeight:700,color:G,textTransform:"uppercase"}}>{k}</span>
-          <p style={{fontSize:13,color:"#444",margin:"2px 0 0",lineHeight:1.7}}>{vals[k]}</p>
-        </div>)}
-      </Card>
-      <Btn full onClick={()=>setDone(true)}>Earn +50 XP 🎉</Btn>
+      {/* Tab navigation */}
+      <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto"}}>
+        {["What & Why","P — Point","E — Explanation","E — Evidence","L — Link"].map((t,idx)=>(
+          <button key={idx} onClick={()=>setTheoryTab(idx)}
+            style={{background:theoryTab===idx?G:"#fff",color:theoryTab===idx?"#fff":DK,border:`1.5px solid ${theoryTab===idx?G:"#ddd"}`,borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit"}}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {theoryTab===0&&(
+        <div>
+          <Card style={{marginBottom:12}}>
+            <h4 style={{color:G,margin:"0 0 8px"}}>❓ What is PEEL?</h4>
+            <p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>{PEEL_THEORY.what}</p>
+          </Card>
+          <Card style={{marginBottom:12}}>
+            <h4 style={{color:G,margin:"0 0 8px"}}>🎯 Why use PEEL?</h4>
+            <p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>{PEEL_THEORY.why}</p>
+          </Card>
+          <Card style={{background:"#fff8e1",marginBottom:12}}>
+            <h4 style={{color:"#e65100",margin:"0 0 10px"}}>📐 The 4 Parts at a Glance</h4>
+            {PEEL_THEORY.parts.map(p=>(
+              <div key={p.letter+p.name} style={{display:"flex",gap:10,marginBottom:10,alignItems:"flex-start"}}>
+                <div style={{background:p.color,borderRadius:10,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{p.icon}</div>
+                <div>
+                  <div style={{fontWeight:700,color:DK,fontSize:14}}>{p.letter} — {p.name}</div>
+                  <div style={{fontSize:12,color:"#666",lineHeight:1.5}}>{p.role}</div>
+                </div>
+              </div>
+            ))}
+          </Card>
+        </div>
+      )}
+
+      {theoryTab>0&&theoryTab<5&&(()=>{
+        const p=PEEL_THEORY.parts[theoryTab-1];
+        return (
+          <div>
+            <Card style={{background:p.color,marginBottom:12,borderLeft:`4px solid ${G}`}}>
+              <div style={{fontSize:32,marginBottom:6}}>{p.icon}</div>
+              <h3 style={{color:DK,margin:"0 0 6px"}}>{p.letter} — {p.name}</h3>
+              <p style={{fontSize:14,color:"#444",lineHeight:1.8,margin:0}}>{p.role}</p>
+            </Card>
+            <Card style={{background:"#e8f5e9",marginBottom:12}}>
+              <div style={{fontWeight:700,color:G,marginBottom:8,fontSize:13}}>✅ DO</div>
+              <p style={{fontSize:13,color:"#333",lineHeight:1.8,margin:0}}>{p.do}</p>
+            </Card>
+            <Card style={{background:"#ffebee",marginBottom:12}}>
+              <div style={{fontWeight:700,color:"#c62828",marginBottom:8,fontSize:13}}>❌ DON'T</div>
+              <p style={{fontSize:13,color:"#333",lineHeight:1.8,margin:0}}>{p.dont}</p>
+            </Card>
+          </div>
+        );
+      })()}
+
+      <div style={{display:"flex",gap:10,marginTop:4}}>
+        {theoryTab>0&&<Btn secondary onClick={()=>setTheoryTab(t=>t-1)}>← Previous</Btn>}
+        {theoryTab<4
+          ?<Btn full onClick={()=>setTheoryTab(t=>t+1)}>Next →</Btn>
+          :<Btn full onClick={()=>setPhase("bad")}>See Examples →</Btn>}
+      </div>
     </div>
   );
 
-  return (
+  // PHASE: BAD EXAMPLE
+  if(phase==="bad") return (
+    <div>
+      <Card style={{background:"#ffebee",marginBottom:14,borderLeft:"4px solid #e53935"}}>
+        <div style={{fontWeight:800,color:"#c62828",fontSize:16,marginBottom:4}}>❌ Weak Paragraph — What NOT to do</div>
+        <div style={{fontSize:12,color:"#666",marginBottom:10}}>Topic: {PEEL_THEORY.badExample.topic}</div>
+        <p style={{fontSize:14,color:"#333",lineHeight:1.8,fontStyle:"italic",background:"#fff",borderRadius:10,padding:12,margin:0}}>{PEEL_THEORY.badExample.paragraph}</p>
+      </Card>
+      <h4 style={{color:DK,marginBottom:10}}>🔍 Why is this paragraph weak?</h4>
+      {PEEL_THEORY.badExample.annotations.map((a,i)=>(
+        <Card key={i} style={{marginBottom:10,borderLeft:"3px solid #e53935"}}>
+          <div style={{fontWeight:700,color:"#c62828",fontSize:12,marginBottom:6}}>❌ {a.part}</div>
+          {a.text&&<p style={{fontSize:13,color:"#333",fontStyle:"italic",margin:"0 0 6px",background:"#fff9f9",padding:"6px 10px",borderRadius:8}}>"{a.text}"</p>}
+          <p style={{fontSize:13,color:"#555",margin:0,lineHeight:1.7}}>{a.issue}</p>
+        </Card>
+      ))}
+      <div style={{display:"flex",gap:10,marginTop:8}}>
+        <Btn secondary onClick={()=>setPhase("theory")}>← Theory</Btn>
+        <Btn full onClick={()=>setPhase("good")}>See Good Example →</Btn>
+      </div>
+    </div>
+  );
+
+  // PHASE: GOOD EXAMPLE
+  if(phase==="good") return (
+    <div>
+      <Card style={{background:"#e8f5e9",marginBottom:14,borderLeft:"4px solid "+G}}>
+        <div style={{fontWeight:800,color:G,fontSize:16,marginBottom:4}}>✅ Strong Paragraph — A model to follow</div>
+        <div style={{fontSize:12,color:"#666",marginBottom:10}}>Topic: {PEEL_THEORY.goodExample.topic}</div>
+        <p style={{fontSize:14,color:"#333",lineHeight:1.9,background:"#fff",borderRadius:10,padding:12,margin:0}}>{PEEL_THEORY.goodExample.paragraph}</p>
+      </Card>
+      <h4 style={{color:DK,marginBottom:10}}>🔍 Why is this paragraph strong?</h4>
+      {PEEL_THEORY.goodExample.annotations.map((a,i)=>(
+        <Card key={i} style={{marginBottom:10,borderLeft:`3px solid ${G}`}}>
+          <div style={{fontWeight:700,color:G,fontSize:12,marginBottom:6}}>✅ {a.part}</div>
+          <p style={{fontSize:13,color:"#333",fontStyle:"italic",margin:"0 0 6px",background:"#f9fbe7",padding:"6px 10px",borderRadius:8}}>"{a.text}"</p>
+          <p style={{fontSize:13,color:"#555",margin:0,lineHeight:1.7}}>{a.issue}</p>
+        </Card>
+      ))}
+      <div style={{display:"flex",gap:10,marginTop:8}}>
+        <Btn secondary onClick={()=>setPhase("bad")}>← Bad Example</Btn>
+        <Btn full onClick={()=>setPhase("write")}>Write My Paragraph →</Btn>
+      </div>
+    </div>
+  );
+
+  // PHASE: WRITE
+  if(phase==="write") return (
     <div>
       <Card style={{background:LT,marginBottom:14}}>
-        <div style={{fontSize:11,color:"#888"}}>📝 Writing Topic</div>
+        <div style={{fontSize:11,color:"#888"}}>📝 Your Writing Topic</div>
         <div style={{fontWeight:800,color:DK,fontSize:15,marginTop:2}}>{c.title}</div>
         <div style={{color:"#555",fontSize:13,marginTop:4,lineHeight:1.6}}>{c.prompt}</div>
       </Card>
-      <div style={{display:"flex",gap:6,marginBottom:14}}>
+
+      {/* Progress */}
+      <div style={{display:"flex",gap:6,marginBottom:16}}>
         {keys.map((k,idx)=>(
           <div key={k} style={{flex:1,textAlign:"center"}}>
-            <div style={{height:5,borderRadius:99,background:vals[k]?G:idx===step?"#81c784":"#e0e0e0",marginBottom:4}}/>
-            <div style={{fontSize:10,color:idx<=step?G:"#bbb",fontWeight:idx===step?700:400}}>{k.charAt(0).toUpperCase()}</div>
+            <div style={{height:6,borderRadius:99,background:vals[k]?G:idx===step?"#81c784":"#e0e0e0",marginBottom:4,transition:"background .3s"}}/>
+            <div style={{fontSize:10,color:idx<=step?G:"#bbb",fontWeight:idx===step?800:400}}>{k.charAt(0).toUpperCase()}</div>
           </div>
         ))}
       </div>
-      <h4 style={{color:G,margin:"0 0 4px"}}>{labels[step]}</h4>
-      <p style={{color:"#777",fontSize:12,marginBottom:8,lineHeight:1.6}}>{c.guidance[keys[step]]}</p>
-      <Card style={{background:"#f0f7f4",marginBottom:12}}>
-        <div style={{fontSize:11,color:"#888",marginBottom:4}}>📋 Model Example:</div>
-        <p style={{fontSize:13,color:"#444",margin:0,lineHeight:1.7,fontStyle:"italic"}}>{c.example[keys[step]]}</p>
-      </Card>
-      <textarea value={vals[keys[step]]} onChange={e=>setVals(p=>({...p,[keys[step]]:e.target.value}))}
-        placeholder={`Write your ${keys[step]} here…`} rows={5}
-        style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${G}`,borderRadius:12,padding:12,fontSize:14,resize:"vertical",outline:"none",fontFamily:"inherit"}}/>
-      <Btn full disabled={!vals[keys[step]]||aiLoading} onClick={()=>{if(step<3)setStep(s=>s+1);else getAI();}}>
-        {aiLoading?"Getting AI Feedback…":step<3?`Next: ${labels[step+1]} →`:"🤖 Get AI Feedback"}
-      </Btn>
+
+      {/* Current section */}
+      {(()=>{
+        const p=PEEL_THEORY.parts[step];
+        const topic=c;
+        return (
+          <div>
+            <Card style={{background:p.color,marginBottom:10,borderLeft:`4px solid ${G}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                <div>
+                  <div style={{fontWeight:800,color:DK,fontSize:15}}>{p.icon} {labels[step]}</div>
+                  <div style={{fontSize:12,color:"#666",marginTop:4,lineHeight:1.5}}>{p.role}</div>
+                </div>
+                <div style={{background:G,color:"#fff",borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,flexShrink:0}}>min {minWords[keys[step]]} words</div>
+              </div>
+              <div style={{marginTop:10,display:"flex",gap:8}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,color:"#888",marginBottom:3}}>✅ DO</div>
+                  <div style={{fontSize:12,color:DK,lineHeight:1.5}}>{p.do}</div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Model */}
+            <Card style={{background:"#f0f7f4",marginBottom:10}}>
+              <div style={{fontSize:11,color:"#888",marginBottom:6}}>📋 Model from a strong paragraph:</div>
+              <p style={{fontSize:13,color:"#444",margin:0,lineHeight:1.8,fontStyle:"italic"}}>"{topic.example[keys[step]]}"</p>
+            </Card>
+
+            {/* Textarea */}
+            <textarea
+              value={vals[keys[step]]}
+              onChange={e=>setVals(p=>({...p,[keys[step]]:e.target.value}))}
+              placeholder={`Write your ${keys[step]} here… (minimum ${minWords[keys[step]]} words)`}
+              rows={5}
+              style={{width:"100%",boxSizing:"border-box",border:`2px solid ${vals[keys[step]]?G:"#ddd"}`,borderRadius:12,padding:12,fontSize:14,resize:"vertical",outline:"none",fontFamily:"inherit",transition:"border .2s"}}
+            />
+            {/* Word count */}
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginTop:4,marginBottom:8}}>
+              <span style={{color:wordCount(vals[keys[step]])>=minWords[keys[step]]?G:"#f57c00",fontWeight:600}}>
+                {wordCount(vals[keys[step]])} / {minWords[keys[step]]} words minimum
+                {wordCount(vals[keys[step]])>=minWords[keys[step]]?" ✅":" ⚠️"}
+              </span>
+              {vals[keys[step]]&&<span style={{color:"#888"}}>{vals[keys[step]].length} characters</span>}
+            </div>
+
+            {step>0&&vals[keys[step-1]]&&(
+              <Card style={{background:"#fafafa",marginBottom:10}}>
+                <div style={{fontSize:11,color:"#888",marginBottom:4}}>📄 Your previous section ({keys[step-1]}):</div>
+                <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6,fontStyle:"italic"}}>"{vals[keys[step-1]]}"</p>
+              </Card>
+            )}
+
+            <Btn full
+              disabled={!vals[keys[step]]||wordCount(vals[keys[step]])<minWords[keys[step]]||aiLoading}
+              onClick={()=>{if(step<3)setStep(s=>s+1);else getAI();}}>
+              {aiLoading?"Analysing your paragraph…":step<3?`Next: ${labels[step+1]} →`:"🤖 Submit for Assessment"}
+            </Btn>
+          </div>
+        );
+      })()}
     </div>
   );
+
+  // PHASE: FEEDBACK
+  if(phase==="feedback"&&feedback) return (
+    <div>
+      {/* Score card */}
+      <Card style={{background:`linear-gradient(135deg,${feedback.scores.total>=15?DK:"#c62828"},${feedback.scores.total>=15?G:"#e53935"})`,color:"#fff",marginBottom:16,textAlign:"center"}}>
+        <div style={{fontSize:13,opacity:.85,marginBottom:4}}>📊 Your Score</div>
+        <div style={{fontSize:52,fontWeight:900,marginBottom:4}}>{feedback.scores.total}<span style={{fontSize:24,fontWeight:400}}>/20</span></div>
+        <div style={{fontSize:14,fontWeight:700,opacity:.9}}>
+          {feedback.scores.total>=17?"🏆 Excellent":feedback.scores.total>=14?"👏 Good":feedback.scores.total>=10?"📈 Developing":"💪 Needs Work"}
+        </div>
+      </Card>
+
+      {/* Score breakdown */}
+      <Card style={{marginBottom:14}}>
+        <h4 style={{color:DK,margin:"0 0 12px"}}>📋 Score Breakdown</h4>
+        {SCORING_CRITERIA.map(cr=>{
+          const s=feedback.scores[cr.id]||0;
+          const pct=Math.round((s/cr.max)*100);
+          return (
+            <div key={cr.id} style={{marginBottom:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4}}>
+                <span style={{fontWeight:600,color:DK,fontSize:12}}>{cr.label}</span>
+                <span style={{color:pct>=75?G:pct>=50?"#f57c00":"#e53935",fontWeight:700}}>{s}/{cr.max}</span>
+              </div>
+              <div style={{background:"#e0e0e0",borderRadius:99,height:8}}>
+                <div style={{background:pct>=75?G:pct>=50?"#f57c00":"#e53935",height:8,borderRadius:99,width:`${pct}%`,transition:"width .6s"}}/>
+              </div>
+            </div>
+          );
+        })}
+      </Card>
+
+      {/* Detailed feedback */}
+      <Card style={{marginBottom:14}}>
+        <h4 style={{color:G,marginBottom:12}}>🤖 Detailed Feedback</h4>
+        <div style={{fontSize:14,color:"#333",lineHeight:1.9,whiteSpace:"pre-wrap"}}>{feedback.text}</div>
+      </Card>
+
+      {/* Student's paragraph */}
+      <Card style={{background:"#f9fbe7",marginBottom:14}}>
+        <h5 style={{color:DK,margin:"0 0 12px"}}>📄 Your Submitted Paragraph</h5>
+        {keys.map(k=>(
+          <div key={k} style={{marginBottom:12,paddingBottom:12,borderBottom:k!=="link"?"1px solid #eee":"none"}}>
+            <div style={{fontSize:11,fontWeight:700,color:G,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{k}</div>
+            <p style={{fontSize:13,color:"#444",margin:0,lineHeight:1.7}}>{vals[k]}</p>
+          </div>
+        ))}
+      </Card>
+
+      <div style={{display:"flex",gap:10}}>
+        <Btn secondary onClick={()=>{setPhase("write");setStep(0);setVals({point:"",explanation:"",evidence:"",link:""});setFeedback(null);}}>🔄 Try Again</Btn>
+        <Btn full onClick={()=>{addXp(feedback.scores.total>=10?50:25,"peel");setPhase("done");}}>
+          Earn +{feedback.scores.total>=10?50:25} XP →
+        </Btn>
+      </div>
+    </div>
+  );
+
+  // PHASE: DONE
+  return <DoneScreen xp={feedback?.scores?.total>=10?50:25} onBack={onBack} earnNow={()=>{}}/>;
 }
 
 /* ── Reading ── */
