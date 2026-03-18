@@ -1490,25 +1490,144 @@ function Profile({user,xp,lvl,level,badges,streak}) {
 /* ── Leaderboard ── */
 function Board({userId,myXp,token}) {
   const [lb,setLb]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [lastRefresh,setLastRefresh]=useState(null);
+  const [myRank,setMyRank]=useState(null);
+
+  const fetchLb=async()=>{
+    try{
+      const data=await sbGet("public_leaderboard?limit=10",token);
+      if(Array.isArray(data)){
+        // Update my XP in the list in real time
+        const updated=data.map(u=>u.id===userId?{...u,xp:myXp}:u);
+        // Re-sort after updating my XP
+        updated.sort((a,b)=>b.xp-a.xp);
+        setLb(updated);
+        // Find my rank in full leaderboard
+        const allData=await sbGet("public_leaderboard?limit=50",token);
+        if(Array.isArray(allData)){
+          const allUpdated=allData.map(u=>u.id===userId?{...u,xp:myXp}:u);
+          allUpdated.sort((a,b)=>b.xp-a.xp);
+          const rank=allUpdated.findIndex(u=>u.id===userId)+1;
+          setMyRank(rank>0?rank:null);
+        }
+      }
+    }catch(e){console.error("leaderboard error",e);}
+    setLoading(false);
+    setLastRefresh(new Date());
+  };
+
   useEffect(()=>{
-    sbGet("users?select=id,name,xp&order=xp.desc&limit=10",token).then(data=>{
-      if(Array.isArray(data))setLb(data);
-    });
-  },[]);
+    fetchLb();
+    // Auto-refresh every 30 seconds
+    const interval=setInterval(fetchLb,30000);
+    return ()=>clearInterval(interval);
+  },[myXp]);
+
+  const medals=["🥇","🥈","🥉"];
+  const levelColors={Bronze:"#cd7f32",Silver:"#9e9e9e",Gold:"#ffd700",Platinum:"#4fc3f7",Beginner:"#81c784",Intermediate:"#42a5f5",Advanced:"#ab47bc"};
+
   return (
     <div style={{padding:18}}>
-      <h3 style={{color:DK,marginBottom:4}}>🏆 Leaderboard</h3>
-      <p style={{color:"#888",fontSize:13,marginBottom:16}}>Top students — Live ranking</p>
-      {lb.length===0&&<Loader text="Loading leaderboard…"/>}
-      {lb.map((l,idx)=>{
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
+        <div>
+          <h3 style={{color:DK,margin:"0 0 4px"}}>🏆 Leaderboard</h3>
+          <p style={{color:"#888",fontSize:12,margin:0}}>
+            {lastRefresh?`Updated ${lastRefresh.toLocaleTimeString([],({hour:"2-digit",minute:"2-digit"}))}`:"Loading…"}
+          </p>
+        </div>
+        <button onClick={fetchLb} style={{background:LT,border:"none",borderRadius:10,padding:"6px 12px",color:G,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+          🔄 Refresh
+        </button>
+      </div>
+
+      {/* My rank card if not in top 10 */}
+      {myRank&&myRank>10&&(
+        <Card style={{background:`linear-gradient(135deg,${DK},${G})`,color:"#fff",marginBottom:16}}>
+          <div style={{fontSize:12,opacity:.8,marginBottom:4}}>📍 Your Current Rank</div>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{fontSize:32,fontWeight:900}}>#{myRank}</div>
+            <div>
+              <div style={{fontWeight:700,fontSize:15}}>Keep going!</div>
+              <div style={{fontSize:12,opacity:.8}}>⭐ {myXp} XP — You need more to reach the top 10</div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {loading&&<Loader text="Loading leaderboard…"/>}
+
+      {/* Top 10 */}
+      {!loading&&lb.length===0&&(
+        <Card style={{textAlign:"center",padding:32}}>
+          <div style={{fontSize:40,marginBottom:8}}>🏆</div>
+          <p style={{color:"#888"}}>No students yet. Be the first!</p>
+        </Card>
+      )}
+
+      {lb.slice(0,10).map((l,idx)=>{
         const isMe=l.id===userId;
-        const medals=["🥇","🥈","🥉"];
-        return <div key={l.id} style={{background:isMe?LT:"#fff",border:isMe?`2px solid ${G}`:"1px solid #eee",borderRadius:14,padding:"12px 16px",display:"flex",alignItems:"center",gap:14,marginBottom:10}}>
-          <span style={{fontSize:22,width:30,textAlign:"center"}}>{medals[idx]||`#${idx+1}`}</span>
-          <div style={{flex:1,fontWeight:isMe?800:600,color:isMe?G:DK}}>{l.name}{isMe?" (You)":""}</div>
-          <span style={{fontWeight:700,color:G}}>⭐ {isMe?myXp:l.xp}</span>
-        </div>;
+        const rank=idx+1;
+        return (
+          <div key={l.id} style={{
+            background:isMe?LT:"#fff",
+            border:isMe?`2px solid ${G}`:"1px solid #eee",
+            borderRadius:14,padding:"12px 16px",
+            display:"flex",alignItems:"center",gap:12,
+            marginBottom:10,
+            boxShadow:rank<=3?"0 2px 12px #0002":"none",
+            transform:rank<=3?"scale(1.01)":"none",
+            transition:"all .2s"
+          }}>
+            {/* Rank */}
+            <div style={{width:36,textAlign:"center",flexShrink:0}}>
+              {rank<=3
+                ?<span style={{fontSize:24}}>{medals[idx]}</span>
+                :<span style={{fontSize:14,fontWeight:800,color:"#bbb"}}>#{rank}</span>}
+            </div>
+            {/* Avatar */}
+            <div style={{width:36,height:36,borderRadius:"50%",background:isMe?G:"#e0e0e0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,color:isMe?"#fff":"#999"}}>
+              {l.name?.charAt(0)?.toUpperCase()||"?"}
+            </div>
+            {/* Info */}
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:isMe?800:600,color:isMe?G:DK,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                {l.name}{isMe?" (You)":""}
+              </div>
+              <div style={{display:"flex",gap:6,marginTop:3,alignItems:"center"}}>
+                {l.level&&<span style={{fontSize:10,fontWeight:700,color:levelColors[l.level]||"#888"}}>{l.level}</span>}
+                {l.streak>0&&<span style={{fontSize:11,color:"#888"}}>🔥{l.streak}</span>}
+              </div>
+            </div>
+            {/* XP */}
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <div style={{fontWeight:800,color:G,fontSize:15}}>⭐{isMe?myXp:l.xp}</div>
+              {l.peel_avg_score>0&&<div style={{fontSize:10,color:"#aaa"}}>PEEL: {l.peel_avg_score}/20</div>}
+            </div>
+          </div>
+        );
       })}
+
+      {/* Stats */}
+      {!loading&&lb.length>0&&(
+        <Card style={{background:"#f9fbe7",marginTop:8}}>
+          <div style={{fontSize:12,color:"#888",marginBottom:8}}>📊 Leaderboard Stats</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {[
+              ["👥 Students",lb.length],
+              ["🏆 Top XP",`${lb[0]?.xp||0} XP`],
+              ["📍 Your Rank",myRank?`#${myRank}`:"—"],
+              ["⭐ Your XP",`${myXp} XP`],
+            ].map(([label,val])=>(
+              <div key={label} style={{textAlign:"center",background:"#fff",borderRadius:10,padding:"8px 4px"}}>
+                <div style={{fontSize:13,fontWeight:700,color:DK}}>{val}</div>
+                <div style={{fontSize:11,color:"#888"}}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
