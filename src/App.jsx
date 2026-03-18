@@ -480,7 +480,8 @@ function ModShell({mod,level,addXp,onBack,token}) {
   );
 }
 
-function DoneScreen({xp,onBack}) {
+function DoneScreen({xp,onBack,addXp}) {
+  useEffect(()=>{ if(addXp) addXp(xp); },[]);
   return (
     <div style={{textAlign:"center",padding:48}}>
       <div style={{fontSize:64,marginBottom:12}}>🎉</div>
@@ -509,14 +510,19 @@ function GrammarMod({earn,onBack}) {
       {c.opts.map((o,oi)=>{
         const correct=oi===c.ans,picked=oi===sel;
         let bg="#fff",border="#e0e0e0";
-        if(confirmed){if(correct){bg="#e8f5e9";border=G}else if(picked){bg="#ffebee";border="#e53935"}}
+        const isWrong = confirmed && picked && !correct;
+        const isCorrectReveal = confirmed && correct && sel === c.ans;
+        if(confirmed){ if(picked&&correct){bg="#e8f5e9";border=G} else if(isWrong){bg="#ffebee";border="#e53935"} }
         else if(picked){bg=LT;border=G}
         return <button key={oi} onClick={()=>!confirmed&&setSel(oi)} style={{display:"block",width:"100%",background:bg,border:`2px solid ${border}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:confirmed?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit"}}>
-          {confirmed&&correct?"✅ ":confirmed&&picked&&!correct?"❌ ":""}{o}
+          {confirmed&&picked&&correct?"✅ ":isWrong?"❌ ":""}{o}
         </button>;
       })}
       {confirmed&&<>
-        <Card style={{background:"#e8f5e9",marginBottom:10}}><p style={{margin:0,fontSize:13,color:DK,lineHeight:1.7}}>💡 {c.explanation}</p></Card>
+        {sel===c.ans
+          ?<Card style={{background:"#e8f5e9",marginBottom:10}}><p style={{margin:0,fontSize:13,color:DK,lineHeight:1.7}}>💡 {c.explanation}</p></Card>
+          :<Card style={{background:"#ffebee",marginBottom:10}}><p style={{margin:0,fontSize:13,color:"#c62828",lineHeight:1.7}}>❌ Incorrect. Review the rule and try again next time!</p></Card>
+        }
         <Card style={{background:"#e3f2fd",marginBottom:14}}><p style={{margin:0,fontSize:13,color:"#1565c0"}}>📐 {c.tip}</p></Card>
         <Btn full onClick={()=>setDone(true)}>Earn +10 XP →</Btn>
       </>}
@@ -565,7 +571,16 @@ function VocabMod({earn,onBack}) {
           {confirmed&&correct?"✅ ":confirmed&&picked&&!correct?"❌ ":""}{o}
         </button>;
       })}
-      {confirmed&&<Btn full onClick={()=>setDone(true)}>Earn +5 XP →</Btn>}
+      {confirmed&&(
+        sel===c.ans
+          ?<Btn full onClick={()=>setDone(true)}>Earn +5 XP →</Btn>
+          :<>
+            <Card style={{background:"#ffebee",marginBottom:10}}>
+              <p style={{margin:0,fontSize:13,color:"#c62828",lineHeight:1.7}}>❌ Incorrect. The correct answer is: <strong>{c.opts[c.ans]}</strong>. Review the definition and try again!</p>
+            </Card>
+            <Btn full onClick={onBack}>← Try another word</Btn>
+          </>
+      )}
     </div>
   );
 }
@@ -588,13 +603,38 @@ function PeelMod({earn,onBack,level}) {
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-          prompt:`You are a warm English writing tutor for ${level} students in Côte d'Ivoire. Review this PEEL paragraph:\nTopic: "${c.prompt}"\nPoint: ${vals.point}\nExplanation: ${vals.explanation}\nEvidence: ${vals.evidence}\nLink: ${vals.link}\n\nGive feedback in 4 sentences: (1) praise a strength, (2) identify one grammar issue with correction, (3) suggest improvement for one PEEL section, (4) encouraging closing.`,
-          maxTokens:800
+          prompt:`You are an experienced English writing tutor working with ${level} university students in Côte d'Ivoire whose first language is French. Your role is to give detailed, constructive, and encouraging feedback on their PEEL paragraph.
+
+Here is the student's paragraph:
+Topic: "${c.prompt}"
+Point: ${vals.point}
+Explanation: ${vals.explanation}
+Evidence: ${vals.evidence}
+Link: ${vals.link}
+
+Write your feedback in clearly labelled sections as follows:
+
+**Overall Impression** (2-3 sentences): Describe the general quality of the paragraph. Is the argument clear? Is the structure logical?
+
+**Point**: Evaluate whether the student stated their main argument clearly and directly. If not, explain what is missing and give a corrected or improved version.
+
+**Explanation**: Assess whether the explanation develops the point logically. Point out any vague or repetitive sentences. Suggest a specific improvement with an example.
+
+**Evidence**: Check whether the evidence is relevant, specific, and properly introduced. If the evidence is weak or missing, suggest the type of evidence that would strengthen the argument (e.g. statistics, quotes, real examples).
+
+**Link**: Evaluate whether the link effectively connects back to the topic. If not, provide a model sentence they can use as a guide.
+
+**Grammar & Vocabulary** (2-3 sentences): Identify 2 specific grammar or vocabulary errors. For each error, write the incorrect version and then the corrected version. Suggest one stronger academic word they could use.
+
+**Final Encouragement** (1-2 sentences): End with a warm, specific, and motivating closing remark that acknowledges their effort and progress.
+
+Be thorough, specific, and always explain WHY something needs to change. Use simple, clear English that a French-speaking student can understand.`,
+          maxTokens:1200
         })
       });
       const data=await res.json();
       setFeedback(data.text||"Great effort! Keep practising your PEEL structure.");
-    }catch{setFeedback("Great effort! Your paragraph structure is developing well. Focus on making your evidence more specific. Keep practising — you are making excellent progress!");}
+    }catch{setFeedback("Great effort! Your paragraph structure is developing well. Focus on making your evidence more specific and your link more directly connected to the topic. Keep practising — you are making excellent progress!");}
     setAiLoading(false);
   };
 
@@ -770,7 +810,11 @@ function QuizMod({earn,onBack}) {
         </button>;
       })}
       {confirmed&&<>
-        <Card style={{background:"#e8f5e9",marginBottom:10}}><p style={{margin:0,fontSize:13,color:DK,lineHeight:1.7}}>💡 {q.exp}</p></Card>
+        <Card style={{background: sel===q.ans?"#e8f5e9":"#ffebee",marginBottom:10}}>
+          <p style={{margin:0,fontSize:13,color:sel===q.ans?DK:"#c62828",lineHeight:1.7}}>
+            {sel===q.ans?"💡 "+q.exp:"❌ Incorrect. "+q.exp}
+          </p>
+        </Card>
         <Btn full onClick={next}>{i<qs.length-1?"Next →":"See Results"}</Btn>
       </>}
     </div>
