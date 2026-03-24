@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 
 /* ══ CONFIG ══ */
-const SB_URL = import.meta.env.VITE_SUPABASE_URL || "https://qnxeyoxashvbljjmqkrp.supabase.co";
-const SB_KEY = import.meta.env.VITE_SUPABASE_KEY || "sb_publishable_lgRs4KqlUybNQ--KiZP7BA_m-ntu3CC";
+const SB_URL = "https://qnxeyoxashvbljjmqkrp.supabase.co";
+const SB_KEY = "sb_publishable_lgRs4KqlUybNQ--KiZP7BA_m-ntu3CC";
 const G0 = "#2D6A4F", LT0 = "#d8f3dc", DK0 = "#1b4332";
 
 const THEMES = {
@@ -48,6 +48,14 @@ const getLvl = xp => {
   if(xp<1500) return {name:"Silver",  color:"#9e9e9e",min:500, next:1500};
   if(xp<3000) return {name:"Gold",    color:"#ffd700",min:1500,next:3000};
   return             {name:"Platinum",color:"#4fc3f7",min:3000,next:5000};
+};
+
+/* ══ localStorage safe helpers ══ */
+const lsGet = (key, fallback="") => {
+  try { return localStorage.getItem(key) || fallback; } catch { return fallback; }
+};
+const lsSet = (key, value) => {
+  try { localStorage.setItem(key, value); } catch {}
 };
 
 /* ══ OFFLINE ══ */
@@ -225,6 +233,30 @@ const Spin=({G=G0})=>(
   </div>
 );
 
+/* ══ ERROR BOUNDARY ══ */
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{padding:32,textAlign:"center",fontFamily:"'Segoe UI',sans-serif"}}>
+          <div style={{fontSize:48,marginBottom:16}}>⚠️</div>
+          <h2 style={{color:"#c62828",marginBottom:8}}>Une erreur s'est produite</h2>
+          <p style={{color:"#555",fontSize:14,marginBottom:16}}>{this.state.error?.message}</p>
+          <button onClick={()=>window.location.reload()} style={{background:G0,color:"#fff",border:"none",borderRadius:12,padding:"12px 24px",fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Recharger</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 /* ══ PLACEMENT TEST ══ */
 function Placement({onDone}){
   const [i,setI]=useState(0);
@@ -399,6 +431,30 @@ function AuthForm({mode,onDone,onSwitch}){
   );
 }
 
+/* ══ AI FEEDBACK — appel direct API Anthropic ══ */
+const callAI = async (prompt) => {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": "VOTRE_CLE_API_ANTHROPIC_ICI",
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-calls": "true",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1500,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error?.message || `HTTP ${response.status}`);
+  }
+  const data = await response.json();
+  return data.content?.[0]?.text || "";
+};
+
 /* ══ MAIN APP ══ */
 const MODS=[
   {id:"grammar",   icon:"✏️",name:"Daily Grammar",    sub:"Random exercise every session",     color:"#e3f2fd"},
@@ -429,23 +485,26 @@ export default function App(){
   const [done,setDone]       =useState([]);
   const [badges,setBadges]   =useState([]);
   const [enc,setEnc]         =useState(null);
-  const [theme,setTheme]     =useState(()=>THEMES[localStorage.getItem("writeup_theme")||"default"]||THEMES.default);
+  const [theme,setTheme]     =useState(()=>{
+    try {
+      return THEMES[lsGet("writeup_theme","default")] || THEMES.default;
+    } catch {
+      return THEMES.default;
+    }
+  });
   const G=theme.primary,LT=theme.light,DK=theme.dark;
 
-  // Android back button
   useEffect(()=>{
     const handle=()=>{
       if(enc){setEnc(null);window.history.pushState({},"");return;}
       if(activeMod){setMod(null);loadDone(user?.id,token);window.history.pushState({},"");return;}
       if(tab!=="home"){setTab("home");window.history.pushState({},"");return;}
-      // else let app minimise
     };
     window.history.pushState({},"");
     window.addEventListener("popstate",handle);
     return()=>window.removeEventListener("popstate",handle);
   },[activeMod,tab,enc,user,token]);
 
-  // Auto level-up
   useEffect(()=>{
     if(!user?.id||!token)return;
     const nl=xp>=1500?"Advanced":xp>=500?"Intermediate":"Beginner";
@@ -499,8 +558,8 @@ export default function App(){
   const level=placement?.level||"Beginner";
 
   return(
+    <ErrorBoundary>
     <div style={{maxWidth:440,margin:"0 auto",minHeight:"100vh",background:"#f0f7f4",fontFamily:"'Segoe UI',sans-serif",display:"flex",flexDirection:"column"}}>
-      {/* HEADER */}
       <div style={{background:G,color:"#fff",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:10}}>
         <div>
           <div style={{fontWeight:900,fontSize:16}}>✍️ WriteUP UPGC</div>
@@ -512,7 +571,6 @@ export default function App(){
           <div style={{background:lvl.color,color:"#000",borderRadius:8,padding:"3px 9px",fontSize:11,fontWeight:800}}>{lvl.name}</div>
         </div>
       </div>
-      {/* CONTENT */}
       <div style={{flex:1,overflowY:"auto",paddingBottom:70}}>
         {activeMod
           ?<ModShell mod={activeMod} level={level} addXp={addXp} G={G} LT={LT} DK={DK} onBack={()=>{setMod(null);loadDone(user?.id,token);}}/>
@@ -520,15 +578,14 @@ export default function App(){
           :tab==="profile"?<Profile user={user} xp={xp} lvl={lvl} level={level} badges={badges} streak={streak} G={G} LT={LT} DK={DK}/>
           :tab==="board"  ?<Board userId={user?.id} myXp={xp} token={token} G={G} LT={LT} DK={DK}/>
           :<Settings user={user} xp={xp} placement={placement} G={G} LT={LT} DK={DK}
-              onThemeChange={t=>{setTheme(t);localStorage.setItem("writeup_theme",Object.keys(THEMES).find(k=>THEMES[k]===t)||"default");}}
+              onThemeChange={t=>{setTheme(t);lsSet("writeup_theme",Object.keys(THEMES).find(k=>THEMES[k]===t)||"default");}}
               onLogout={()=>{setScreen("landing");setUser(null);setToken(null);}}/>
         }
       </div>
-      {/* ENCOURAGEMENT */}
       {enc&&(
         <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.6)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setEnc(null)}>
           <div style={{background:"#fff",borderRadius:24,padding:32,maxWidth:360,width:"100%",textAlign:"center"}} onClick={e=>e.stopPropagation()}>
-            <div style={{fontSize:64,marginBottom:12}}>{"🌟💪🔥⭐🎯".split("")[Math.floor(Math.random()*5)]}</div>
+            <div style={{fontSize:64,marginBottom:12}}>🌟</div>
             <h3 style={{color:G,margin:"0 0 8px"}}>{enc.title}</h3>
             <p style={{color:"#555",fontSize:14,lineHeight:1.7,margin:"0 0 8px"}}>{enc.body}</p>
             <p style={{color:"#888",fontSize:13,fontStyle:"italic",margin:"0 0 20px"}}>{enc.sub}</p>
@@ -536,7 +593,6 @@ export default function App(){
           </div>
         </div>
       )}
-      {/* NAV */}
       {!activeMod&&(
         <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:440,background:"#fff",borderTop:"1px solid #e8f5e9",display:"flex"}}>
           {[["home","🏠","Home"],["profile","👤","Profile"],["board","🏆","Ranks"],["settings","⚙️","More"]].map(([t,ic,lb])=>(
@@ -547,6 +603,7 @@ export default function App(){
         </div>
       )}
     </div>
+    </ErrorBoundary>
   );
 }
 
@@ -742,6 +799,7 @@ function PeelMod({addXp,onBack,level,G,LT,DK}){
   const [vals,setVals]=useState({point:"",explanation:"",evidence:"",link:""});
   const [fb,setFb]=useState(null);
   const [aiL,setAiL]=useState(false);
+  const [aiErr,setAiErr]=useState("");
   const [attempts,setAtt]=useState(0);
   const [t0]=useState(()=>Date.now());
   const keys=["point","explanation","evidence","link"];
@@ -750,9 +808,9 @@ function PeelMod({addXp,onBack,level,G,LT,DK}){
 
   const getAI=async(isRev=false)=>{
     setAiL(true);
+    setAiErr("");
     try{
-      const res=await fetch("/api/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-        prompt:`You are a strict but fair English writing examiner for ${level} university students in Côte d'Ivoire (French speakers). Attempt ${attempts+1}.${isRev?" Student revised based on previous feedback.":""}
+      const prompt=`You are a strict but fair English writing examiner for ${level} university students in Côte d'Ivoire (French speakers). Attempt ${attempts+1}.${isRev?" Student revised based on previous feedback.":""}
 
 TOPIC: "${c.prompt}"
 Point: ${vals.point}
@@ -785,36 +843,34 @@ Then write detailed feedback:
 ## Overall Assessment
 [2-3 honest sentences. State the total score and what it reflects.]
 
-## 📌 Point — [score]/4
-[For each weak sentence: ⚠️ "[exact sentence]" then → Problem: [why] then → Fix: [improved version]. If strong: ✅ Strong — [specific praise]]
+## Point — [score]/4
+[Feedback]
 
-## 💬 Explanation — [score]/4
-[Same format]
+## Explanation — [score]/4
+[Feedback]
 
-## 📚 Evidence — [score]/4
-[Same format. If weak/missing: provide model with named source and statistic]
+## Evidence — [score]/4
+[Feedback]
 
-## 🔗 Link — [score]/3
-[Same format. If weak: provide model link sentence]
+## Link — [score]/3
+[Feedback]
 
-## ✏️ Grammar & Vocabulary — [score]/3
-[2-3 errors: ❌ "[wrong]" then ✅ "[correct]" then 📖 Rule: [brief rule]. Suggest 2 stronger academic words.]
+## Grammar & Vocabulary — [score]/3
+[Feedback]
 
-## 📏 Length — [score]/2
-[Comment on word counts vs minimums for ${level} level]
+## Length — [score]/2
+[Feedback]
 
-## 🎯 Priority Actions
+## Priority Actions
 1. [Critical action]
 2. [Second action]
 3. [Third action]
 
-## 💪 Encouragement
-[1-2 warm sentences]`,
-        maxTokens:1500
-      })});
-      const data=await res.json();
-      const text=data.text||"";
-      // Parse scores
+## Encouragement
+[1-2 warm sentences]`;
+
+      const text = await callAI(prompt);
+
       let sc={point:0,expl:0,evidence:0,link:0,grammar:0,length:0,total:0};
       const block=text.match(/SCORES_START([\s\S]*?)SCORES_END/);
       if(block){
@@ -827,23 +883,7 @@ Then write detailed feedback:
         sc.grammar =Math.min(3,ex("GRAMMAR_SCORE"));
         sc.length  =Math.min(2,ex("LENGTH_SCORE"));
         sc.total   =sc.point+sc.expl+sc.evidence+sc.link+sc.grammar+sc.length;
-      }else{
-        // Fallback
-        const fx=(patterns)=>{for(const p of patterns){const m=text.match(p);if(m)return Math.max(0,parseInt(m[1]));}return 0;};
-        sc.point   =Math.min(4,fx([/point[_\s]*score[^:\d]*(\d)/i,/📌[^—\d]*(\d)/i]));
-        sc.expl    =Math.min(4,fx([/explanation[_\s]*score[^:\d]*(\d)/i,/💬[^—\d]*(\d)/i]));
-        sc.evidence=Math.min(4,fx([/evidence[_\s]*score[^:\d]*(\d)/i,/📚[^—\d]*(\d)/i]));
-        sc.link    =Math.min(3,fx([/link[_\s]*score[^:\d]*(\d)/i,/🔗[^—\d]*(\d)/i]));
-        sc.grammar =Math.min(3,fx([/grammar[_\s]*score[^:\d]*(\d)/i,/✏️[^—\d]*(\d)/i]));
-        sc.length  =Math.min(2,fx([/length[_\s]*score[^:\d]*(\d)/i,/📏[^—\d]*(\d)/i]));
-        sc.total   =sc.point+sc.expl+sc.evidence+sc.link+sc.grammar+sc.length;
-        // If still 0 but text is long, try TOTAL directly
-        if(sc.total===0&&text.length>300){
-          const tm=text.match(/total[_\s]*score[^:\d]*(\d+)/i);
-          if(tm)sc.total=Math.min(20,parseInt(tm[1]));
-        }
       }
-      // Extract feedback text after SCORES_END
       let fbText=text;
       const idx=text.indexOf("SCORES_END");
       if(idx>-1)fbText=text.slice(idx+"SCORES_END".length).trim();
@@ -852,8 +892,7 @@ Then write detailed feedback:
       setPhase("feedback");
     }catch(e){
       console.error(e);
-      setFb({text:"## Connection Error\n\nAI feedback could not be loaded. Check your connection and try again.",sc:{point:0,expl:0,evidence:0,link:0,grammar:0,length:0,total:0},passed:false});
-      setPhase("feedback");
+      setAiErr("Erreur de connexion à l'IA. Vérifiez votre clé API dans le fichier (callAI) et réessayez. Détail : " + e.message);
     }
     setAiL(false);
   };
@@ -861,19 +900,12 @@ Then write detailed feedback:
   const renderFb=text=>{
     if(!text)return null;
     return text.split("\n").map((line,i)=>{
-      if(line.startsWith("⚠️"))return<div key={i} style={{background:"#fff3cd",border:"1px solid #ffc107",borderRadius:8,padding:"8px 12px",margin:"6px 0",fontSize:13,color:"#856404"}}>{line}</div>;
-      if(line.startsWith("→ Problem:"))return<div key={i} style={{background:"#ffebee",borderLeft:"3px solid #e53935",padding:"6px 10px",margin:"3px 0 3px 12px",fontSize:13,color:"#c62828",lineHeight:1.6}}>{line}</div>;
-      if(line.startsWith("→ Fix:"))return<div key={i} style={{background:"#e8f5e9",borderLeft:`3px solid ${G}`,padding:"6px 10px",margin:"3px 0 8px 12px",fontSize:13,color:DK,lineHeight:1.6}}>{line}</div>;
-      if(line.startsWith("❌"))return<div key={i} style={{background:"#ffebee",borderRadius:6,padding:"6px 10px",margin:"4px 0",fontSize:13,color:"#c62828"}}>{line}</div>;
-      if(line.startsWith("✅")&&!line.includes("Strong"))return<div key={i} style={{background:"#e8f5e9",borderRadius:6,padding:"6px 10px",margin:"4px 0",fontSize:13,color:DK}}>{line}</div>;
-      if(line.startsWith("📖 Rule:"))return<div key={i} style={{background:"#e3f2fd",borderRadius:6,padding:"6px 10px",margin:"4px 0 8px",fontSize:12,color:"#1565c0"}}>{line}</div>;
       if(line.startsWith("##"))return<h4 key={i} style={{color:G,margin:"16px 0 8px",fontSize:14,borderBottom:`1px solid ${LT}`,paddingBottom:4}}>{line.replace(/^#+\s*/,"")}</h4>;
       if(!line.trim())return<div key={i} style={{height:4}}/>;
       return<p key={i} style={{margin:"4px 0",fontSize:13,color:"#333",lineHeight:1.7}}>{line}</p>;
     });
   };
 
-  // THEORY
   if(phase==="theory")return(
     <div>
       <Card style={{background:`linear-gradient(135deg,${DK},${G})`,color:"#fff",marginBottom:16}}>
@@ -887,10 +919,10 @@ Then write detailed feedback:
         ))}
       </div>
       {tTab===0&&<div>
-        <Card style={{marginBottom:12}}><h4 style={{color:G,margin:"0 0 8px"}}>❓ What is PEEL?</h4><p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>{PEEL_THEORY.what}</p></Card>
-        <Card style={{marginBottom:12}}><h4 style={{color:G,margin:"0 0 8px"}}>🎯 Why use PEEL?</h4><p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>{PEEL_THEORY.why}</p></Card>
+        <Card style={{marginBottom:12}}><h4 style={{color:G,margin:"0 0 8px"}}>What is PEEL?</h4><p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>{PEEL_THEORY.what}</p></Card>
+        <Card style={{marginBottom:12}}><h4 style={{color:G,margin:"0 0 8px"}}>Why use PEEL?</h4><p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>{PEEL_THEORY.why}</p></Card>
         <Card style={{background:"#fff8e1",marginBottom:12}}>
-          <h4 style={{color:"#e65100",margin:"0 0 10px"}}>📐 The 4 Parts</h4>
+          <h4 style={{color:"#e65100",margin:"0 0 10px"}}>The 4 Parts</h4>
           {PEEL_THEORY.parts.map(p=>(
             <div key={p.name} style={{display:"flex",gap:10,marginBottom:10,alignItems:"flex-start"}}>
               <div style={{background:p.color,borderRadius:10,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{p.icon}</div>
@@ -899,7 +931,7 @@ Then write detailed feedback:
           ))}
         </Card>
         <Card style={{background:LT,marginBottom:12}}>
-          <h4 style={{color:G,margin:"0 0 8px"}}>📏 Word Minimums · {level}</h4>
+          <h4 style={{color:G,margin:"0 0 8px"}}>Word Minimums · {level}</h4>
           {keys.map(k=>(
             <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",borderBottom:"1px solid #c8e6c9"}}>
               <span style={{fontWeight:600,color:DK,textTransform:"capitalize"}}>{k}</span>
@@ -916,8 +948,8 @@ Then write detailed feedback:
             <h3 style={{color:DK,margin:"0 0 6px"}}>{p.letter} — {p.name}</h3>
             <p style={{fontSize:14,color:"#444",lineHeight:1.8,margin:0}}>{p.role}</p>
           </Card>
-          <Card style={{background:"#e8f5e9",marginBottom:12}}><div style={{fontWeight:700,color:G,marginBottom:8,fontSize:13}}>✅ DO</div><p style={{fontSize:13,color:"#333",lineHeight:1.8,margin:0}}>{p.do}</p></Card>
-          <Card style={{background:"#ffebee",marginBottom:12}}><div style={{fontWeight:700,color:"#c62828",marginBottom:8,fontSize:13}}>❌ DON'T</div><p style={{fontSize:13,color:"#333",lineHeight:1.8,margin:0}}>{p.dont}</p></Card>
+          <Card style={{background:"#e8f5e9",marginBottom:12}}><div style={{fontWeight:700,color:G,marginBottom:8,fontSize:13}}>DO</div><p style={{fontSize:13,color:"#333",lineHeight:1.8,margin:0}}>{p.do}</p></Card>
+          <Card style={{background:"#ffebee",marginBottom:12}}><div style={{fontWeight:700,color:"#c62828",marginBottom:8,fontSize:13}}>DON'T</div><p style={{fontSize:13,color:"#333",lineHeight:1.8,margin:0}}>{p.dont}</p></Card>
         </div>;
       })()}
       <div style={{display:"flex",gap:10,marginTop:4}}>
@@ -927,18 +959,17 @@ Then write detailed feedback:
     </div>
   );
 
-  // BAD EXAMPLE
   if(phase==="bad")return(
     <div>
       <Card style={{background:"#ffebee",marginBottom:14,borderLeft:"4px solid #e53935"}}>
-        <div style={{fontWeight:800,color:"#c62828",fontSize:16,marginBottom:4}}>❌ Weak Paragraph</div>
+        <div style={{fontWeight:800,color:"#c62828",fontSize:16,marginBottom:4}}>Weak Paragraph</div>
         <div style={{fontSize:12,color:"#666",marginBottom:10}}>Topic: {PEEL_THEORY.bad.topic}</div>
         <p style={{fontSize:14,color:"#333",lineHeight:1.8,fontStyle:"italic",background:"#fff",borderRadius:10,padding:12,margin:0}}>{PEEL_THEORY.bad.para}</p>
       </Card>
-      <h4 style={{color:DK,marginBottom:10}}>🔍 Why is this weak?</h4>
+      <h4 style={{color:DK,marginBottom:10}}>Why is this weak?</h4>
       {PEEL_THEORY.bad.notes.map((n,i)=>(
         <Card key={i} style={{marginBottom:10,borderLeft:"3px solid #e53935"}}>
-          <div style={{fontWeight:700,color:"#c62828",fontSize:12,marginBottom:6}}>❌ {n.part}</div>
+          <div style={{fontWeight:700,color:"#c62828",fontSize:12,marginBottom:6}}>{n.part}</div>
           {n.text&&<p style={{fontSize:13,color:"#333",fontStyle:"italic",margin:"0 0 6px",background:"#fff9f9",padding:"6px 10px",borderRadius:8}}>"{n.text}"</p>}
           <p style={{fontSize:13,color:"#555",margin:0,lineHeight:1.7}}>{n.issue}</p>
         </Card>
@@ -950,18 +981,17 @@ Then write detailed feedback:
     </div>
   );
 
-  // GOOD EXAMPLE
   if(phase==="good")return(
     <div>
       <Card style={{background:"#e8f5e9",marginBottom:14,borderLeft:`4px solid ${G}`}}>
-        <div style={{fontWeight:800,color:G,fontSize:16,marginBottom:4}}>✅ Strong Paragraph</div>
+        <div style={{fontWeight:800,color:G,fontSize:16,marginBottom:4}}>Strong Paragraph</div>
         <div style={{fontSize:12,color:"#666",marginBottom:10}}>Topic: {PEEL_THEORY.good.topic}</div>
         <p style={{fontSize:14,color:"#333",lineHeight:1.9,background:"#fff",borderRadius:10,padding:12,margin:0}}>{PEEL_THEORY.good.para}</p>
       </Card>
-      <h4 style={{color:DK,marginBottom:10}}>🔍 Why is this strong?</h4>
+      <h4 style={{color:DK,marginBottom:10}}>Why is this strong?</h4>
       {PEEL_THEORY.good.notes.map((n,i)=>(
         <Card key={i} style={{marginBottom:10,borderLeft:`3px solid ${G}`}}>
-          <div style={{fontWeight:700,color:G,fontSize:12,marginBottom:6}}>✅ {n.part}</div>
+          <div style={{fontWeight:700,color:G,fontSize:12,marginBottom:6}}>{n.part}</div>
           <p style={{fontSize:13,color:"#333",fontStyle:"italic",margin:"0 0 6px",background:"#f9fbe7",padding:"6px 10px",borderRadius:8}}>"{n.text}"</p>
           <p style={{fontSize:13,color:"#555",margin:0,lineHeight:1.7}}>{n.issue}</p>
         </Card>
@@ -973,12 +1003,11 @@ Then write detailed feedback:
     </div>
   );
 
-  // WRITE
   if(phase==="write")return(
     <div>
-      {attempts>0&&<Card style={{background:"#fff3e0",marginBottom:12,borderLeft:"3px solid #f57c00"}}><p style={{margin:0,fontSize:13,color:"#e65100",fontWeight:600}}>🔄 Revision #{attempts} — Apply the feedback carefully.</p></Card>}
+      {attempts>0&&<Card style={{background:"#fff3e0",marginBottom:12,borderLeft:"3px solid #f57c00"}}><p style={{margin:0,fontSize:13,color:"#e65100",fontWeight:600}}>Revision #{attempts} — Apply the feedback carefully.</p></Card>}
       <Card style={{background:LT,marginBottom:14}}>
-        <div style={{fontSize:11,color:"#888"}}>📝 Topic · {level}</div>
+        <div style={{fontSize:11,color:"#888"}}>Topic · {level}</div>
         <div style={{fontWeight:800,color:DK,fontSize:15,marginTop:2}}>{c.title}</div>
         <div style={{color:"#555",fontSize:13,marginTop:4,lineHeight:1.6}}>{c.prompt}</div>
       </Card>
@@ -1001,7 +1030,7 @@ Then write detailed feedback:
             <div style={{marginTop:8,fontSize:12,color:"#555"}}><strong>DO:</strong> {p.do}</div>
           </Card>
           <Card style={{background:"#f0f7f4",marginBottom:10}}>
-            <div style={{fontSize:11,color:"#888",marginBottom:4}}>📋 Model:</div>
+            <div style={{fontSize:11,color:"#888",marginBottom:4}}>Model:</div>
             <p style={{fontSize:13,color:"#444",margin:0,lineHeight:1.8,fontStyle:"italic"}}>"{c.example[keys[step]]}"</p>
           </Card>
           <textarea value={vals[keys[step]]} onChange={e=>setVals(p=>({...p,[keys[step]]:e.target.value}))}
@@ -1015,33 +1044,33 @@ Then write detailed feedback:
           </div>
           {step>0&&vals[keys[step-1]]&&(
             <Card style={{background:"#fafafa",marginBottom:10}}>
-              <div style={{fontSize:11,color:"#888",marginBottom:4}}>📄 Your {keys[step-1]}:</div>
+              <div style={{fontSize:11,color:"#888",marginBottom:4}}>Your {keys[step-1]}:</div>
               <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6,fontStyle:"italic"}}>"{vals[keys[step-1]]}"</p>
             </Card>
           )}
+          {aiErr&&<Card style={{background:"#ffebee",marginBottom:10,borderLeft:"3px solid #e53935"}}><p style={{margin:0,fontSize:13,color:"#c62828"}}>{aiErr}</p></Card>}
           <button onClick={()=>{if(step<3)setStep(s=>s+1);else getAI(attempts>0);}}
             disabled={!vals[keys[step]]||wc(vals[keys[step]])<minW[keys[step]]||aiL}
             style={{width:"100%",background:!vals[keys[step]]||wc(vals[keys[step]])<minW[keys[step]]||aiL?"#ccc":G,color:"#fff",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:14,cursor:aiL||!vals[keys[step]]||wc(vals[keys[step]])<minW[keys[step]]?"not-allowed":"pointer",marginTop:8,fontFamily:"inherit"}}>
-            {aiL?"⏳ Analysing your paragraph…":step<3?`Next: ${labels[step+1]} →`:"🤖 Submit for Assessment"}
+            {aiL?"Analysing your paragraph…":step<3?`Next: ${labels[step+1]} →`:"Submit for Assessment"}
           </button>
         </div>;
       })()}
     </div>
   );
 
-  // FEEDBACK
   if(phase==="feedback"&&fb)return(
     <div>
       <Card style={{background:`linear-gradient(135deg,${fb.sc.total>=15?DK:fb.sc.total>=10?"#e65100":"#c62828"},${fb.sc.total>=15?G:fb.sc.total>=10?"#ff9800":"#e53935"})`,color:"#fff",marginBottom:16,textAlign:"center"}}>
-        <div style={{fontSize:13,opacity:.85,marginBottom:4}}>📊 Attempt #{attempts} · {fb.passed?"✅ PASSED":"❌ REVISION REQUIRED"}</div>
+        <div style={{fontSize:13,opacity:.85,marginBottom:4}}>Attempt #{attempts} · {fb.passed?"PASSED":"REVISION REQUIRED"}</div>
         <div style={{fontSize:52,fontWeight:900,marginBottom:4}}>{fb.sc.total}<span style={{fontSize:24,fontWeight:400}}>/20</span></div>
         <div style={{fontSize:14,fontWeight:700,opacity:.9}}>
-          {fb.sc.total>=17?"🏆 Excellent":fb.sc.total>=14?"👏 Good":fb.sc.total>=10?"📈 Passed":"💪 Below Average"}
+          {fb.sc.total>=17?"Excellent":fb.sc.total>=14?"Good":fb.sc.total>=10?"Passed":"Below Average"}
         </div>
         {!fb.passed&&<div style={{fontSize:12,opacity:.85,marginTop:6,background:"rgba(0,0,0,.2)",borderRadius:8,padding:"6px 12px"}}>You need 10/20 to pass. Read the feedback carefully, revise, and resubmit.</div>}
       </Card>
       <Card style={{marginBottom:14}}>
-        <h4 style={{color:DK,margin:"0 0 12px"}}>📋 Score Breakdown</h4>
+        <h4 style={{color:DK,margin:"0 0 12px"}}>Score Breakdown</h4>
         {SCORE_CRITERIA.map(cr=>{
           const s=fb.sc[cr.id]||0,pct=Math.round((s/cr.max)*100);
           return<div key={cr.id} style={{marginBottom:12}}>
@@ -1056,11 +1085,11 @@ Then write detailed feedback:
         })}
       </Card>
       <Card style={{marginBottom:14}}>
-        <h4 style={{color:G,marginBottom:12}}>🔍 Detailed Analysis</h4>
+        <h4 style={{color:G,marginBottom:12}}>Detailed Analysis</h4>
         <div>{renderFb(fb.text)}</div>
       </Card>
       <Card style={{background:"#f9fbe7",marginBottom:14}}>
-        <h5 style={{color:DK,margin:"0 0 12px"}}>📄 Your Paragraph</h5>
+        <h5 style={{color:DK,margin:"0 0 12px"}}>Your Paragraph</h5>
         {keys.map(k=>(
           <div key={k} style={{marginBottom:12,paddingBottom:12,borderBottom:k!=="link"?"1px solid #eee":"none"}}>
             <div style={{fontSize:11,fontWeight:700,color:G,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{k}</div>
@@ -1081,10 +1110,10 @@ Then write detailed feedback:
         </div>
         :<div>
           <Card style={{background:"#fff3e0",marginBottom:14,borderLeft:"3px solid #f57c00"}}>
-            <h5 style={{color:"#e65100",margin:"0 0 8px"}}>🔄 What to do:</h5>
-            <p style={{fontSize:13,color:"#555",margin:0,lineHeight:1.8}}>1. Read every ⚠️ highlighted sentence.<br/>2. Read each → Problem and → Fix.<br/>3. Rewrite applying all corrections.<br/>4. Resubmit — you need 10/20 to pass.</p>
+            <h5 style={{color:"#e65100",margin:"0 0 8px"}}>What to do:</h5>
+            <p style={{fontSize:13,color:"#555",margin:0,lineHeight:1.8}}>1. Read every highlighted sentence.<br/>2. Read each Problem and Fix.<br/>3. Rewrite applying all corrections.<br/>4. Resubmit — you need 10/20 to pass.</p>
           </Card>
-          <Btn full color={G} onClick={()=>{setPhase("write");setStep(0);}}>🔄 Revise My Paragraph →</Btn>
+          <Btn full color={G} onClick={()=>{setPhase("write");setStep(0);}}>Revise My Paragraph →</Btn>
         </div>
       }
     </div>
@@ -1105,12 +1134,12 @@ function ReadingMod({addXp,onBack,G,LT,DK}){
   if(phase==="read")return(
     <div>
       <Card style={{marginBottom:14}}>
-        <div style={{fontSize:11,color:"#888",marginBottom:4}}>📖 {c.topic}</div>
+        <div style={{fontSize:11,color:"#888",marginBottom:4}}>{c.topic}</div>
         <h3 style={{color:G,margin:"0 0 12px"}}>{c.title}</h3>
         {c.passage.split("\n\n").map((p,i)=><p key={i} style={{lineHeight:1.9,fontSize:14,color:"#333",marginBottom:12}}>{p}</p>)}
       </Card>
       <Card style={{background:"#fff8e1",marginBottom:14}}>
-        <div style={{fontWeight:700,color:"#e65100",marginBottom:10,fontSize:13}}>📖 Glossary</div>
+        <div style={{fontWeight:700,color:"#e65100",marginBottom:10,fontSize:13}}>Glossary</div>
         {c.glossary.map(g=><div key={g.w} style={{display:"flex",gap:8,marginBottom:8,fontSize:13}}><strong style={{color:DK,minWidth:110,flexShrink:0}}>{g.w}</strong><span style={{color:"#555",lineHeight:1.5}}>{g.d}</span></div>)}
       </Card>
       <Btn full onClick={()=>setPhase("quiz")} color={G}>Answer Questions →</Btn>
@@ -1118,7 +1147,7 @@ function ReadingMod({addXp,onBack,G,LT,DK}){
   );
   return(
     <div>
-      <h4 style={{color:DK,marginBottom:14}}>📝 Comprehension Questions</h4>
+      <h4 style={{color:DK,marginBottom:14}}>Comprehension Questions</h4>
       {c.questions.map((q,qi)=>(
         <Card key={qi} style={{marginBottom:14}}>
           <p style={{fontWeight:600,color:DK,fontSize:14,marginBottom:10,lineHeight:1.6}}>{qi+1}. {q.q}</p>
@@ -1160,11 +1189,11 @@ function MistakesMod({addXp,onBack,G,LT,DK}){
           <span style={{fontSize:13,color:"#666",fontStyle:"italic",lineHeight:1.5}}>French: <strong>{c.french}</strong></span>
         </div>
       </Card>
-      <Card style={{background:"#ffebee",marginBottom:10}}><div style={{fontSize:12,color:"#c62828",fontWeight:700,marginBottom:8}}>❌ Common Error</div><p style={{color:"#333",fontSize:14,margin:0,fontStyle:"italic"}}>"{c.wrong}"</p></Card>
-      <Card style={{background:"#e8f5e9",marginBottom:10}}><div style={{fontSize:12,color:G,fontWeight:700,marginBottom:8}}>✅ Correct English</div><p style={{color:"#333",fontSize:14,margin:0,fontStyle:"italic"}}>"{c.correct}"</p></Card>
-      <Card style={{background:"#e3f2fd",marginBottom:14}}><div style={{fontSize:12,color:"#1565c0",fontWeight:700,marginBottom:8}}>📐 Rule</div><p style={{color:"#333",fontSize:13,margin:0,lineHeight:1.8}}>{c.rule}</p></Card>
+      <Card style={{background:"#ffebee",marginBottom:10}}><div style={{fontSize:12,color:"#c62828",fontWeight:700,marginBottom:8}}>Common Error</div><p style={{color:"#333",fontSize:14,margin:0,fontStyle:"italic"}}>"{c.wrong}"</p></Card>
+      <Card style={{background:"#e8f5e9",marginBottom:10}}><div style={{fontSize:12,color:G,fontWeight:700,marginBottom:8}}>Correct English</div><p style={{color:"#333",fontSize:14,margin:0,fontStyle:"italic"}}>"{c.correct}"</p></Card>
+      <Card style={{background:"#e3f2fd",marginBottom:14}}><div style={{fontSize:12,color:"#1565c0",fontWeight:700,marginBottom:8}}>Rule</div><p style={{color:"#333",fontSize:13,margin:0,lineHeight:1.8}}>{c.rule}</p></Card>
       <Card style={{marginBottom:14}}>
-        <div style={{fontSize:13,fontWeight:700,color:DK,marginBottom:12}}>📝 More Examples</div>
+        <div style={{fontSize:13,fontWeight:700,color:DK,marginBottom:12}}>More Examples</div>
         {c.examples.map((e,i)=>(
           <div key={i} style={{marginBottom:12,paddingBottom:12,borderBottom:i<c.examples.length-1?"1px solid #f0f0f0":"none"}}>
             <div style={{fontSize:13,color:"#c62828",marginBottom:4}}>❌ {e.w}</div>
@@ -1246,7 +1275,7 @@ function Profile({user,xp,lvl,level,badges,streak,G,LT,DK}){
           ))}
         </div>
       </div>
-      <h3 style={{color:DK,marginBottom:12}}>🏅 Badges</h3>
+      <h3 style={{color:DK,marginBottom:12}}>Badges</h3>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         {BADGES.map(b=>{
           const earned=badges.includes(b.name);
@@ -1291,14 +1320,14 @@ function Board({userId,myXp,token,G,LT,DK}){
     <div style={{padding:18}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
         <div>
-          <h3 style={{color:DK,margin:"0 0 4px"}}>🏆 Leaderboard</h3>
+          <h3 style={{color:DK,margin:"0 0 4px"}}>Leaderboard</h3>
           <p style={{color:"#888",fontSize:12,margin:0}}>{lastRef?`Updated ${lastRef.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`:""}</p>
         </div>
-        <button onClick={fetch_} style={{background:LT,border:"none",borderRadius:10,padding:"6px 12px",color:G,fontWeight:700,fontSize:12,cursor:"pointer"}}>🔄 Refresh</button>
+        <button onClick={fetch_} style={{background:LT,border:"none",borderRadius:10,padding:"6px 12px",color:G,fontWeight:700,fontSize:12,cursor:"pointer"}}>Refresh</button>
       </div>
       {myRank&&myRank>10&&(
         <Card style={{background:`linear-gradient(135deg,${DK},${G})`,color:"#fff",marginBottom:16}}>
-          <div style={{fontSize:12,opacity:.8,marginBottom:4}}>📍 Your Rank</div>
+          <div style={{fontSize:12,opacity:.8,marginBottom:4}}>Your Rank</div>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             <div style={{fontSize:32,fontWeight:900}}>#{myRank}</div>
             <div><div style={{fontWeight:700}}>Keep going!</div><div style={{fontSize:12,opacity:.8}}>⭐ {myXp} XP</div></div>
@@ -1329,9 +1358,9 @@ function Board({userId,myXp,token,G,LT,DK}){
       })}
       {!loading&&lb.length>0&&(
         <Card style={{background:"#f9fbe7",marginTop:8}}>
-          <div style={{fontSize:12,color:"#888",marginBottom:8}}>📊 Stats</div>
+          <div style={{fontSize:12,color:"#888",marginBottom:8}}>Stats</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            {[["👥 Students",lb.length],["🏆 Top XP",`${lb[0]?.xp||0} XP`],["📍 Your Rank",myRank?`#${myRank}`:"—"],["⭐ Your XP",`${myXp} XP`]].map(([l,v])=>(
+            {[["Students",lb.length],["Top XP",`${lb[0]?.xp||0} XP`],["Your Rank",myRank?`#${myRank}`:"—"],["Your XP",`${myXp} XP`]].map(([l,v])=>(
               <div key={l} style={{textAlign:"center",background:"#fff",borderRadius:10,padding:"8px 4px"}}>
                 <div style={{fontSize:13,fontWeight:700,color:DK}}>{v}</div>
                 <div style={{fontSize:11,color:"#888"}}>{l}</div>
@@ -1347,12 +1376,12 @@ function Board({userId,myXp,token,G,LT,DK}){
 /* ══ SETTINGS ══ */
 function Settings({user,xp,placement,onThemeChange,onLogout,G,LT,DK}){
   const [notifPerm,setNP]=useState(typeof Notification!=="undefined"?Notification.permission:"default");
-  const [notifTime,setNT]=useState(localStorage.getItem("writeup_notif_time")||"08:00");
+  const [notifTime,setNT]=useState(lsGet("writeup_notif_time","08:00"));
   const [saving,setSaving]=useState(false);
   const [saved,setSaved]=useState(false);
   const [offSt,setOff]=useState("checking");
   const [caching,setCaching]=useState(false);
-  const [activeTheme,setAT]=useState(localStorage.getItem("writeup_theme")||"default");
+  const [activeTheme,setAT]=useState(lsGet("writeup_theme","default"));
   const [swReg,setSW]=useState(null);
 
   useEffect(()=>{
@@ -1362,11 +1391,11 @@ function Settings({user,xp,placement,onThemeChange,onLogout,G,LT,DK}){
 
   const enableNotif=async()=>{
     const p=await reqNotif();setNP(p);
-    if(p==="granted"){localStorage.setItem("writeup_notif_enabled","true");showNotif("✅ Enabled!","Daily reminder set for "+notifTime);}
+    if(p==="granted"){lsSet("writeup_notif_enabled","true");showNotif("Enabled!","Daily reminder set for "+notifTime);}
   };
   const saveNotif=()=>{
     setSaving(true);
-    if(Notification?.permission==="granted"){localStorage.setItem("writeup_notif_time",notifTime);}
+    if(Notification?.permission==="granted"){lsSet("writeup_notif_time",notifTime);}
     setTimeout(()=>{setSaving(false);setSaved(true);setTimeout(()=>setSaved(false),2000);},500);
   };
   const doCache=async()=>{
@@ -1377,11 +1406,11 @@ function Settings({user,xp,placement,onThemeChange,onLogout,G,LT,DK}){
       for(let i=0;i<MISTAKES.length;i++)await dbSet(`m${i}`,MISTAKES[i]);
       await dbSet("ready",true);
       setOff("ready");
-      showNotif("✅ Cached!","Grammar, Vocabulary & Mistakes available offline.");
+      showNotif("Cached!","Grammar, Vocabulary & Mistakes available offline.");
     }catch{alert("Could not cache. Try again.");}
     setCaching(false);
   };
-  const doTheme=k=>{setAT(k);localStorage.setItem("writeup_theme",k);onThemeChange(THEMES[k]);};
+  const doTheme=k=>{setAT(k);lsSet("writeup_theme",k);onThemeChange(THEMES[k]);};
   const doCert=()=>{
     const url=makeCert(user?.name||"Student",placement?.level||"Beginner",xp,new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"}));
     const a=document.createElement("a");a.href=url;a.download=`WriteUP_Certificate_${(user?.name||"Student").replace(/\s+/g,"_")}.png`;a.click();
@@ -1391,8 +1420,7 @@ function Settings({user,xp,placement,onThemeChange,onLogout,G,LT,DK}){
 
   return(
     <div style={{padding:18}}>
-      <h3 style={{color:DK,marginBottom:16}}>⚙️ Settings</h3>
-      {/* Profile */}
+      <h3 style={{color:DK,marginBottom:16}}>Settings</h3>
       <Card style={{marginBottom:14,padding:"14px 16px"}}>
         <div style={{fontSize:12,color:"#888",marginBottom:2}}>Logged in as</div>
         <div style={{fontWeight:700,color:DK,fontSize:15}}>{user?.name}</div>
@@ -1403,66 +1431,61 @@ function Settings({user,xp,placement,onThemeChange,onLogout,G,LT,DK}){
           <span style={{background:"#fff8e1",color:"#f57c00",borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>{lvl.name}</span>
         </div>
       </Card>
-      {/* Themes */}
       <Card style={{marginBottom:14}}>
-        <div style={{fontWeight:700,color:DK,fontSize:15,marginBottom:12}}>🎨 Visual Themes</div>
-        {[{k:"default",name:"🌿 Default Green",locked:false,req:0},{k:"forest",name:"🌲 Dark Forest",locked:!canForest,req:200},{k:"ocean",name:"🌊 Ocean Blue",locked:!canOcean,req:1000}].map(t=>(
+        <div style={{fontWeight:700,color:DK,fontSize:15,marginBottom:12}}>Visual Themes</div>
+        {[{k:"default",name:"Default Green",locked:false,req:0},{k:"forest",name:"Dark Forest",locked:!canForest,req:200},{k:"ocean",name:"Ocean Blue",locked:!canOcean,req:1000}].map(t=>(
           <div key={t.k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"10px 12px",borderRadius:12,background:activeTheme===t.k?"#e8f5e9":t.locked?"#f5f5f5":"#fff",border:activeTheme===t.k?`2px solid ${G}`:"1.5px solid #eee",opacity:t.locked?.6:1}}>
             <div>
               <div style={{fontWeight:700,color:DK,fontSize:13}}>{t.name}</div>
-              {t.locked&&<div style={{fontSize:11,color:"#f57c00"}}>🔒 Unlock at {t.req} XP ({t.req-xp} more)</div>}
+              {t.locked&&<div style={{fontSize:11,color:"#f57c00"}}>Unlock at {t.req} XP ({t.req-xp} more)</div>}
             </div>
             {!t.locked&&<button onClick={()=>doTheme(t.k)} style={{background:activeTheme===t.k?G:"#e0e0e0",color:activeTheme===t.k?"#fff":"#555",border:"none",borderRadius:10,padding:"6px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{activeTheme===t.k?"Active":"Apply"}</button>}
           </div>
         ))}
       </Card>
-      {/* Certificate */}
       <Card style={{marginBottom:14,background:canCert?"#f9fbe7":"#f5f5f5",opacity:canCert?1:.7}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
-            <div style={{fontWeight:700,color:DK,fontSize:15}}>🏆 Certificate</div>
-            <div style={{fontSize:12,color:"#888",marginTop:3}}>{canCert?"Download your official certificate":"🔒 Unlock at 2000 XP — "+String(2000-xp)+" more needed"}</div>
+            <div style={{fontWeight:700,color:DK,fontSize:15}}>Certificate</div>
+            <div style={{fontSize:12,color:"#888",marginTop:3}}>{canCert?"Download your official certificate":"Unlock at 2000 XP — "+String(2000-xp)+" more needed"}</div>
           </div>
-          {canCert&&<button onClick={doCert} style={{background:G,color:"#fff",border:"none",borderRadius:10,padding:"8px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>⬇️ Download</button>}
+          {canCert&&<button onClick={doCert} style={{background:G,color:"#fff",border:"none",borderRadius:10,padding:"8px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Download</button>}
         </div>
         {!canCert&&<div style={{background:"#ffe082",borderRadius:99,height:6,marginTop:10}}><div style={{background:"#f9a825",height:6,borderRadius:99,width:`${Math.min(100,Math.round((xp/2000)*100))}%`,transition:"width .5s"}}/></div>}
       </Card>
-      {/* Offline */}
       <Card style={{marginBottom:14}}>
-        <div style={{fontWeight:700,color:DK,fontSize:15,marginBottom:6}}>📴 Offline Mode</div>
+        <div style={{fontWeight:700,color:DK,fontSize:15,marginBottom:6}}>Offline Mode</div>
         <div style={{fontSize:12,color:"#888",marginBottom:12}}>Cache Grammar, Vocabulary & Mistakes for use without internet.</div>
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
           <div style={{width:10,height:10,borderRadius:"50%",background:offSt==="ready"?"#4caf50":offSt==="checking"?"#ff9800":"#bbb"}}/>
-          <span style={{fontSize:13,color:"#555",fontWeight:600}}>{offSt==="ready"?"✅ Cached & Ready":offSt==="checking"?"Checking…":"Not cached yet"}</span>
+          <span style={{fontSize:13,color:"#555",fontWeight:600}}>{offSt==="ready"?"Cached & Ready":offSt==="checking"?"Checking…":"Not cached yet"}</span>
         </div>
         <button onClick={doCache} disabled={caching||offSt==="ready"}
           style={{width:"100%",background:offSt==="ready"?"#e8f5e9":G,color:offSt==="ready"?G:"#fff",border:offSt==="ready"?`1.5px solid ${G}`:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:14,cursor:caching||offSt==="ready"?"default":"pointer",fontFamily:"inherit",opacity:caching?.7:1}}>
-          {caching?"⏳ Caching…":offSt==="ready"?"✅ Already cached":"📥 Cache for Offline Use"}
+          {caching?"Caching…":offSt==="ready"?"Already cached":"Cache for Offline Use"}
         </button>
         {offSt==="ready"&&<button onClick={async()=>{await dbSet("ready",false);setOff("not_cached");}} style={{width:"100%",background:"none",border:"none",color:"#bbb",fontSize:12,cursor:"pointer",marginTop:6,fontFamily:"inherit"}}>Clear cache</button>}
       </Card>
-      {/* Notifications */}
       <Card style={{marginBottom:14}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
           <div>
-            <div style={{fontWeight:700,color:DK,fontSize:15}}>🔔 Notifications</div>
-            <div style={{fontSize:12,color:"#888",marginTop:2}}>{notifPerm==="granted"?"✅ Enabled":notifPerm==="denied"?"❌ Blocked":"Not yet enabled"}</div>
+            <div style={{fontWeight:700,color:DK,fontSize:15}}>Notifications</div>
+            <div style={{fontSize:12,color:"#888",marginTop:2}}>{notifPerm==="granted"?"Enabled":notifPerm==="denied"?"Blocked":"Not yet enabled"}</div>
           </div>
           {notifPerm!=="granted"&&notifPerm!=="denied"&&<button onClick={enableNotif} style={{background:G,color:"#fff",border:"none",borderRadius:10,padding:"8px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>Enable</button>}
         </div>
         {notifPerm==="granted"&&<>
           <div style={{marginBottom:12}}>
-            <div style={{fontSize:13,fontWeight:600,color:DK,marginBottom:6}}>⏰ Daily reminder time</div>
+            <div style={{fontSize:13,fontWeight:600,color:DK,marginBottom:6}}>Daily reminder time</div>
             <input type="time" value={notifTime} onChange={e=>setNT(e.target.value)} style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${G}`,borderRadius:10,padding:"10px 14px",fontSize:15,outline:"none",fontFamily:"inherit",color:DK}}/>
           </div>
           <button onClick={saveNotif} style={{width:"100%",background:saved?"#e8f5e9":G,color:saved?G:"#fff",border:saved?`1.5px solid ${G}`:"none",borderRadius:12,padding:"11px",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit",transition:"all .3s"}}>
-            {saving?"Saving…":saved?"✅ Saved!":"Save Settings"}
+            {saving?"Saving…":saved?"Saved!":"Save Settings"}
           </button>
         </>}
       </Card>
-      {/* Privacy */}
       <Card style={{marginBottom:14,padding:"14px 16px"}}>
-        <div style={{fontWeight:600,color:DK,fontSize:14}}>🔒 Privacy</div>
+        <div style={{fontWeight:600,color:DK,fontSize:14}}>Privacy</div>
         <div style={{fontSize:12,color:"#888",marginTop:4}}>ARTCI compliance n°2013-450 · Secured by Supabase</div>
       </Card>
       <button onClick={onLogout} style={{width:"100%",marginTop:4,background:"#ffebee",color:"#c62828",border:"1.5px solid #ffcdd2",borderRadius:12,padding:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Log Out</button>
