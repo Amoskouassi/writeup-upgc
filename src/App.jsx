@@ -598,7 +598,42 @@ export default function WriteUpApp() {
     });
   },[]);
 
-  // Auto level-up from XP
+  // ── Android back button handler ──
+  useEffect(() => {
+    const handleBack = (e) => {
+      // If a module is open → go back to home
+      if (activeMod) {
+        e.preventDefault();
+        setActiveMod(null);
+        loadToday(user?.id, token);
+        return;
+      }
+      // If on a sub-screen → go back to app home
+      if (screen === "result" || screen === "placement") {
+        e.preventDefault();
+        return;
+      }
+      // If on a tab other than home → go to home tab
+      if (tab !== "home") {
+        e.preventDefault();
+        setTab("home");
+        return;
+      }
+      // If encouragement overlay is open → close it
+      if (showEncourage) {
+        e.preventDefault();
+        setShowEncourage(null);
+        return;
+      }
+      // Otherwise let the browser handle it (minimise app)
+    };
+
+    // Push a state so we can intercept popstate
+    window.history.pushState({ page: "app" }, "");
+    window.addEventListener("popstate", handleBack);
+
+    return () => window.removeEventListener("popstate", handleBack);
+  }, [activeMod, tab, screen, showEncourage, user, token]);
   useEffect(() => {
     if(!user?.id||!token) return;
     const newLevel = xp>=1500?"Advanced":xp>=500?"Intermediate":"Beginner";
