@@ -1,224 +1,363 @@
 import { useState, useEffect } from "react";
 
-/* ─── THEME ─────────────────────────────────────────── */
-const THEMES = {
-  default: { G:"#2D6A4F", LT:"#d8f3dc", DK:"#1b4332" },
-  forest:  { G:"#1a3a2a", LT:"#c8e6c9", DK:"#0d1f17" },
-  ocean:   { G:"#1565c0", LT:"#bbdefb", DK:"#0d47a1" },
-};
-const getTheme = () => THEMES[localStorage.getItem("wup_theme") || "default"] || THEMES.default;
+const G="#2D6A4F",LT="#d8f3dc",DK="#1b4332";
+const SB_URL=import.meta.env.VITE_SUPABASE_URL||"https://qnxeyoxashvbljjmqkrp.supabase.co";
+const SB_KEY=import.meta.env.VITE_SUPABASE_KEY||"sb_publishable_lgRs4KqlUybNQ--KiZP7BA_m-ntu3CC";
 
-/* ─── SUPABASE ───────────────────────────────────────── */
-const SB  = import.meta.env.VITE_SUPABASE_URL || "https://qnxeyoxashvbljjmqkrp.supabase.co";
-const KEY = import.meta.env.VITE_SUPABASE_KEY || "sb_publishable_lgRs4KqlUybNQ--KiZP7BA_m-ntu3CC";
-const h = t => ({ "Content-Type":"application/json","apikey":KEY,"Authorization":`Bearer ${t||KEY}`,"Prefer":"return=representation" });
-const get    = (p,t)   => fetch(`${SB}/rest/v1/${p}`,{headers:h(t)}).then(r=>r.json()).catch(()=>[]);
-const post   = (p,b,t) => fetch(`${SB}/rest/v1/${p}`,{method:"POST",headers:h(t),body:JSON.stringify(b)}).then(r=>r.json()).catch(()=>{});
-const patch  = (p,b,t) => fetch(`${SB}/rest/v1/${p}`,{method:"PATCH",headers:{...h(t),"Prefer":"return=representation"},body:JSON.stringify(b)}).then(r=>r.json()).catch(()=>{});
-const upsert = (p,b,t) => fetch(`${SB}/rest/v1/${p}`,{method:"POST",headers:{...h(t),"Prefer":"resolution=merge-duplicates,return=representation"},body:JSON.stringify(b)}).then(r=>r.json()).catch(()=>{});
-const signUp = (e,p) => fetch(`${SB}/auth/v1/signup`,{method:"POST",headers:{"Content-Type":"application/json","apikey":KEY},body:JSON.stringify({email:e,password:p})}).then(r=>r.json());
-const signIn = (e,p) => fetch(`${SB}/auth/v1/token?grant_type=password`,{method:"POST",headers:{"Content-Type":"application/json","apikey":KEY},body:JSON.stringify({email:e,password:p})}).then(r=>r.json());
+const sbH=t=>({"Content-Type":"application/json","apikey":SB_KEY,"Authorization":`Bearer ${t||SB_KEY}`,"Prefer":"return=representation"});
+const sbGet=(p,t)=>fetch(`${SB_URL}/rest/v1/${p}`,{headers:sbH(t)}).then(r=>r.json());
+const sbPost=(p,b,t)=>fetch(`${SB_URL}/rest/v1/${p}`,{method:"POST",headers:sbH(t),body:JSON.stringify(b)}).then(r=>r.json());
+const sbPatch=(p,b,t)=>fetch(`${SB_URL}/rest/v1/${p}`,{method:"PATCH",headers:{...sbH(t),"Prefer":"return=representation"},body:JSON.stringify(b)}).then(r=>r.json());
+const sbUpsert=(p,b,t)=>fetch(`${SB_URL}/rest/v1/${p}`,{method:"POST",headers:{...sbH(t),"Prefer":"resolution=merge-duplicates,return=representation"},body:JSON.stringify(b)}).then(r=>r.json());
+const authSignUp=(e,p)=>fetch(`${SB_URL}/auth/v1/signup`,{method:"POST",headers:{"Content-Type":"application/json","apikey":SB_KEY},body:JSON.stringify({email:e,password:p})}).then(r=>r.json());
+const authSignIn=(e,p)=>fetch(`${SB_URL}/auth/v1/token?grant_type=password`,{method:"POST",headers:{"Content-Type":"application/json","apikey":SB_KEY},body:JSON.stringify({email:e,password:p})}).then(r=>r.json());
 
-/* ─── HELPERS ────────────────────────────────────────── */
-const dateStr = () => new Date().toISOString().slice(0,10);
-const rnd     = a  => a[Math.floor(Math.random()*a.length)];
-const wc      = s  => (s||"").trim().split(/\s+/).filter(Boolean).length;
-const getLvl  = xp => {
-  if(xp<500)  return {name:"Bronze",  color:"#cd7f32",min:0,   next:500};
-  if(xp<1500) return {name:"Silver",  color:"#9e9e9e",min:500, next:1500};
-  if(xp<3000) return {name:"Gold",    color:"#ffd700",min:1500,next:3000};
+const todayStr=()=>new Date().toISOString().slice(0,10);
+const getLvl=xp=>{
+  if(xp<500)  return{name:"Bronze", color:"#cd7f32",min:0,   next:500};
+  if(xp<1500) return{name:"Silver", color:"#9e9e9e",min:500, next:1500};
+  if(xp<3000) return{name:"Gold",   color:"#ffd700",min:1500,next:3000};
   return             {name:"Platinum",color:"#4fc3f7",min:3000,next:5000};
 };
-const XP = {grammar:5,vocabulary:5,reading:20,mistakes:10,quiz:10,peel:50};
-const WMIN = {
-  Beginner:     {point:10,explanation:20,evidence:10,link:10},
-  Intermediate: {point:15,explanation:40,evidence:20,link:15},
-  Advanced:     {point:25,explanation:60,evidence:25,link:20},
+const rnd=arr=>arr[Math.floor(Math.random()*arr.length)];
+
+const Btn=({onClick,children,full,secondary,disabled,style={}})=>(
+  <button onClick={onClick} disabled={disabled} style={{width:full?"100%":"auto",background:secondary?"transparent":G,color:secondary?G:"#fff",border:secondary?`2px solid ${G}`:"none",borderRadius:12,padding:"12px 20px",fontWeight:700,fontSize:14,cursor:disabled?"not-allowed":"pointer",opacity:disabled?.5:1,marginTop:8,fontFamily:"inherit",...style}}>{children}</button>
+);
+const Card=({children,style={}})=>(
+  <div style={{background:"#fff",borderRadius:16,padding:18,boxShadow:"0 2px 12px #0001",...style}}>{children}</div>
+);
+const Tag=({children,color})=>(
+  <span style={{background:color||LT,color:G,borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>{children}</span>
+);
+const Loader=({text="Loading…"})=>(
+  <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:48,gap:16}}>
+    <div style={{width:40,height:40,border:`4px solid ${LT}`,borderTop:`4px solid ${G}`,borderRadius:"50%",animation:"spin 1s linear infinite"}}/>
+    <p style={{color:G,fontWeight:600,fontSize:14,textAlign:"center"}}>{text}</p>
+    <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+  </div>
+);
+
+/* ══════ CONTENT BANKS ══════ */
+
+const GRAMMAR_BANK=[
+  {title:"Present Simple — Habits",instruction:"Choose the correct verb form.",question:"She ___ to the library every Tuesday morning.",opts:["go","goes","is going","has gone"],ans:1,explanation:"We use present simple for habits and routines. 'Every Tuesday' signals a habit, so 'goes' is correct.",tip:"Present simple = habits/routines. Key words: always, usually, every day, never, sometimes."},
+  {title:"Uncountable Nouns",instruction:"Choose the correct sentence.",question:"Which sentence is grammatically correct?",opts:["She gave me some advices.","She gave me some advice.","She gave me an advice.","She gave me advices."],ans:1,explanation:"'Advice' is uncountable — it has no plural. You can never say 'advices' or 'an advice'. Always say 'some advice' or 'a piece of advice'.",tip:"Uncountable nouns (no plural -s): advice, information, furniture, equipment, news, progress, knowledge, research."},
+  {title:"Second Conditional",instruction:"Choose the correct form.",question:"If I ___ more time, I would read every day.",opts:["have","had","has","will have"],ans:1,explanation:"Second conditional = If + past simple + would + base verb. It describes hypothetical or unreal situations in the present or future.",tip:"Second conditional structure: 'If + subject + past simple, subject + would + base verb.' Example: If I had money, I would travel."},
+  {title:"Relative Clauses",instruction:"Choose the correct relative pronoun.",question:"The student ___ scored highest in the test received a prize.",opts:["which","whose","who","whom"],ans:2,explanation:"Use 'who' for people in relative clauses. 'Which' is used for things and animals. 'Whose' shows possession.",tip:"Who = people. Which = things. Whose = possession. That = people or things (informal). Example: The book which I read was excellent."},
+  {title:"Articles: A, An, The",instruction:"Choose the correct article.",question:"She is studying at ___ university in Korhogo.",opts:["a","an","the","—"],ans:0,explanation:"'University' starts with a /j/ sound (consonant sound), so we use 'a', not 'an'. The rule depends on SOUND, not spelling.",tip:"Use 'an' before vowel SOUNDS: an hour /aʊə/, an umbrella. Use 'a' before consonant SOUNDS: a university /juː/, a European."},
+  {title:"Past Perfect",instruction:"Choose the correct tense.",question:"By the time the teacher arrived, the students ___ their essays.",opts:["finish","finished","had finished","have finished"],ans:2,explanation:"Past perfect (had + past participle) is used for an action completed BEFORE another past action. The students finished before the teacher arrived.",tip:"Past perfect = had + past participle. Use it when one past action happened before another. Signal words: by the time, already, before, after."},
+  {title:"Passive Voice",instruction:"Choose the correct passive form.",question:"All assignments ___ before the end of the semester.",opts:["must submit","must be submitted","must submitted","must be submit"],ans:1,explanation:"Passive voice = modal + be + past participle. 'Must be submitted' means the assignments receive the action (someone submits them).",tip:"Passive voice formula: subject + be + past participle. Active: 'Students submit essays.' Passive: 'Essays are submitted by students.'"},
+  {title:"Gerund vs Infinitive",instruction:"Choose the correct form.",question:"She avoided ___ the difficult questions during the debate.",opts:["to answer","answer","answering","answered"],ans:2,explanation:"'Avoid' must always be followed by a gerund (-ing form). Using an infinitive after 'avoid' is incorrect.",tip:"Verbs + gerund (-ing): avoid, enjoy, finish, consider, suggest, practise, keep. Verbs + infinitive (to): want, need, decide, hope, plan, agree, refuse."},
+  {title:"Subject-Verb Agreement",instruction:"Choose the correct verb.",question:"Neither the students nor the teacher ___ aware of the schedule change.",opts:["were","are","was","is"],ans:2,explanation:"With 'neither...nor', the verb agrees with the NEAREST subject. 'Teacher' is singular, so we use 'was'.",tip:"Neither...nor / either...or: the verb agrees with the closest subject. If the closest subject is plural, use a plural verb."},
+  {title:"Reported Speech",instruction:"Choose the correct reported speech form.",question:"She said: 'I am preparing for my exams.' → She said that she ___ for her exams.",opts:["is preparing","was preparing","has been preparing","prepares"],ans:1,explanation:"In reported speech, present continuous (am preparing) shifts back to past continuous (was preparing). This is called 'backshift'.",tip:"Reported speech backshift: am/is/are → was/were | have/has → had | will → would | can → could | present simple → past simple."},
+  {title:"Prepositions with Adjectives",instruction:"Choose the correct preposition.",question:"She is very good ___ mathematics and statistics.",opts:["in","on","at","for"],ans:2,explanation:"In English, we say 'good at' a subject or skill. This is a fixed expression — 'good in' or 'good on' are incorrect.",tip:"Fixed preposition expressions: good at, bad at, interested in, responsible for, afraid of, proud of, similar to, different from."},
+  {title:"Present Perfect vs Past Simple",instruction:"Choose the correct tense.",question:"I ___ my homework, so I can go out now.",opts:["finish","finished","have finished","had finished"],ans:2,explanation:"Present perfect is used when a past action has a result or relevance in the present. 'I have finished' explains why I can go out now.",tip:"Present perfect = have/has + past participle. Use it for: recent actions with present results, life experiences, actions continuing until now."},
+];
+
+const VOCAB_BANK=[
+  {word:"Analyse",phonetic:"/ˈæn.ə.laɪz/",french:"Analyser",partOfSpeech:"verb",definition:"To examine something carefully and in detail in order to understand it fully.",example:"The students must ___ the poem before writing their critical essay.",blank:"analyse",opts:["analyse","ignore","copy","avoid"],ans:0,memory_tip:"Think of 'ana' (apart) + 'lyse' (loosen). To analyse is to break something apart to understand each piece."},
+  {word:"Significant",phonetic:"/sɪɡˈnɪf.ɪ.kənt/",french:"Important / Significatif",partOfSpeech:"adjective",definition:"Important or large enough to have a noticeable effect or to be worth attention.",example:"There has been a ___ improvement in her academic writing since last semester.",blank:"significant",opts:["significant","small","boring","strange"],ans:0,memory_tip:"'Sign' is inside significant — something significant gives a clear sign that it matters."},
+  {word:"Coherent",phonetic:"/kəʊˈhɪə.rənt/",french:"Cohérent / Logique",partOfSpeech:"adjective",definition:"Logical, well-organised, and easy to understand; all parts connecting well together.",example:"A well-written essay must present a ___ argument that flows from beginning to end.",blank:"coherent",opts:["emotional","coherent","confusing","short"],ans:1,memory_tip:"'Co' (together) + 'here' (stick). Coherent ideas stick together in a logical way."},
+  {word:"Evidence",phonetic:"/ˈev.ɪ.dəns/",french:"Preuve / Élément de preuve",partOfSpeech:"noun (uncountable)",definition:"Facts, information, or signs that show whether a claim or belief is true or valid.",example:"Every argument in an academic essay must be supported by reliable ___.",blank:"evidence",opts:["opinion","evidence","feeling","title"],ans:1,memory_tip:"'Evident' comes from the same root — something evident is easy to see, just like evidence makes the truth visible."},
+  {word:"Conclude",phonetic:"/kənˈkluːd/",french:"Conclure",partOfSpeech:"verb",definition:"To decide that something is true after carefully considering all available information.",example:"Based on the research findings, we can ___ that education significantly reduces poverty.",blank:"conclude",opts:["begin","wonder","conclude","forget"],ans:2,memory_tip:"'Con' + 'clude' (close). To conclude is to close your thinking with a final, well-reasoned decision."},
+  {word:"Fundamental",phonetic:"/ˌfʌn.dəˈmen.təl/",french:"Fondamental / Essentiel",partOfSpeech:"adjective",definition:"Forming the necessary base or core of something; of central and essential importance.",example:"Critical thinking is a ___ skill that all university students must develop.",blank:"fundamental",opts:["optional","fundamental","difficult","rare"],ans:1,memory_tip:"'Fund' = foundation (like a building's base). Fundamental = what everything else is built upon."},
+  {word:"Illustrate",phonetic:"/ˈɪl.ə.streɪt/",french:"Illustrer / Démontrer",partOfSpeech:"verb",definition:"To make the meaning of something clearer or more vivid by providing examples, diagrams, or evidence.",example:"This graph will clearly ___ how students' scores have improved over three years.",blank:"illustrate",opts:["hide","illustrate","remove","question"],ans:1,memory_tip:"'Illustrate' contains 'lustre' (light/brightness). You illuminate or shed light on an idea with a clear example."},
+  {word:"Consequence",phonetic:"/ˈkɒn.sɪ.kwəns/",french:"Conséquence / Résultat",partOfSpeech:"noun",definition:"A result or effect of an action, decision, or condition — often an important or negative one.",example:"Poor time management can have serious academic ___s, including failing examinations.",blank:"consequence",opts:["reason","consequence","beginning","title"],ans:1,memory_tip:"'Con' + 'sequence' — consequences follow in sequence after an action, like dominoes falling."},
+  {word:"Emphasise",phonetic:"/ˈem.fə.saɪz/",french:"Souligner / Insister sur",partOfSpeech:"verb",definition:"To show that something is especially important or deserves particular attention.",example:"The professor always ___ the importance of proofreading before submitting any assignment.",blank:"emphasise",opts:["ignore","forget","emphasise","remove"],ans:2,memory_tip:"'Em' + 'phase' — to put something in sharp focus, like a camera emphasising one subject over others."},
+  {word:"Approach",phonetic:"/əˈprəʊtʃ/",french:"Approche / Méthode",partOfSpeech:"noun / verb",definition:"A way of dealing with a situation or problem; to come near to something physically or conceptually.",example:"The researcher used a qualitative ___ to study students' writing habits.",blank:"approach",opts:["problem","mistake","approach","question"],ans:2,memory_tip:"Think of 'approach' as stepping closer to a solution — you get nearer to it step by step."},
+  {word:"Relevant",phonetic:"/ˈrel.ɪ.vənt/",french:"Pertinent / Approprié",partOfSpeech:"adjective",definition:"Closely connected or appropriate to the subject or matter being discussed.",example:"Make sure all the evidence you include in your essay is ___ to your main argument.",blank:"relevant",opts:["relevant","old","boring","random"],ans:0,memory_tip:"'Relevant' shares a root with 'relate'. Relevant information relates directly to your topic."},
+  {word:"Justify",phonetic:"/ˈdʒʌs.tɪ.faɪ/",french:"Justifier",partOfSpeech:"verb",definition:"To show or prove that a decision, action, or statement is reasonable and has good reason.",example:"You must ___ every claim you make in an academic essay with reliable evidence.",blank:"justify",opts:["hide","justify","ignore","repeat"],ans:1,memory_tip:"'Just' = fair/right. To justify means to show that something is fair, right, or well-reasoned."},
+];
+
+const READING_BANK=[
+  {title:"Education and Development in Africa",topic:"Education · Development",passage:`Education is widely recognised as one of the most powerful tools for sustainable development in Africa. Countries that invest seriously in schools and universities tend to experience stronger economic growth, lower poverty rates, and more stable governments. In Côte d'Ivoire, the government has significantly increased spending on education over the past decade, resulting in higher enrolment rates at both primary and secondary levels.
+
+However, significant challenges remain. A shortage of qualified teachers in rural areas, limited access to technology, and inadequate school infrastructure continue to hinder progress. Many students in remote regions must walk several kilometres each day simply to attend school.
+
+Despite these obstacles, research consistently shows the transformative power of education. Students who complete secondary school are three times more likely to find formal employment than those who drop out. Experts argue that improving the quality of education — not merely access to it — must be the central priority for Africa's next generation of leaders and policymakers.`,glossary:[{word:"sustainable",definition:"able to continue over a long period without causing damage"},{word:"enrolment",definition:"the process of officially registering in a school or course"},{word:"infrastructure",definition:"the basic physical structures needed for a society to function, such as roads and buildings"},{word:"transformative",definition:"causing a major positive change"},{word:"policymakers",definition:"people in positions of authority who create official rules and plans"}],questions:[{q:"What does the passage say about countries that invest in education?",opts:["They face more economic problems","They experience stronger growth and lower poverty","They have fewer qualified teachers","They spend less on healthcare"],ans:1},{q:"What challenge regarding teachers is mentioned in the passage?",opts:["Too many teachers in cities","Shortage of qualified teachers in rural areas","Teachers are not well paid","Teachers refuse to work in villages"],ans:1},{q:"How much more likely are secondary school graduates to find employment?",opts:["Twice as likely","Four times as likely","Three times as likely","Five times as likely"],ans:2}]},
+  {title:"The Power of Reading",topic:"Literacy · Academic Success",passage:`Reading is arguably the single most important habit that a university student can cultivate. Research consistently demonstrates that students who read widely — both within and beyond their coursework — perform significantly better in examinations and produce higher quality written work. Reading expands vocabulary, sharpens comprehension skills, and develops the kind of critical thinking that academic success demands.
+
+In many African universities, however, access to books and academic journals remains severely limited. Physical libraries are often under-resourced, and the cost of purchasing textbooks places a heavy financial burden on students and their families. Digital libraries and mobile reading applications are beginning to address this situation, but internet access remains unreliable in many areas.
+
+A student who commits to reading for just thirty minutes each day can experience a measurable improvement in their academic performance within a single semester. The habit of reading is not a luxury reserved for those with abundant time — it is a daily discipline and a fundamental necessity for anyone who aspires to academic and professional excellence.`,glossary:[{word:"cultivate",definition:"to develop a skill or habit through regular effort and attention"},{word:"comprehension",definition:"the ability to understand something fully"},{word:"aspires",definition:"has a strong desire to achieve something great"},{word:"discipline",definition:"the ability to control your behaviour and follow a regular practice"},{word:"measurable",definition:"large enough to be noticed and evaluated"}],questions:[{q:"According to the passage, what is the most important habit for a university student?",opts:["Attending all lectures","Reading widely","Taking detailed notes","Joining study groups"],ans:1},{q:"What financial challenge related to reading is mentioned?",opts:["Libraries are too expensive to build","Students cannot afford textbooks","Professors charge for reading lists","Digital books are too costly"],ans:1},{q:"What does the author say about reading for 30 minutes a day?",opts:["It is too little to make a difference","It leads to measurable academic improvement","It is only useful in the first year","It replaces the need to attend lectures"],ans:1}]},
+  {title:"Chinua Achebe and African Literature",topic:"African Literature · Cultural Identity",passage:`Chinua Achebe is widely regarded as the father of modern African literature in English. His landmark novel, Things Fall Apart, published in 1958, tells the story of Okonkwo — a proud and complex Igbo warrior whose life is profoundly disrupted by the arrival of European colonisers in Nigeria. The novel was groundbreaking not only for its compelling narrative but also because it presented African culture, values, and social structures entirely from an African perspective.
+
+Prior to Achebe's work, Africa had largely been portrayed in European literature as a dark, primitive, and voiceless continent. Achebe deliberately set out to challenge and correct this misrepresentation. He wrote in English, the language of the coloniser, but filled his prose with Igbo proverbs, oral traditions, and cultural references, creating a literary style that was entirely his own.
+
+Things Fall Apart has since been translated into more than fifty languages and is studied in schools and universities across the world. Achebe believed deeply that literature had the power to change how individuals and societies understand themselves. He once wrote that a writer must stand on the side of life and of humanity.`,glossary:[{word:"landmark",definition:"something important that marks a significant change or achievement"},{word:"disrupted",definition:"seriously disturbed or interrupted"},{word:"groundbreaking",definition:"new and very important; doing something never done before"},{word:"misrepresentation",definition:"a false or misleading description of something"},{word:"prose",definition:"written language in its ordinary form, not poetry"}],questions:[{q:"Why is Things Fall Apart considered groundbreaking?",opts:["It was the first novel written in Africa","It presented African culture from an African perspective","It was written in the Igbo language","It was the longest African novel ever written"],ans:1},{q:"How did Achebe incorporate African culture into his English writing?",opts:["By refusing to use English grammar","By translating directly from Igbo","By using Igbo proverbs and oral traditions","By writing only about traditional ceremonies"],ans:2},{q:"Into how many languages has Things Fall Apart been translated?",opts:["Over 20","Over 30","Over 40","More than 50"],ans:3}]},
+  {title:"Climate Change and Africa",topic:"Environment · Science",passage:`Climate change poses one of the most serious threats to Africa's development, even though the continent contributes relatively little to global greenhouse gas emissions. Rising temperatures, unpredictable rainfall, and increasingly frequent extreme weather events are already disrupting agriculture, threatening food security, and displacing communities across the continent.
+
+In the Sahel region, which stretches across sub-Saharan Africa from Senegal to Sudan, prolonged droughts have made farming increasingly difficult. Millions of people who depend on rain-fed agriculture for their livelihoods are being forced to migrate to cities, placing enormous pressure on urban infrastructure and services.
+
+At the same time, Africa possesses extraordinary natural resources that could support a green energy transition. The continent receives more solar energy than any other region on Earth, and its vast rivers offer significant hydroelectric potential. Experts argue that with the right investment and political will, Africa could not only adapt to climate change but also become a global leader in renewable energy production.`,glossary:[{word:"emissions",definition:"gases released into the atmosphere, especially those causing climate change"},{word:"livelihoods",definition:"ways of earning money and supporting oneself"},{word:"transition",definition:"a process of changing from one state or system to another"},{word:"hydroelectric",definition:"producing electricity using the power of flowing water"},{word:"renewable",definition:"naturally replenished and not permanently depleted when used"}],questions:[{q:"What does the passage say about Africa's contribution to climate change?",opts:["Africa is the biggest contributor","Africa contributes very little to global emissions","Africa produces no greenhouse gases","Africa is not affected by climate change"],ans:1},{q:"What is happening in the Sahel region according to the passage?",opts:["Farmers are becoming very wealthy","Cities are being abandoned","Droughts are forcing farmers to migrate","New farms are being created"],ans:2},{q:"What natural advantage does Africa have for green energy?",opts:["The most wind energy in the world","The largest coal reserves","More solar energy than any other region","The deepest ocean currents"],ans:2}]},
+];
+
+const MISTAKES_BANK=[
+  {title:"'Make' vs 'Do'",french_pattern:"Faire une erreur / Faire ses devoirs / Faire un effort",wrong_english:"I did a mistake in my essay and I must do an effort to improve.",correct_english:"I made a mistake in my essay and I must make an effort to improve.",rule:"Use MAKE for: mistakes, decisions, progress, noise, suggestions, an effort, a difference, friends. Use DO for: homework, exercises, work, research, a course, one's best, a favour. There is no simple rule — these are fixed collocations that must be memorised.",extra_examples:[{wrong:"She did a good decision to study English.",right:"She made a good decision to study English."},{wrong:"He is doing progress in his writing.",right:"He is making progress in his writing."},{wrong:"Can you make this exercise for me?",right:"Can you do this exercise for me?"}]},
+  {title:"'Since' vs 'For'",french_pattern:"J'étudie l'anglais depuis 3 ans / depuis 2021",wrong_english:"I study English since 3 years and I am at UPGC since 2022.",correct_english:"I have been studying English for 3 years and I have been at UPGC since 2022.",rule:"'Since' refers to a specific point in time (since 2021, since Monday, since I was a child). 'For' refers to a duration — a period of time (for 3 years, for two months, for a long time). Both expressions require the present perfect tense in English, NOT the present simple.",extra_examples:[{wrong:"She lives here since 5 years.",right:"She has lived here for 5 years."},{wrong:"I wait for you since 2 o'clock.",right:"I have been waiting for you since 2 o'clock."},{wrong:"He works at this school since a long time.",right:"He has worked at this school for a long time."}]},
+  {title:"'Actually' ≠ 'Actuellement'",french_pattern:"Actuellement, je travaille à l'UPGC / il étudie actuellement",wrong_english:"Actually, I am a student at UPGC. Actually, I am studying for my exams.",correct_english:"Currently, I am a student at UPGC. At the moment, I am studying for my exams.",rule:"'Actually' is a very common false friend for French speakers. In English, 'actually' does NOT mean 'at this present time'. It means 'in fact', 'in reality', or 'to tell the truth'. For the French meaning of 'actuellement', always use 'currently', 'at present', 'at the moment', or 'right now'.",extra_examples:[{wrong:"Actually, the economy is growing fast.",right:"Currently, the economy is growing fast. (meaning 'at present')"},{wrong:"He actually studies medicine.",right:"He is currently studying medicine. (meaning 'right now')"},{wrong:"Actually, she lives in Abidjan.",right:"She actually lives in Abidjan. (meaning 'in fact, surprisingly')"}]},
+  {title:"Double Negatives",french_pattern:"Je n'ai rien dit / Je ne vais nulle part / Je ne connais personne",wrong_english:"I didn't say nothing. I don't know nobody here. I never go nowhere.",correct_english:"I didn't say anything. I don't know anybody here. I never go anywhere.",rule:"Standard English does NOT allow double negatives. When you use 'not' or 'didn't' in a sentence, you must use positive words like 'anything', 'anybody', 'anywhere', 'ever'. Alternatively, you can use 'nothing', 'nobody', 'nowhere' WITHOUT 'not'. Two negatives cancel each other out in English logic.",extra_examples:[{wrong:"She doesn't know nothing about grammar.",right:"She doesn't know anything about grammar. / She knows nothing about grammar."},{wrong:"He never tells nobody his problems.",right:"He never tells anybody his problems."},{wrong:"I can't find it nowhere.",right:"I can't find it anywhere. / I can find it nowhere."}]},
+  {title:"'Assist' vs 'Attend'",french_pattern:"J'ai assisté au cours / J'ai assisté à la conférence",wrong_english:"I assisted the lecture this morning. Did you assist the meeting yesterday?",correct_english:"I attended the lecture this morning. Did you attend the meeting yesterday?",rule:"'Assist' in English means to help or support someone (aider quelqu'un). 'Attend' means to be present at an event, meeting, or class (assister à quelque chose). This is one of the most common false friends for French speakers in academic and professional contexts.",extra_examples:[{wrong:"She assisted the wedding ceremony last Saturday.",right:"She attended the wedding ceremony last Saturday."},{wrong:"All students must assist the orientation day.",right:"All students must attend the orientation day."},{wrong:"He assisted me with my homework. ✅ (This one is correct — 'assist' = help)",right:"He assisted me with my homework. ✅"}]},
+  {title:"Plural of Uncountable Nouns",french_pattern:"Des informations importantes / Des conseils utiles / Des bagages lourds",wrong_english:"She gave me some useful informations and good advices for my essay.",correct_english:"She gave me some useful information and good advice for my essay.",rule:"Several nouns that are countable in French are UNCOUNTABLE in English — they have no plural form and cannot be used with 'a/an'. The most important ones are: information, advice, furniture, equipment, luggage/baggage, news, research, knowledge, progress, evidence, feedback.",extra_examples:[{wrong:"The news are very bad today.",right:"The news is very bad today."},{wrong:"I need some furnitures for my new room.",right:"I need some furniture for my new room."},{wrong:"Can you give me some advices?",right:"Can you give me some advice?"}]},
+  {title:"Verb Tense: Present for Future Plans",french_pattern:"Le cours commence demain / Le match a lieu vendredi",wrong_english:"Tomorrow the lecture begins at 8am. The exam takes place next Monday.",correct_english:"Tomorrow the lecture begins at 8am. ✅ (This is acceptable for fixed schedules.)",rule:"In English, the present simple CAN be used for scheduled future events (timetables, programmes). However, for personal plans and intentions, use 'going to' or 'will'. Example: 'I am going to study tonight' (personal plan). 'The train leaves at 9am' (fixed schedule). French speakers often overuse the present simple for all future events.",extra_examples:[{wrong:"I study tomorrow instead of going out.",right:"I am going to study tomorrow instead of going out."},{wrong:"She travels to Abidjan next week.",right:"She is travelling to Abidjan next week. / She is going to travel to Abidjan next week."},{wrong:"The conference starts at 10. ✅",right:"The conference starts at 10. ✅ (Fixed timetable — correct)"}]},
+];
+
+const QUIZ_BANK=[
+  [{q:"Which sentence is correct?",opts:["She don't study hard.","She doesn't study hard.","She not study hard.","She studies not hard."],ans:1,exp:"Negative sentences: subject + doesn't/don't + base verb. 'She doesn't study' is the correct form."},{q:"What does 'evidence' mean in academic writing?",opts:["A personal opinion","A question to ask","Facts that support an argument","A type of paragraph"],ans:2,exp:"Evidence = facts, data, or information that prove or support a claim. It is uncountable (no plural -s)."},{q:"In PEEL writing, the letter 'L' stands for:",opts:["Language","Link","List","Literature"],ans:1,exp:"PEEL = Point, Explanation, Evidence, Link. The Link reconnects the argument back to the main topic or question."},{q:"'She gave me some ___.' Which is correct?",opts:["advices","an advice","advice","the advices"],ans:2,exp:"'Advice' is uncountable in English — it has no plural form. Always say 'some advice' or 'a piece of advice'."},{q:"'Actually' in English means:",opts:["Currently / At this moment","In fact / To tell the truth","Truly / Really fast","Often / Sometimes"],ans:1,exp:"'Actually' is a false friend! It means 'in fact' or 'to be honest', NOT 'currently'. Use 'currently' for the French 'actuellement'."}],
+  [{q:"Choose the correct form: 'I ___ here since 2020.'",opts:["live","lived","have lived","am living"],ans:2,exp:"'Since' + point in time requires present perfect: 'I have lived here since 2020'. Present simple is incorrect here."},{q:"What does 'coherent' mean?",opts:["Confusing and disorganised","Logical, well-structured, and clear","Emotional and passionate","Very long and detailed"],ans:1,exp:"Coherent = logical, well-organised, easy to understand. A coherent essay flows logically from beginning to end."},{q:"Which is the correct sentence?",opts:["He made a homework.","He did a mistake in his essay.","He made a mistake in his essay.","He did a progress this semester."],ans:2,exp:"'Make a mistake' is the correct collocation. Use 'make' for mistakes, decisions, progress. Use 'do' for homework, exercises, work."},{q:"What type of noun is 'information'?",opts:["Countable noun","Uncountable noun","Proper noun","Abstract noun only"],ans:1,exp:"'Information' is uncountable — no plural -s, no 'a/an'. Say 'some information' or 'a piece of information', never 'informations'."},{q:"Which sentence correctly uses the passive voice?",opts:["The essay must submit by Friday.","The essay must be submitted by Friday.","The essay must submitted by Friday.","The essay must be submit by Friday."],ans:1,exp:"Passive voice = modal + be + past participle. 'Must be submitted' is correct. The essay receives the action of submitting."}],
+  [{q:"'Despite ___ tired, she continued studying all night.'",opts:["be","to be","been","being"],ans:3,exp:"After 'despite', always use the gerund (-ing form): 'Despite being tired'. 'Despite' is a preposition and must be followed by a noun or gerund."},{q:"What does 'fundamental' mean?",opts:["Optional and unimportant","Very difficult to understand","Forming the essential base; of core importance","Interesting and unusual"],ans:2,exp:"Fundamental = forming the foundation; of central, essential importance. Example: 'Reading is a fundamental academic skill.'"},{q:"'I assisted the conference yesterday.' What is the error?",opts:["'I' should be 'We'","'assisted' should be 'attended'","'conference' is the wrong word","There is no error"],ans:1,exp:"'Assist' means to help someone. 'Attend' means to be present at an event. Always say 'attended the conference'."},{q:"In reported speech: 'I am preparing my essay.' → She said that she ___ her essay.",opts:["is preparing","was preparing","has prepared","prepares"],ans:1,exp:"Reported speech backshift: present continuous (am preparing) → past continuous (was preparing). This is mandatory in formal reported speech."},{q:"Which word is the correct academic synonym for 'show'?",opts:["Demonstrate","Tell","Say","Speak"],ans:0,exp:"'Demonstrate' is the academic equivalent of 'show'. Other strong academic verbs: illustrate, indicate, reveal, suggest, argue, contend."}],
+  [{q:"Choose the correct sentence about a future plan:",opts:["I study tonight instead of watching TV.","I am going to study tonight instead of watching TV.","I will to study tonight.","I studying tonight."],ans:1,exp:"For personal future plans, use 'going to' + base verb. Present simple is only used for fixed schedules like timetables."},{q:"What does 'relevant' mean?",opts:["Very important and impressive","Closely connected and appropriate to the topic","Old and out of date","Difficult to understand"],ans:1,exp:"Relevant = directly connected to and appropriate for the subject being discussed. In essays, all evidence must be relevant to your argument."},{q:"Which sentence correctly uses 'since' and 'for'?",opts:["I have studied here since two years.","I have studied here for 2019.","I have studied here for two years.","I study here since two years."],ans:2,exp:"'For' + duration (two years, six months). 'Since' + point in time (since 2019, since Monday). Both require present perfect tense."},{q:"'She ___ her assignment before the deadline.' Best option:",opts:["submits","submitted","had submitted","submitting"],ans:1,exp:"Past simple (submitted) is used for a completed action at a specific past time. 'Before the deadline' tells us it happened in the past."},{q:"What is the purpose of the 'Evidence' section in a PEEL paragraph?",opts:["To restate the main point","To provide facts or examples that prove your argument","To conclude the essay","To introduce a new topic"],ans:1,exp:"Evidence in PEEL provides concrete proof for your argument — statistics, quotes, examples, or research findings that make your point credible."}],
+];
+
+const PEEL_TOPICS=[
+  {title:"Technology in Education",prompt:"Should technology be used more widely in African universities?",guidance:{point:"State your main position clearly and directly in 1-2 sentences. Avoid vague openings.",explanation:"Explain WHY technology would help (or harm) — give at least 2 specific, well-developed reasons.",evidence:"Include a specific statistic, research finding, or real example. Name your source if possible.",link:"Connect your argument back to the original question about African universities specifically."},example:{point:"Technology should be integrated more widely into African universities because it significantly improves both access to knowledge and the quality of learning.",explanation:"With smartphones, laptops, and reliable internet connections, students can access thousands of academic journals, textbooks, and online courses that are entirely unavailable in most African university libraries. Furthermore, digital tools such as educational apps and video lectures allow students to learn at their own pace, reinforcing content that is difficult to grasp in a single classroom session.",evidence:"According to a UNESCO report published in 2022, students who regularly use digital learning tools score on average 35% higher on standardised assessments than those who rely solely on traditional teaching methods.",link:"Given this evidence, increasing technological integration in African universities is not merely a matter of modernisation — it is an urgent educational priority that would directly improve academic outcomes and better prepare graduates for an increasingly digital global economy."}},
+  {title:"Gender Equality in Education",prompt:"Boys and girls should have equal access to education.",guidance:{point:"State whether you agree or disagree clearly. Do not sit on the fence.",explanation:"Give 2-3 well-developed reasons that go beyond the obvious. Think about economic, social, and cultural arguments.",evidence:"Include a specific statistic or real-world example. Avoid general statements without proof.",link:"Connect your conclusion to national development, African progress, or global equality."},example:{point:"Boys and girls must have completely equal access to education if African nations are to achieve their full economic and social potential.",explanation:"When girls are systematically denied education, entire communities lose half of their intellectual potential. Educated women are statistically more likely to invest in their children's health and schooling, creating a positive generational cycle of development. Moreover, gender equality in education reduces harmful social practices, promotes civic participation, and strengthens democracy.",evidence:"The World Bank reported in 2021 that every additional year a girl spends in formal education can increase her future earnings by up to 10%, with cumulative effects that dramatically raise household and national income.",link:"For these reasons, gender equality in education is not simply a question of moral fairness — it is a strategic economic investment whose returns benefit entire communities, nations, and the African continent as a whole."}},
+  {title:"Social Media and Students",prompt:"Social media does more harm than good to university students.",guidance:{point:"Take a clear position. Do not try to argue both sides equally in a single PEEL paragraph.",explanation:"Focus on 2-3 specific, concrete ways social media affects student life. Use precise language.",evidence:"Use a specific study, statistic, or well-known example. Avoid saying 'studies show' without details.",link:"Return directly to the question. Does the harm outweigh any benefit for university students specifically?"},example:{point:"For the majority of university students, social media causes significantly more harm than good, particularly in terms of academic performance and mental health.",explanation:"Students who spend excessive time on platforms such as TikTok, Instagram, and Facebook frequently report difficulty concentrating during lectures and study sessions, as the constant stimulation of social media trains the brain to expect rapid, fragmented information. This directly undermines the deep, sustained focus that academic reading and essay writing require. Additionally, the culture of comparison promoted by social media platforms has been linked to rising rates of anxiety and low self-esteem among university students.",evidence:"A longitudinal study conducted by researchers at Harvard University in 2020 found that students who spent more than three hours daily on social media had a grade point average (GPA) that was 20% lower than those who limited their usage to under one hour per day.",link:"While social media does offer some benefits for networking and information sharing, the weight of evidence suggests that its negative impact on concentration, mental health, and academic performance makes it far more harmful than helpful for university students who wish to succeed."}},
+  {title:"English in Côte d'Ivoire",prompt:"English is an essential skill for Ivorian university students today.",guidance:{point:"State clearly why English is (or is not) essential for Ivorian students in the current context.",explanation:"Think about career opportunities, international education, research access, and global communication.",evidence:"Use a fact, statistic, or real example related to English in Africa or Côte d'Ivoire.",link:"Connect to what Ivorian students should do as a practical result of your argument."},example:{point:"Mastering English has become an essential skill for Ivorian university students who wish to compete successfully in today's globalised professional and academic environment.",explanation:"English is the dominant language of international business, scientific research, and global communication, meaning that graduates who are not proficient in English are immediately at a competitive disadvantage when applying for international scholarships, multinational company positions, or postgraduate programmes abroad. Furthermore, the vast majority of the world's most important academic journals, textbooks, and research databases are published exclusively in English, making strong reading and writing skills in English indispensable for any serious university student.",evidence:"The African Development Bank has estimated that English language proficiency can increase an African graduate's starting salary by as much as 25% compared to monolingual French-speaking peers applying for the same positions.",link:"For these compelling reasons, Ivorian students should treat the development of their English writing and communication skills not as an optional extra, but as one of the most strategic and rewarding investments they can make in their academic and professional futures."}},
+];
+
+/* ══ ANALYTICS HELPERS ══ */
+const getWeekNumber=()=>{
+  const d=new Date();
+  const onejan=new Date(d.getFullYear(),0,1);
+  return Math.ceil((((d-onejan)/86400000)+onejan.getDay()+1)/7);
 };
-const UNLOCKS = [
-  {xp:100, icon:"📝",label:"Advanced PEEL Topics",    desc:"4 challenging writing topics"},
-  {xp:200, icon:"🌲",label:"Dark Forest Theme",        desc:"Deep green visual theme"},
-  {xp:500, icon:"🌿",label:"Intermediate Level",       desc:"Auto-promotion"},
-  {xp:1000,icon:"🌊",label:"Ocean Blue Theme",         desc:"Blue ocean visual theme"},
-  {xp:1500,icon:"🌳",label:"Advanced Level",           desc:"Auto-promotion"},
-  {xp:2000,icon:"🏆",label:"Certificate of Achievement",desc:"Download official PDF"},
-];
-const ENC = [
-  {title:"🔥 Already done today!", body:"XP already earned for this module. Come back tomorrow!",  sub:"Extra practice = extra mastery."},
-  {title:"💪 Great dedication!",   body:"No XP today — you already earned it! Every session builds skills.", sub:"Consistency is the key."},
-  {title:"⭐ You're on fire!",      body:"XP collected! Your commitment shows real growth.",         sub:"See you tomorrow for fresh XP!"},
-];
 
-/* ─── SIMPLE UI ──────────────────────────────────────── */
-function Spinner() {
-  return (
-    <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:48}}>
-      <div style={{width:36,height:36,border:"4px solid #e0e0e0",borderTop:"4px solid #2D6A4F",borderRadius:"50%",animation:"__spin 1s linear infinite"}}/>
-      <style>{`@keyframes __spin{to{transform:rotate(360deg)}}`}</style>
-    </div>
-  );
-}
-function Card({children,style}){return <div style={{background:"#fff",borderRadius:16,padding:18,boxShadow:"0 2px 10px rgba(0,0,0,0.06)",...style}}>{children}</div>;}
-function PBtn({onClick,children,disabled,style}){
-  return <button onClick={onClick} disabled={disabled} style={{display:"block",width:"100%",padding:"13px",borderRadius:12,border:"none",background:disabled?"#ccc":"#2D6A4F",color:"#fff",fontWeight:700,fontSize:14,cursor:disabled?"not-allowed":"pointer",fontFamily:"inherit",marginTop:8,...style}}>{children}</button>;
-}
-function SBtn({onClick,children,style}){
-  return <button onClick={onClick} style={{display:"block",width:"100%",padding:"12px",borderRadius:12,border:"2px solid #2D6A4F",background:"transparent",color:"#2D6A4F",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit",marginTop:8,...style}}>{children}</button>;
-}
+const savePlacementResult=async(userId,token,scores,level,answers=[])=>{
+  try{
+    await sbPost("placement_results",{
+      user_id:userId,
+      grammar_score:scores.Grammar,
+      vocab_score:scores.Vocabulary,
+      reading_score:scores.Reading,
+      total_score:scores.Grammar+scores.Vocabulary+scores.Reading,
+      level_assigned:level,
+      answers_detail:answers,
+      week_number:getWeekNumber()
+    },token);
+    await sbPatch(`users?id=eq.${userId}`,{
+      initial_level:level,
+      initial_score:scores.Grammar+scores.Vocabulary+scores.Reading,
+      current_level:level
+    },token);
+  }catch(e){console.error("placement save error",e);}
+};
 
-/* ─── CONTENT ─────────────────────────────────────────── */
-const GRAMMAR_BANK = [
-  {title:"Present Simple",q:"She ___ to the library every Tuesday.",opts:["go","goes","is going","has gone"],ans:1,exp:"Present simple is used for habits. 'Every Tuesday' signals a routine, so 'goes' is correct.",tip:"Use present simple for habits: always, every day, usually, never."},
-  {title:"Uncountable Nouns",q:"Which sentence is correct?",opts:["She gave me some advices.","She gave me some advice.","She gave me an advice.","She gave me advices."],ans:1,exp:"'Advice' is uncountable — no plural, no 'a/an'. Say 'some advice' or 'a piece of advice'.",tip:"Uncountable: advice, information, furniture, equipment, news, progress."},
-  {title:"Second Conditional",q:"If I ___ more time, I would read every day.",opts:["have","had","has","will have"],ans:1,exp:"Second conditional = If + past simple + would + base verb. Used for hypothetical situations.",tip:"If + past simple → would + base verb. Example: If I had money, I would travel."},
-  {title:"Relative Clauses",q:"The student ___ scored highest received a prize.",opts:["which","whose","who","whom"],ans:2,exp:"Use 'who' for people in relative clauses. 'Which' is for things.",tip:"Who = people. Which = things. Whose = possession."},
-  {title:"Articles A/An",q:"She is studying at ___ university in Korhogo.",opts:["a","an","the","—"],ans:0,exp:"'University' starts with a /j/ sound (consonant sound), so we use 'a', not 'an'. The rule depends on SOUND.",tip:"Use 'an' before vowel SOUNDS: an hour. Use 'a' before consonant SOUNDS: a university."},
-  {title:"Past Perfect",q:"By the time the teacher arrived, the students ___ their essays.",opts:["finish","finished","had finished","have finished"],ans:2,exp:"Past perfect (had + past participle) = action completed BEFORE another past action.",tip:"Past perfect = had + past participle. Signal words: by the time, already, before."},
-  {title:"Passive Voice",q:"All assignments ___ before the end of the semester.",opts:["must submit","must be submitted","must submitted","must be submit"],ans:1,exp:"Passive = modal + be + past participle. 'Must be submitted' is correct.",tip:"Passive: subject + be + past participle. Active → Passive: 'Students submit' → 'Essays are submitted'."},
-  {title:"Gerund vs Infinitive",q:"She avoided ___ the difficult questions.",opts:["to answer","answer","answering","answered"],ans:2,exp:"'Avoid' must always be followed by a gerund (-ing form).",tip:"+ gerund: avoid, enjoy, finish, suggest. + infinitive: want, need, decide, hope."},
-  {title:"Subject-Verb Agreement",q:"Neither the students nor the teacher ___ aware of the change.",opts:["were","are","was","is"],ans:2,exp:"With 'neither...nor', the verb agrees with the NEAREST subject. 'Teacher' is singular → 'was'.",tip:"Neither...nor: verb agrees with the closest subject."},
-  {title:"Reported Speech",q:"She said: 'I am preparing.' → She said that she ___ .",opts:["is preparing","was preparing","has prepared","prepares"],ans:1,exp:"In reported speech, present continuous (am preparing) → past continuous (was preparing).",tip:"Backshift: am/is → was | will → would | can → could | have → had."},
-  {title:"Prepositions",q:"She is very good ___ mathematics.",opts:["in","on","at","for"],ans:2,exp:"'Good at' a subject is a fixed expression. 'Good in' or 'good on' are incorrect.",tip:"Fixed: good at, bad at, interested in, responsible for, afraid of, proud of."},
-  {title:"Present Perfect",q:"I ___ my homework, so I can go out now.",opts:["finish","finished","have finished","had finished"],ans:2,exp:"Present perfect = past action with a result in the present.",tip:"Present perfect = have/has + past participle. Use for recent actions with present results."},
+const saveModuleSession=async(userId,token,{module,score,total,passed,xpEarned,timeSec,errors=[],title=""})=>{
+  try{
+    const accuracy=total>0?Math.round((score/total)*100):0;
+    await sbPost("module_sessions",{
+      user_id:userId,
+      module,
+      score,
+      total_questions:total,
+      accuracy,
+      passed,
+      xp_earned:xpEarned,
+      time_spent_sec:timeSec,
+      errors_detail:errors,
+      content_title:title
+    },token);
+    // Update user accuracy stats
+    const field={grammar:"grammar_accuracy",vocabulary:"vocab_accuracy",quiz:"quiz_accuracy"}[module];
+    if(field){
+      const prev=await sbGet(`users?id=eq.${userId}&select=${field}`,token);
+      const prevVal=prev?.[0]?.[field]||0;
+      const newVal=prevVal===0?accuracy:Math.round((prevVal+accuracy)/2);
+      await sbPatch(`users?id=eq.${userId}`,{[field]:newVal,total_sessions:undefined,last_active_date:todayStr()},token);
+    }
+    // Update total_sessions
+    const userData=await sbGet(`users?id=eq.${userId}&select=total_sessions,total_time_minutes`,token);
+    const prev=userData?.[0]||{};
+    await sbPatch(`users?id=eq.${userId}`,{
+      total_sessions:(prev.total_sessions||0)+1,
+      total_time_minutes:(prev.total_time_minutes||0)+Math.round(timeSec/60),
+      last_active_date:todayStr()
+    },token);
+  }catch(e){console.error("module session save error",e);}
+};
+
+const savePeelAttempt=async(userId,token,{topic,attemptNum,vals,scores,passed,timeSec})=>{
+  try{
+    const wordTotal=Object.values(vals).reduce((a,v)=>a+(v.trim().split(/\s+/).filter(w=>w).length),0);
+    // Get previous score for improvement calc
+    const prev=await sbGet(`peel_attempts?user_id=eq.${userId}&order=created_at.desc&limit=1&select=total_score`,token);
+    const prevScore=prev?.[0]?.total_score||0;
+    await sbPost("peel_attempts",{
+      user_id:userId,
+      topic,
+      attempt_number:attemptNum,
+      point_text:vals.point,
+      explanation_text:vals.explanation,
+      evidence_text:vals.evidence,
+      link_text:vals.link,
+      score_point:scores.point,
+      score_expl:scores.expl,
+      score_evidence:scores.evidence,
+      score_link:scores.link,
+      score_grammar:scores.grammar,
+      score_length:scores.length,
+      total_score:scores.total,
+      passed,
+      time_spent_sec:timeSec,
+      word_count_total:wordTotal,
+      score_improvement:scores.total-prevScore
+    },token);
+    // Update user peel stats
+    const userData=await sbGet(`users?id=eq.${userId}&select=peel_avg_score,peel_attempts_total`,token);
+    const u=userData?.[0]||{};
+    const prevAvg=u.peel_avg_score||0;
+    const prevCount=u.peel_attempts_total||0;
+    const newAvg=prevCount===0?scores.total:Math.round((prevAvg*prevCount+scores.total)/(prevCount+1));
+    await sbPatch(`users?id=eq.${userId}`,{
+      peel_avg_score:newAvg,
+      peel_attempts_total:prevCount+1,
+      last_active_date:todayStr()
+    },token);
+  }catch(e){console.error("peel attempt save error",e);}
+};
+
+const saveXpHistory=async(userId,token,newXp,moduleId)=>{
+  try{
+    const existing=await sbGet(`xp_history?user_id=eq.${userId}&date=eq.${todayStr()}`,token);
+    const prev=existing?.[0];
+    if(prev){
+      await sbPatch(`xp_history?user_id=eq.${userId}&date=eq.${todayStr()}`,{
+        xp_earned:(prev.xp_earned||0)+(newXp),
+        xp_total:newXp,
+        modules_done:[...(prev.modules_done||[]),moduleId]
+      },token);
+    } else {
+      await sbPost("xp_history",{
+        user_id:userId,
+        date:todayStr(),
+        xp_earned:newXp,
+        xp_total:newXp,
+        modules_done:[moduleId]
+      },token);
+    }
+  }catch(e){console.error("xp history error",e);}
+};
+
+const saveWeeklySnapshot=async(userId,token,userData)=>{
+  try{
+    const weekStart=new Date();
+    weekStart.setDate(weekStart.getDate()-weekStart.getDay());
+    const weekStartStr=weekStart.toISOString().slice(0,10);
+    const weekNum=getWeekNumber();
+    const year=new Date().getFullYear();
+    // Check if snapshot exists for this week
+    const existing=await sbGet(`weekly_snapshots?user_id=eq.${userId}&week_number=eq.${weekNum}&year=eq.${year}`,token);
+    const xpThisWeek=await sbGet(`xp_history?user_id=eq.${userId}&date=gte.${weekStartStr}&select=xp_earned`,token);
+    const weekXp=(xpThisWeek||[]).reduce((a,r)=>a+(r.xp_earned||0),0);
+    const snapshot={
+      user_id:userId,
+      week_start:weekStartStr,
+      week_number:weekNum,
+      year,
+      level:userData.current_level||userData.level||"Beginner",
+      xp_total:userData.xp||0,
+      xp_gained_week:weekXp,
+      days_active:userData.days_active||0,
+      grammar_accuracy:userData.grammar_accuracy||0,
+      vocab_accuracy:userData.vocab_accuracy||0,
+      quiz_accuracy:userData.quiz_accuracy||0,
+      peel_avg_score:userData.peel_avg_score||0,
+      peel_attempts:userData.peel_attempts_total||0,
+      streak_at_snapshot:userData.streak||0
+    };
+    if(existing?.[0]){
+      await sbPatch(`weekly_snapshots?user_id=eq.${userId}&week_number=eq.${weekNum}&year=eq.${year}`,snapshot,token);
+    } else {
+      await sbPost("weekly_snapshots",snapshot,token);
+    }
+  }catch(e){console.error("weekly snapshot error",e);}
+};
+const PLACEMENT=[
+  {section:"Grammar",q:"Choose the correct form: 'She ___ to school every day.'",opts:["go","goes","going","gone"],ans:1},
+  {section:"Grammar",q:"Identify the error: 'The informations are on the table.'",opts:["The","informations","are","table"],ans:1},
+  {section:"Grammar",q:"'If I ___ rich, I would travel the world.'",opts:["am","was","were","be"],ans:2},
+  {section:"Grammar",q:"Choose the correct sentence:",opts:["She don't like coffee.","She doesn't likes coffee.","She doesn't like coffee.","She not like coffee."],ans:2},
+  {section:"Grammar",q:"'Despite ___ tired, he finished the essay.'",opts:["be","being","been","to be"],ans:1},
+  {section:"Vocabulary",q:"What does 'analyse' mean?",opts:["To ignore","To study carefully in detail","To write quickly","To memorise"],ans:1},
+  {section:"Vocabulary",q:"'Her essay was well-organised — it was very ___.'",opts:["confusing","coherent","boring","long"],ans:1},
+  {section:"Vocabulary",q:"'Evidence' in academic writing means:",opts:["A feeling","A guess","Facts that support an argument","A question"],ans:2},
+  {section:"Vocabulary",q:"Which word is a FALSE FRIEND for French speakers?",opts:["Book","Actually","Table","School"],ans:1},
+  {section:"Vocabulary",q:"'The study requires ___ data, not just opinions.'",opts:["emotional","empirical","fictional","random"],ans:1},
+  {section:"Reading",q:"'Okonkwo worked hard to overcome his father's failures.' — Why did he work hard?",opts:["To become rich","To travel abroad","To overcome his father's failures","To win a wrestling prize"],ans:2},
+  {section:"Reading",q:"'Education was the light that would lead Njoroge out of poverty.' — Literary device?",opts:["Simile","Metaphor","Rhyme","Alliteration"],ans:1},
+  {section:"Reading",q:"'Jaja's face was expressionless, but his hand shook slightly.' — What does this suggest?",opts:["He was happy","He was calm","He was hiding strong emotions","He was cold"],ans:2},
+  {section:"Reading",q:"In academic texts, a 'glossary' is:",opts:["A list of questions","A list of word definitions","A summary","A bibliography"],ans:1},
+  {section:"Reading",q:"'The researcher concluded that technology improves learning.' — 'Concluded' means:",opts:["Started an argument","Wondered about something","Reached a final decision","Forgot the main point"],ans:2},
 ];
-
-const VOCAB_BANK = [
-  {word:"Analyse",ph:"/ˈæn.ə.laɪz/",fr:"Analyser",pos:"verb",def:"To examine something carefully in detail to understand it.",ex:"The students must ___ the poem before writing their essay.",opts:["analyse","ignore","copy","avoid"],ans:0,tip:"Think 'ana' (apart) + 'lyse' (loosen). To analyse = break apart to understand."},
-  {word:"Significant",ph:"/sɪɡˈnɪf.ɪ.kənt/",fr:"Significatif",pos:"adjective",def:"Important or large enough to have a noticeable effect.",ex:"There has been a ___ improvement in her writing this semester.",opts:["significant","small","boring","strange"],ans:0,tip:"'Sign' is inside — something significant gives a sign that it matters."},
-  {word:"Coherent",ph:"/kəʊˈhɪə.rənt/",fr:"Cohérent",pos:"adjective",def:"Logical, well-organised, and easy to understand.",ex:"A well-written essay must present a ___ argument from start to finish.",opts:["emotional","coherent","confusing","short"],ans:1,tip:"'Co' (together) + 'here' (stick). Coherent ideas stick together logically."},
-  {word:"Evidence",ph:"/ˈev.ɪ.dəns/",fr:"Preuve",pos:"noun",def:"Facts or information that show whether a claim is true.",ex:"Every argument in an essay must be supported by reliable ___.",opts:["opinion","evidence","feeling","title"],ans:1,tip:"'Evident' = easy to see. Evidence makes the truth visible."},
-  {word:"Conclude",ph:"/kənˈkluːd/",fr:"Conclure",pos:"verb",def:"To decide something is true after considering all information.",ex:"Based on the findings, we can ___ that education reduces poverty.",opts:["begin","wonder","conclude","forget"],ans:2,tip:"'Con' + 'clude' (close). To conclude = close your thinking with a final decision."},
-  {word:"Fundamental",ph:"/ˌfʌn.dəˈmen.təl/",fr:"Fondamental",pos:"adjective",def:"Forming the necessary base or core; essential.",ex:"Critical thinking is a ___ skill for all university students.",opts:["optional","fundamental","difficult","rare"],ans:1,tip:"'Fund' = foundation. Fundamental = what everything is built upon."},
-  {word:"Illustrate",ph:"/ˈɪl.ə.streɪt/",fr:"Illustrer",pos:"verb",def:"To make something clearer by providing examples or evidence.",ex:"This graph will ___ how scores improved over three years.",opts:["hide","illustrate","remove","question"],ans:1,tip:"'Lustre' = light. To illustrate = shed light on an idea with an example."},
-  {word:"Consequence",ph:"/ˈkɒn.sɪ.kwəns/",fr:"Conséquence",pos:"noun",def:"A result or effect of an action or decision.",ex:"Poor time management can have serious academic ___s.",opts:["reason","consequence","beginning","title"],ans:1,tip:"'Con' + 'sequence' — consequences follow in sequence after an action."},
-  {word:"Emphasise",ph:"/ˈem.fə.saɪz/",fr:"Souligner",pos:"verb",def:"To show something is especially important or deserves attention.",ex:"The professor always ___ the importance of proofreading.",opts:["ignore","forget","emphasise","remove"],ans:2,tip:"'Em' + 'phase' = put in sharp focus, like a camera on one subject."},
-  {word:"Relevant",ph:"/ˈrel.ɪ.vənt/",fr:"Pertinent",pos:"adjective",def:"Closely connected or appropriate to the subject being discussed.",ex:"Make sure all evidence in your essay is ___ to your argument.",opts:["relevant","old","boring","random"],ans:0,tip:"'Relevant' shares a root with 'relate'. Relevant info relates to your topic."},
-  {word:"Justify",ph:"/ˈdʒʌs.tɪ.faɪ/",fr:"Justifier",pos:"verb",def:"To show or prove that a statement or decision is reasonable.",ex:"You must ___ every claim in your essay with reliable evidence.",opts:["hide","justify","ignore","repeat"],ans:1,tip:"'Just' = fair/right. To justify = show that something is well-reasoned."},
-  {word:"Approach",ph:"/əˈprəʊtʃ/",fr:"Approche",pos:"noun/verb",def:"A way of dealing with a situation or problem.",ex:"The researcher used a qualitative ___ to study writing habits.",opts:["problem","mistake","approach","question"],ans:2,tip:"Think of stepping closer to a solution — you approach it step by step."},
-];
-
-const READING_BANK = [
-  {title:"Education and Development in Africa",topic:"Education",passage:"Education is widely recognised as one of the most powerful tools for sustainable development in Africa. Countries that invest seriously in schools and universities tend to experience stronger economic growth, lower poverty rates, and more stable governments. In Côte d'Ivoire, the government has significantly increased spending on education over the past decade, resulting in higher enrolment rates at both primary and secondary levels.\n\nHowever, significant challenges remain. A shortage of qualified teachers in rural areas, limited access to technology, and inadequate school infrastructure continue to hinder progress. Many students in remote regions must walk several kilometres each day simply to attend school.\n\nDespite these obstacles, research consistently shows the transformative power of education. Students who complete secondary school are three times more likely to find formal employment than those who drop out.",gloss:[{w:"sustainable",d:"able to continue long-term"},{w:"enrolment",d:"officially registering in a school"},{w:"infrastructure",d:"basic physical structures for society"},{w:"transformative",d:"causing a major positive change"}],qs:[{q:"What do countries investing in education experience?",opts:["More problems","Stronger growth and lower poverty","Fewer teachers","Less spending"],ans:1},{q:"What teacher challenge is mentioned?",opts:["Too many teachers","Shortage in rural areas","Low pay","Teachers refusing to work"],ans:1},{q:"How more likely are secondary graduates to find work?",opts:["Twice","Four times","Three times","Five times"],ans:2}]},
-  {title:"The Power of Reading",topic:"Literacy",passage:"Reading is arguably the single most important habit that a university student can cultivate. Research consistently demonstrates that students who read widely perform significantly better in examinations and produce higher quality written work. Reading expands vocabulary, sharpens comprehension skills, and develops the critical thinking that academic success demands.\n\nIn many African universities, access to books and academic journals remains severely limited. Physical libraries are often under-resourced, and the cost of purchasing textbooks places a heavy financial burden on students.\n\nA student who commits to reading for just thirty minutes each day can experience measurable improvement in academic performance within a single semester. The habit of reading is not a luxury — it is a fundamental necessity for anyone who aspires to academic excellence.",gloss:[{w:"cultivate",d:"develop through regular effort"},{w:"comprehension",d:"ability to understand fully"},{w:"aspires",d:"has a strong desire to achieve"},{w:"measurable",d:"large enough to be noticed"}],qs:[{q:"What does reading do for students?",opts:["Makes them popular","Improves exam performance and writing","Replaces lectures","Only helps vocabulary"],ans:1},{q:"What financial challenge is mentioned?",opts:["Libraries cost too much","Students cannot afford textbooks","Professors charge for lists","Digital books are costly"],ans:1},{q:"What does 30 minutes of reading daily lead to?",opts:["No difference","Measurable academic improvement","Only first-year help","Replaces studying"],ans:1}]},
-  {title:"Chinua Achebe and African Literature",topic:"African Literature",passage:"Chinua Achebe is widely regarded as the father of modern African literature in English. His landmark novel, Things Fall Apart, published in 1958, tells the story of Okonkwo — a proud Igbo warrior whose life is disrupted by the arrival of European colonisers in Nigeria. The novel was groundbreaking because it presented African culture entirely from an African perspective.\n\nPrior to Achebe's work, Africa had largely been portrayed in European literature as a dark, primitive continent. Achebe set out to challenge this misrepresentation. He wrote in English but filled his prose with Igbo proverbs and oral traditions, creating a unique literary style.\n\nThings Fall Apart has been translated into more than fifty languages and is studied in universities across the world.",gloss:[{w:"landmark",d:"marking a significant achievement"},{w:"groundbreaking",d:"new and very important; never done before"},{w:"misrepresentation",d:"a false or misleading description"},{w:"prose",d:"ordinary written language, not poetry"}],qs:[{q:"Why is Things Fall Apart groundbreaking?",opts:["First novel in Africa","Presented African culture from an African perspective","Written in Igbo","Longest African novel"],ans:1},{q:"How did Achebe incorporate African culture?",opts:["Refused English grammar","Translated from Igbo","Used Igbo proverbs and oral traditions","Only wrote about ceremonies"],ans:2},{q:"Into how many languages has it been translated?",opts:["Over 20","Over 30","Over 40","More than 50"],ans:3}]},
-  {title:"Climate Change and Africa",topic:"Environment",passage:"Climate change poses one of the most serious threats to Africa's development, even though the continent contributes relatively little to global greenhouse gas emissions. Rising temperatures, unpredictable rainfall, and increasingly frequent extreme weather events are already disrupting agriculture and threatening food security.\n\nIn the Sahel region, prolonged droughts have made farming increasingly difficult. Millions who depend on rain-fed agriculture are being forced to migrate to cities, placing enormous pressure on urban infrastructure.\n\nAt the same time, Africa possesses extraordinary natural resources for a green energy transition. The continent receives more solar energy than any other region on Earth. Experts argue that with the right investment, Africa could become a global leader in renewable energy.",gloss:[{w:"emissions",d:"gases released into the atmosphere"},{w:"livelihoods",d:"ways of earning money and supporting oneself"},{w:"transition",d:"process of changing from one state to another"},{w:"renewable",d:"naturally replenished; not permanently depleted"}],qs:[{q:"What does the passage say about Africa's contribution to climate change?",opts:["Biggest contributor","Very little contribution","No contribution","Not affected"],ans:1},{q:"What is happening in the Sahel?",opts:["Farmers are wealthy","Cities abandoned","Droughts forcing migration","New farms created"],ans:2},{q:"What natural advantage does Africa have for green energy?",opts:["Most wind","Largest coal","More solar than any region","Deepest ocean currents"],ans:2}]},
-];
-
-const MISTAKES_BANK = [
-  {title:"'Make' vs 'Do'",fr:"Faire une erreur / Faire ses devoirs",wrong:"I did a mistake and I must do an effort to improve.",right:"I made a mistake and I must make an effort to improve.",rule:"Use MAKE for: mistakes, decisions, progress, noise, an effort. Use DO for: homework, exercises, work, research, one's best. These are fixed collocations — memorise them.",ex:[{w:"She did a good decision.",r:"She made a good decision."},{w:"He is doing progress.",r:"He is making progress."},{w:"Can you make this exercise?",r:"Can you do this exercise?"}]},
-  {title:"'Since' vs 'For'",fr:"J'étudie l'anglais depuis 3 ans",wrong:"I study English since 3 years.",right:"I have been studying English for 3 years.",rule:"'Since' = a specific point in time (since 2021). 'For' = a duration (for 3 years). Both require the present perfect tense — NOT the present simple.",ex:[{w:"She lives here since 5 years.",r:"She has lived here for 5 years."},{w:"I wait since 2 o'clock.",r:"I have been waiting since 2 o'clock."}]},
-  {title:"'Actually' ≠ 'Actuellement'",fr:"Actuellement, je travaille à l'UPGC",wrong:"Actually, I am a student at UPGC right now.",right:"Currently, I am a student at UPGC.",rule:"'Actually' means 'in fact' or 'to tell the truth'. For the French 'actuellement', use 'currently', 'at present', or 'at the moment'.",ex:[{w:"Actually, the economy is growing.",r:"Currently, the economy is growing."},{w:"He actually studies medicine.",r:"He is currently studying medicine."}]},
-  {title:"Double Negatives",fr:"Je n'ai rien dit / Je ne connais personne",wrong:"I didn't say nothing. I don't know nobody.",right:"I didn't say anything. I don't know anybody.",rule:"English does NOT allow double negatives. Use either 'not...anything' OR 'nothing' alone — never both together.",ex:[{w:"She doesn't know nothing.",r:"She doesn't know anything."},{w:"He never tells nobody.",r:"He never tells anybody."}]},
-  {title:"'Assist' vs 'Attend'",fr:"J'ai assisté au cours ce matin",wrong:"I assisted the lecture this morning.",right:"I attended the lecture this morning.",rule:"'Assist' = to help someone. 'Attend' = to be present at an event. This is one of the most common false friends for French speakers.",ex:[{w:"She assisted the wedding.",r:"She attended the wedding."},{w:"All students must assist the orientation.",r:"All students must attend the orientation."}]},
-  {title:"Uncountable Nouns",fr:"Des informations / Des conseils",wrong:"She gave me some informations and advices.",right:"She gave me some information and advice.",rule:"These nouns are uncountable in English — no plural -s: information, advice, furniture, equipment, luggage, news, research, knowledge, progress, feedback.",ex:[{w:"The news are bad.",r:"The news is bad."},{w:"Can you give me some advices?",r:"Can you give me some advice?"}]},
-  {title:"Future Plans",fr:"Je fais ça demain",wrong:"I study tomorrow instead of going out.",right:"I am going to study tomorrow instead of going out.",rule:"For personal future plans, use 'going to' + base verb. Present simple is only for fixed timetables ('The train leaves at 9am').",ex:[{w:"She travels to Abidjan next week.",r:"She is going to travel to Abidjan next week."},{w:"I eat with my family tonight.",r:"I am going to eat with my family tonight."}]},
-];
-
-const QUIZ_SETS = [
-  [{q:"Which sentence is correct?",opts:["She don't study.","She doesn't study.","She not study.","She studies not."],ans:1,exp:"Negative: subject + doesn't/don't + base verb."},{q:"What does 'evidence' mean?",opts:["An opinion","A question","Facts supporting an argument","An essay type"],ans:2,exp:"Evidence = facts or information that prove something true."},{q:"In PEEL, 'L' stands for:",opts:["Language","Link","List","Literature"],ans:1,exp:"PEEL = Point, Explanation, Evidence, Link."},{q:"'She gave me some ___.' Correct:",opts:["advices","an advice","advice","the advices"],ans:2,exp:"'Advice' is uncountable — no plural, no 'a/an'."},{q:"'Actually' in English means:",opts:["Currently","In fact","Often","Always"],ans:1,exp:"'Actually' = 'in fact', not 'currently'. Use 'currently' for 'actuellement'."}],
-  [{q:"'I ___ here since 2020.' Correct:",opts:["live","lived","have lived","am living"],ans:2,exp:"'Since' + point in time requires present perfect."},{q:"'Coherent' means:",opts:["Confusing","Logical and well-organised","Emotional","Very long"],ans:1,exp:"Coherent = logical, well-structured, easy to understand."},{q:"Which is correct?",opts:["He made a homework.","He did a mistake.","He made a mistake.","He did a progress."],ans:2,exp:"'Make a mistake' is correct. Use 'do' for homework."},{q:"'Information' is:",opts:["Countable","Uncountable","Proper","Abstract only"],ans:1,exp:"'Information' is uncountable — say 'some information', never 'informations'."},{q:"Correct passive: 'The essay ___ by Friday.'",opts:["must submit","must be submitted","must submitted","must be submit"],ans:1,exp:"Passive = modal + be + past participle."}],
-  [{q:"'Despite ___ tired, she studied.'",opts:["be","to be","been","being"],ans:3,exp:"After 'despite', always use the gerund (-ing)."},{q:"'Fundamental' means:",opts:["Optional","Very difficult","Forming the essential base","Interesting"],ans:2,exp:"Fundamental = forming the foundation; of central importance."},{q:"'I assisted the conference.' Error:",opts:["'I' → 'We'","'assisted' → 'attended'","'conference' wrong","No error"],ans:1,exp:"'Assist' = help. 'Attend' = be present at an event."},{q:"Reported speech: 'I am preparing.' → She said she ___ .",opts:["is preparing","was preparing","has prepared","prepares"],ans:1,exp:"Present continuous → past continuous in reported speech."},{q:"Academic synonym for 'show':",opts:["Demonstrate","Tell","Say","Speak"],ans:0,exp:"'Demonstrate' = the academic equivalent of 'show'."}],
-  [{q:"Correct future plan:",opts:["I study tonight.","I am going to study tonight.","I will to study.","I studying tonight."],ans:1,exp:"Personal future plans: 'going to' + base verb."},{q:"'Relevant' means:",opts:["Very impressive","Directly connected to the topic","Out of date","Difficult"],ans:1,exp:"Relevant = directly connected and appropriate to the subject."},{q:"Correct 'for/since':",opts:["I've studied since two years.","I've studied for 2019.","I've studied for two years.","I study since two years."],ans:2,exp:"'For' + duration. 'Since' + point in time. Both need present perfect."},{q:"Purpose of 'Evidence' in PEEL:",opts:["Restate the point","Provide proof","Conclude the essay","Introduce a new topic"],ans:1,exp:"Evidence provides concrete proof — stats, quotes, real examples."},{q:"'She ___ before the deadline.' Best:",opts:["submits","submitted","had submitted","submitting"],ans:1,exp:"Past simple for a completed action at a specific past time."}],
-];
-
-const PEEL_TOPICS = [
-  {title:"Technology in Education",prompt:"Should technology be used more widely in African universities?",guidance:{point:"State your main position clearly in 1-2 sentences.",explanation:"Explain WHY — give at least 2 specific, well-developed reasons.",evidence:"Include a statistic or research finding with a named source.",link:"Connect back to the question about African universities."},example:{point:"Technology should be integrated more widely into African universities because it significantly improves both access to knowledge and the quality of learning.",explanation:"With smartphones and reliable internet, students can access thousands of academic journals unavailable in most African university libraries. Furthermore, digital tools allow students to learn at their own pace, reinforcing difficult content outside the classroom.",evidence:"According to a UNESCO report (2022), students who regularly use digital learning tools score on average 35% higher on standardised assessments.",link:"Given this evidence, increasing technological integration in African universities is an urgent educational priority that would directly improve outcomes and prepare graduates for a digital economy."}},
-  {title:"Gender Equality in Education",prompt:"Boys and girls should have equal access to education.",guidance:{point:"State your position clearly — agree or disagree.",explanation:"Give 2-3 well-developed reasons — economic, social, cultural.",evidence:"Include a specific statistic or real-world example.",link:"Connect to national development or global equality."},example:{point:"Boys and girls must have completely equal access to education if African nations are to achieve their full economic and social potential.",explanation:"When girls are denied education, communities lose half their intellectual potential. Educated women invest more in their children's health and schooling, creating a positive generational cycle of development.",evidence:"The World Bank (2021) reported that every additional year a girl spends in education can increase her future earnings by up to 10%.",link:"For these reasons, gender equality in education is not simply a moral question — it is a strategic economic investment whose returns benefit entire communities."}},
-  {title:"Social Media and Students",prompt:"Social media does more harm than good to university students.",guidance:{point:"Take a clear position — do not argue both sides equally.",explanation:"Give 2-3 specific, concrete ways social media affects students.",evidence:"Use a specific study or statistic with a named source.",link:"Return directly to the question about university students."},example:{point:"For the majority of university students, social media causes significantly more harm than good.",explanation:"Students who spend excessive time on platforms like TikTok and Instagram report difficulty concentrating, as the constant stimulation undermines the sustained focus that academic reading requires.",evidence:"A study from Harvard University (2020) found that students spending more than 3 hours daily on social media had GPAs 20% lower than those who limited usage to under one hour.",link:"While social media offers some networking benefits, the evidence shows its negative impact on academic performance makes it far more harmful than helpful for university students."}},
-  {title:"English in Côte d'Ivoire",prompt:"English is an essential skill for Ivorian university students today.",guidance:{point:"State clearly why English is essential for Ivorian students.",explanation:"Think about careers, research access, global communication.",evidence:"Use a fact or statistic related to English in Africa.",link:"Connect to what Ivorian students should do as a result."},example:{point:"Mastering English has become an essential skill for Ivorian students who wish to compete in today's globalised professional environment.",explanation:"English is the dominant language of international business, scientific research, and global communication. Graduates who lack English proficiency are immediately at a competitive disadvantage when applying for international scholarships or multinational positions.",evidence:"The African Development Bank estimates that English proficiency can increase an African graduate's starting salary by as much as 25% compared to monolingual peers.",link:"For these compelling reasons, Ivorian students should treat English not as an optional requirement, but as one of the most strategic investments in their professional future."}},
-];
-
-/* ─── PLACEMENT ──────────────────────────────────────── */
-const PL = [
-  {s:"Grammar",   q:"'She ___ to school every day.'",        opts:["go","goes","going","gone"],ans:1},
-  {s:"Grammar",   q:"Error: 'The informations are here.'",    opts:["The","informations","are","here"],ans:1},
-  {s:"Grammar",   q:"'If I ___ rich, I would travel.'",       opts:["am","was","were","be"],ans:2},
-  {s:"Grammar",   q:"Correct sentence:",                      opts:["She don't like coffee.","She doesn't likes it.","She doesn't like coffee.","She not like coffee."],ans:2},
-  {s:"Grammar",   q:"'Despite ___ tired, he finished.'",      opts:["be","being","been","to be"],ans:1},
-  {s:"Vocabulary",q:"'Analyse' means:",                       opts:["To ignore","To study carefully","To write","To memorise"],ans:1},
-  {s:"Vocabulary",q:"'Her essay was very ___.' (well-organised)",opts:["confusing","coherent","boring","long"],ans:1},
-  {s:"Vocabulary",q:"'Evidence' means:",                      opts:["A feeling","A guess","Facts supporting an argument","A question"],ans:2},
-  {s:"Vocabulary",q:"FALSE FRIEND for French speakers:",      opts:["Book","Actually","Table","School"],ans:1},
-  {s:"Vocabulary",q:"'The study requires ___ data.'",         opts:["emotional","empirical","fictional","random"],ans:1},
-  {s:"Reading",   q:"Why did Okonkwo work hard?",             opts:["To be rich","To travel","To overcome his father's failures","To win a prize"],ans:2},
-  {s:"Reading",   q:"'Education was the light…' — device?",  opts:["Simile","Metaphor","Rhyme","Alliteration"],ans:1},
-  {s:"Reading",   q:"'Jaja's face was expressionless, hand shook.' Suggests:",opts:["Happy","Calm","Hiding emotions","Cold"],ans:2},
-  {s:"Reading",   q:"A 'glossary' is:",                       opts:["Questions list","Word definitions","Summary","Bibliography"],ans:1},
-  {s:"Reading",   q:"'Concluded' means:",                     opts:["Started","Wondered","Reached a final decision","Forgot"],ans:2},
-];
-
-/* ═══════════════════════════════════════════════════════
-   SCREENS
-═══════════════════════════════════════════════════════ */
 
 function PlacementTest({onDone}) {
-  const [i,sI]      = useState(0);
-  const [sel,sSel]  = useState(null);
-  const [conf,sConf]= useState(false);
-  const [sc,sSc]    = useState({Grammar:0,Vocabulary:0,Reading:0});
-  const q = PL[i];
-  const secs = ["Grammar","Vocabulary","Reading"];
-  const icons = {Grammar:"✏️",Vocabulary:"🔤",Reading:"📖"};
-  const cols  = {Grammar:"#e3f2fd",Vocabulary:"#fff3e0",Reading:"#f3e5f5"};
-  const si    = secs.indexOf(q.s);
+  const [i,setI]=useState(0);
+  const [sel,setSel]=useState(null);
+  const [conf,setConf]=useState(false);
+  const [scores,setScores]=useState({Grammar:0,Vocabulary:0,Reading:0});
+  const q=PLACEMENT[i];
+  const sections=["Grammar","Vocabulary","Reading"];
+  const sIcons={Grammar:"✏️",Vocabulary:"🔤",Reading:"📖"};
+  const sColors={Grammar:"#e3f2fd",Vocabulary:"#fff3e0",Reading:"#f3e5f5"};
+  const sIdx=sections.indexOf(q.section);
 
-  const confirm = () => {
-    if(sel===null) return;
-    if(sel===q.ans) sSc(s=>({...s,[q.s]:s[q.s]+1}));
-    sConf(true);
+  const confirm=()=>{
+    if(sel===null)return;
+    if(sel===q.ans)setScores(s=>({...s,[q.section]:s[q.section]+1}));
+    setConf(true);
   };
-  const next = () => {
-    if(i<14){sI(x=>x+1);sSel(null);sConf(false);}
-    else {
-      const fs={...sc};if(sel===q.ans)fs[q.s]++;
-      const tot=fs.Grammar+fs.Vocabulary+fs.Reading;
-      onDone({level:tot>=11?"Advanced":tot>=6?"Intermediate":"Beginner",scores:fs,total:tot});
+  const next=()=>{
+    if(i<PLACEMENT.length-1){setI(p=>p+1);setSel(null);setConf(false);}
+    else{
+      const fs={...scores};if(sel===q.ans)fs[q.section]++;
+      const total=fs.Grammar+fs.Vocabulary+fs.Reading;
+      onDone({level:total>=11?"Advanced":total>=6?"Intermediate":"Beginner",scores:fs,total});
     }
   };
-
   return (
     <div style={{minHeight:"100vh",background:"#f0f7f4",display:"flex",flexDirection:"column",alignItems:"center",padding:20,fontFamily:"'Segoe UI',sans-serif"}}>
-      <div style={{width:"100%",maxWidth:440,paddingTop:16}}>
-        <div style={{textAlign:"center",marginBottom:20}}>
+      <div style={{width:"100%",maxWidth:440}}>
+        <div style={{textAlign:"center",marginBottom:20,paddingTop:16}}>
           <div style={{fontSize:36}}>🎯</div>
-          <h2 style={{color:"#1b4332",margin:"6px 0 2px"}}>Placement Test</h2>
+          <h2 style={{color:DK,margin:"6px 0 2px"}}>Placement Test</h2>
           <p style={{color:"#888",fontSize:13}}>15 questions — Find your level</p>
         </div>
         <div style={{marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#888",marginBottom:6}}>
-            <span>Q {i+1}/15</span><span style={{color:"#2D6A4F",fontWeight:700}}>{Math.round((i/15)*100)}%</span>
+            <span>Question {i+1}/{PLACEMENT.length}</span>
+            <span style={{color:G,fontWeight:700}}>{Math.round((i/PLACEMENT.length)*100)}%</span>
           </div>
           <div style={{background:"#e0e0e0",borderRadius:99,height:8}}>
-            <div style={{background:"#2D6A4F",height:8,borderRadius:99,width:`${(i/15)*100}%`,transition:"width .4s"}}/>
+            <div style={{background:G,height:8,borderRadius:99,width:`${(i/PLACEMENT.length)*100}%`,transition:"width .4s"}}/>
           </div>
           <div style={{display:"flex",gap:4,marginTop:8}}>
-            {secs.map((s,ix)=>(
+            {sections.map((s,si)=>(
               <div key={s} style={{flex:1,display:"flex",alignItems:"center",gap:4}}>
-                <div style={{width:8,height:8,borderRadius:"50%",background:ix<si?"#2D6A4F":ix===si?"#81c784":"#e0e0e0"}}/>
-                <span style={{fontSize:11,color:ix<=si?"#2D6A4F":"#bbb",fontWeight:ix===si?700:400}}>{icons[s]} {s}</span>
+                <div style={{width:8,height:8,borderRadius:"50%",background:si<sIdx?G:si===sIdx?"#81c784":"#e0e0e0"}}/>
+                <span style={{fontSize:11,color:si<=sIdx?G:"#bbb",fontWeight:si===sIdx?700:400}}>{sIcons[s]} {s}</span>
               </div>
             ))}
           </div>
         </div>
         <Card style={{marginBottom:14}}>
-          <div style={{background:cols[q.s],borderRadius:8,padding:"6px 12px",display:"inline-block",marginBottom:10}}>
-            <span style={{fontSize:12,fontWeight:700,color:"#1b4332"}}>{icons[q.s]} {q.s}</span>
+          <div style={{background:sColors[q.section],borderRadius:8,padding:"6px 12px",display:"inline-block",marginBottom:10}}>
+            <span style={{fontSize:12,fontWeight:700,color:DK}}>{sIcons[q.section]} {q.section}</span>
           </div>
-          <p style={{fontWeight:600,color:"#1b4332",fontSize:15,lineHeight:1.7,margin:0}}>{q.q}</p>
+          <p style={{fontWeight:600,color:DK,fontSize:15,lineHeight:1.7,margin:0}}>{q.q}</p>
         </Card>
         {q.opts.map((o,oi)=>{
-          const isC=oi===q.ans,isP=oi===sel;
-          let bg="#fff",br="#e0e0e0";
-          if(conf){if(isP&&isC){bg="#e8f5e9";br="#2D6A4F";}else if(isP&&!isC){bg="#ffebee";br="#e53935";}}
-          else if(isP){bg="#d8f3dc";br="#2D6A4F";}
-          return <button key={oi} onClick={()=>!conf&&sSel(oi)} style={{display:"block",width:"100%",background:bg,border:`2px solid ${br}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:conf?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit",transition:"all .2s"}}>
-            {conf&&isP&&isC?"✅ ":conf&&isP&&!isC?"❌ ":""}{o}
+          const correct=oi===q.ans,picked=oi===sel;
+          let bg="#fff",border="#e0e0e0";
+          if(conf){if(correct){bg="#e8f5e9";border=G}else if(picked){bg="#ffebee";border="#e53935"}}
+          else if(picked){bg=LT;border=G}
+          return <button key={oi} onClick={()=>!conf&&setSel(oi)} style={{display:"block",width:"100%",background:bg,border:`2px solid ${border}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:conf?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit",transition:"all .2s"}}>
+            {conf&&correct?"✅ ":conf&&picked&&!correct?"❌ ":""}{o}
           </button>;
         })}
-        {!conf
-          ?<PBtn onClick={confirm} disabled={sel===null}>Confirm Answer</PBtn>
-          :<PBtn onClick={next}>{i<14?"Next →":"See My Level 🎯"}</PBtn>
-        }
+        {!conf?<Btn full disabled={sel===null} onClick={confirm}>Confirm Answer</Btn>
+              :<Btn full onClick={next}>{i<PLACEMENT.length-1?"Next →":"See My Level 🎯"}</Btn>}
       </div>
     </div>
   );
@@ -226,51 +365,52 @@ function PlacementTest({onDone}) {
 
 function LevelResult({result,onContinue}) {
   const icons={Beginner:"🌱",Intermediate:"🌿",Advanced:"🌳"};
-  const descs={Beginner:"Your content will focus on essential grammar, core vocabulary, and accessible reading.",Intermediate:"Your content will challenge you with more complex grammar and academic vocabulary.",Advanced:"Your content will develop your academic writing and critical reading skills."};
+  const descs={Beginner:"Your content will focus on essential grammar, core vocabulary, and accessible reading passages.",Intermediate:"Your content will challenge you with more complex grammar, academic vocabulary, and analytical reading.",Advanced:"Your content will develop your academic writing, sophisticated vocabulary, and critical reading skills."};
   return (
     <div style={{minHeight:"100vh",background:"#f0f7f4",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',sans-serif"}}>
       <div style={{width:"100%",maxWidth:440}}>
         <Card style={{textAlign:"center",marginBottom:16}}>
           <div style={{fontSize:64,marginBottom:8}}>{icons[result.level]}</div>
-          <h2 style={{color:"#2D6A4F",fontSize:24,margin:"0 0 4px"}}>Your Level:</h2>
-          <div style={{background:"#d8f3dc",borderRadius:12,padding:"10px 24px",display:"inline-block",margin:"8px 0 12px"}}>
-            <span style={{fontSize:22,fontWeight:900,color:"#1b4332"}}>{result.level}</span>
+          <h2 style={{color:G,fontSize:24,margin:"0 0 4px"}}>Your Level:</h2>
+          <div style={{background:LT,borderRadius:12,padding:"10px 24px",display:"inline-block",margin:"8px 0 12px"}}>
+            <span style={{fontSize:22,fontWeight:900,color:DK}}>{result.level}</span>
           </div>
           <p style={{color:"#555",fontSize:14,lineHeight:1.7}}>{descs[result.level]}</p>
         </Card>
         <Card style={{marginBottom:16}}>
-          <h4 style={{color:"#1b4332",margin:"0 0 12px"}}>📊 Your Scores</h4>
+          <h4 style={{color:DK,margin:"0 0 12px"}}>📊 Your Scores</h4>
           {Object.entries(result.scores).map(([k,v])=>(
             <div key={k} style={{marginBottom:10}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4}}>
-                <span style={{fontWeight:600,color:"#1b4332"}}>{k}</span>
-                <span style={{color:"#2D6A4F",fontWeight:700}}>{v}/5</span>
+                <span style={{fontWeight:600,color:DK}}>{k}</span>
+                <span style={{color:G,fontWeight:700}}>{v}/5</span>
               </div>
               <div style={{background:"#e8f5e9",borderRadius:99,height:8}}>
-                <div style={{background:"#2D6A4F",height:8,borderRadius:99,width:`${(v/5)*100}%`,transition:"width .6s"}}/>
+                <div style={{background:G,height:8,borderRadius:99,width:`${(v/5)*100}%`,transition:"width .6s"}}/>
               </div>
             </div>
           ))}
           <div style={{borderTop:"1px solid #eee",paddingTop:10,marginTop:4,display:"flex",justifyContent:"space-between"}}>
-            <span style={{fontWeight:700,color:"#1b4332"}}>Total</span>
-            <span style={{color:"#2D6A4F",fontWeight:800}}>{result.total}/15</span>
+            <span style={{fontWeight:700,color:DK}}>Total</span>
+            <span style={{color:G,fontWeight:800}}>{result.total}/15</span>
           </div>
         </Card>
-        <PBtn onClick={onContinue}>Start Learning →</PBtn>
+        <Btn full onClick={onContinue}>Start Learning →</Btn>
       </div>
     </div>
   );
 }
 
+/* ══════ AUTH ══════ */
 function Landing({go}) {
   return (
-    <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#1b4332 0%,#2D6A4F 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:28,color:"#fff",textAlign:"center",fontFamily:"'Segoe UI',sans-serif"}}>
+    <div style={{minHeight:"100vh",background:`linear-gradient(160deg,${DK} 0%,${G} 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:28,color:"#fff",textAlign:"center",fontFamily:"'Segoe UI',sans-serif"}}>
       <div style={{fontSize:60,marginBottom:10}}>✍️</div>
       <h1 style={{fontSize:28,fontWeight:900,margin:"0 0 6px"}}>WriteUP UPGC</h1>
       <p style={{opacity:.85,fontSize:15,marginBottom:4}}>Academic English for L2 Students</p>
       <p style={{opacity:.6,fontSize:12,marginBottom:36}}>Université Peleforo Gon Coulibaly · Korhogo, Côte d'Ivoire</p>
       <div style={{display:"flex",gap:12,flexWrap:"wrap",justifyContent:"center",marginBottom:40}}>
-        <button onClick={()=>go("login")} style={{background:"#fff",color:"#2D6A4F",border:"none",borderRadius:12,padding:"14px 36px",fontWeight:800,fontSize:15,cursor:"pointer"}}>Log In</button>
+        <button onClick={()=>go("login")} style={{background:"#fff",color:G,border:"none",borderRadius:12,padding:"14px 36px",fontWeight:800,fontSize:15,cursor:"pointer"}}>Log In</button>
         <button onClick={()=>go("register")} style={{background:"transparent",color:"#fff",border:"2px solid #fff",borderRadius:12,padding:"14px 36px",fontWeight:800,fontSize:15,cursor:"pointer"}}>Sign Up</button>
       </div>
       <div style={{display:"flex",gap:20,opacity:.7,fontSize:12,flexWrap:"wrap",justifyContent:"center"}}>
@@ -281,171 +421,199 @@ function Landing({go}) {
 }
 
 function AuthForm({mode,onDone,onSwitch}) {
-  const [f,sF]     = useState({name:"",email:"",pw:""});
-  const [load,sL]  = useState(false);
-  const [err,sErr] = useState("");
-  const upd = k => e => sF(p=>({...p,[k]:e.target.value}));
-
-  const submit = async () => {
-    if(!f.email||!f.pw) return sErr("Please fill all fields.");
-    if(mode==="register"&&!f.name) return sErr("Please enter your name.");
-    sL(true);sErr("");
-    try {
-      if(mode==="register") {
-        const res=await signUp(f.email,f.pw);
-        if(res.error){sErr(res.error.message||"Registration failed.");sL(false);return;}
+  const [f,setF]=useState({name:"",email:"",pw:""});
+  const [loading,setL]=useState(false);
+  const [err,setErr]=useState("");
+  const upd=k=>e=>setF(p=>({...p,[k]:e.target.value}));
+  const submit=async()=>{
+    if(!f.email||!f.pw)return setErr("Please fill all fields.");
+    if(mode==="register"&&!f.name)return setErr("Please enter your name.");
+    setL(true);setErr("");
+    try{
+      if(mode==="register"){
+        const res=await authSignUp(f.email,f.pw);
+        if(res.error){setErr(res.error.message||"Registration failed.");setL(false);return;}
         const uid=res.user?.id;
         if(uid){
-          await post("users",{id:uid,name:f.name,email:f.email,xp:0,streak:1,level:"Beginner",placement_done:false,last_login:dateStr()},res.access_token);
+          await sbPost("users",{id:uid,name:f.name,email:f.email,xp:0,streak:1,level:"Beginner",placement_done:false,last_login:todayStr()},res.access_token);
           onDone({id:uid,name:f.name,email:f.email,xp:0,streak:1,level:"Beginner",isNew:true,token:res.access_token});
         }
-      } else {
-        const res=await signIn(f.email,f.pw);
-        if(res.error){sErr("Invalid email or password.");sL(false);return;}
-        const uid=res.user?.id,tok=res.access_token;
-        const rows=await get(`users?id=eq.${uid}`,tok);
-        const p=rows?.[0];
-        if(p){
-          const diff=Math.floor((new Date()-new Date(p.last_login))/(86400000));
-          const ns=diff===1?p.streak+1:diff>1?1:p.streak;
-          await patch(`users?id=eq.${uid}`,{last_login:dateStr(),streak:ns},tok);
-          onDone({...p,streak:ns,isNew:!p.placement_done,token:tok});
-        } else sErr("Profile not found. Please sign up.");
+      }else{
+        const res=await authSignIn(f.email,f.pw);
+        if(res.error){setErr("Invalid email or password.");setL(false);return;}
+        const uid=res.user?.id;const token=res.access_token;
+        const profiles=await sbGet(`users?id=eq.${uid}`,token);
+        const profile=profiles[0];
+        if(profile){
+          const last=new Date(profile.last_login);
+          const diff=Math.floor((new Date()-last)/(1000*60*60*24));
+          const newStreak=diff===1?profile.streak+1:diff>1?1:profile.streak;
+          await sbPatch(`users?id=eq.${uid}`,{last_login:todayStr(),streak:newStreak},token);
+          onDone({...profile,streak:newStreak,isNew:!profile.placement_done,token});
+        }else{setErr("Profile not found. Please sign up.");}
       }
-    } catch { sErr("Connection error. Please try again."); }
-    sL(false);
+    }catch(e){setErr("Connection error. Please try again.");}
+    setL(false);
   };
-
-  const inp=(ph,k,type="text")=>(
-    <input placeholder={ph} type={type} value={f[k]} onChange={upd(k)}
-      style={{display:"block",width:"100%",boxSizing:"border-box",border:"1.5px solid #e0e0e0",borderRadius:10,padding:"12px 14px",marginBottom:12,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
-  );
-
   return (
     <div style={{minHeight:"100vh",background:"#f0f7f4",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',sans-serif"}}>
       <Card style={{width:"100%",maxWidth:400}}>
         <div style={{textAlign:"center",marginBottom:20}}>
           <div style={{fontSize:40}}>✍️</div>
-          <h2 style={{color:"#2D6A4F",margin:"8px 0 4px"}}>{mode==="login"?"Welcome Back":"Create Account"}</h2>
+          <h2 style={{color:G,margin:"8px 0 4px"}}>{mode==="login"?"Welcome Back":"Create Account"}</h2>
           <p style={{color:"#888",fontSize:13}}>WriteUP UPGC — Academic English</p>
         </div>
-        {mode==="register"&&inp("Full name","name")}
-        {inp("Email","email","email")}
-        {inp("Password (min. 6 chars)","pw","password")}
+        {mode==="register"&&<input placeholder="Full name" value={f.name} onChange={upd("name")} style={{display:"block",width:"100%",boxSizing:"border-box",border:"1.5px solid #e0e0e0",borderRadius:10,padding:"12px 14px",marginBottom:12,fontSize:14,outline:"none",fontFamily:"inherit"}}/>}
+        <input placeholder="Email address" type="email" value={f.email} onChange={upd("email")} style={{display:"block",width:"100%",boxSizing:"border-box",border:"1.5px solid #e0e0e0",borderRadius:10,padding:"12px 14px",marginBottom:12,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+        <input placeholder="Password (min. 6 characters)" type="password" value={f.pw} onChange={upd("pw")} style={{display:"block",width:"100%",boxSizing:"border-box",border:"1.5px solid #e0e0e0",borderRadius:10,padding:"12px 14px",marginBottom:12,fontSize:14,outline:"none",fontFamily:"inherit"}}/>
         {err&&<p style={{color:"#c62828",fontSize:13,marginBottom:8}}>{err}</p>}
-        {load?<Spinner/>:<PBtn onClick={submit}>{mode==="login"?"Log In":"Register & Take Placement Test"}</PBtn>}
+        {loading?<Loader text={mode==="login"?"Logging in…":"Creating account…"}/>:
+          <Btn full onClick={submit}>{mode==="login"?"Log In":"Register & Take Placement Test"}</Btn>}
         <p style={{textAlign:"center",fontSize:13,color:"#888",marginTop:14}}>
           {mode==="login"?"No account? ":"Already registered? "}
-          <span onClick={onSwitch} style={{color:"#2D6A4F",cursor:"pointer",fontWeight:700}}>{mode==="login"?"Sign up":"Log in"}</span>
+          <span onClick={onSwitch} style={{color:G,cursor:"pointer",fontWeight:700}}>{mode==="login"?"Sign up":"Log in"}</span>
         </p>
       </Card>
     </div>
   );
 }
 
-/* ═══════════════════════════════════════════════════════
-   MAIN APP
-═══════════════════════════════════════════════════════ */
+/* ══════ MAIN APP ══════ */
 const MODS=[
-  {id:"grammar",   icon:"✏️",name:"Daily Grammar",   sub:"Random exercise every session",    color:"#e3f2fd"},
-  {id:"vocabulary",icon:"🔤",name:"Word of the Day",  sub:"Random word every session",        color:"#fff3e0"},
-  {id:"peel",      icon:"📝",name:"Writing Lab",      sub:"PEEL paragraph + AI assessment",   color:"#fce4ec"},
-  {id:"reading",   icon:"📖",name:"Reading Room",     sub:"Random passage every session",     color:"#f3e5f5"},
-  {id:"mistakes",  icon:"🇫🇷",name:"Common Mistakes", sub:"French-speaker errors explained",  color:"#e0f2f1"},
-  {id:"quiz",      icon:"🧪",name:"Daily Quiz",       sub:"5 random questions every session", color:"#fff8e1"},
+  {id:"grammar",   icon:"✏️",name:"Daily Grammar",    sub:"Random exercise every session",     xp:10,color:"#e3f2fd"},
+  {id:"vocabulary",icon:"🔤",name:"Word of the Day",   sub:"Random word every session",         xp:5, color:"#fff3e0"},
+  {id:"peel",      icon:"📝",name:"Guided Writing",    sub:"PEEL paragraph + AI feedback",      xp:50,color:"#fce4ec"},
+  {id:"reading",   icon:"📖",name:"Reading Room",      sub:"Random passage every session",      xp:20,color:"#f3e5f5"},
+  {id:"mistakes",  icon:"🇫🇷",name:"Common Mistakes",  sub:"Random error lesson every session", xp:10,color:"#e0f2f1"},
+  {id:"quiz",      icon:"🧪",name:"Daily Quiz",        sub:"5 random questions every session",  xp:30,color:"#fff8e1"},
 ];
+
 const BADGES_DEF=[
-  {icon:"✍️",name:"First Write",   desc:"Submit your first PEEL paragraph"},
-  {icon:"🔥",name:"Streak 7",      desc:"Log in 7 days in a row"},
+  {icon:"✍️",name:"First Write",  desc:"Submit your first PEEL paragraph"},
+  {icon:"🔥",name:"Streak 7",     desc:"Log in 7 days in a row"},
   {icon:"📐",name:"Grammar Master",desc:"Complete 30 grammar exercises"},
   {icon:"📖",name:"Vocab Champion",desc:"Learn 30 vocabulary words"},
-  {icon:"🍃",name:"PEEL Expert",   desc:"Submit 5 PEEL paragraphs"},
+  {icon:"🍃",name:"PEEL Expert",  desc:"Submit 5 PEEL paragraphs"},
   {icon:"🌍",name:"African Reader",desc:"Complete 10 reading passages"},
 ];
 
-export default function App() {
-  const [screen,sScreen] = useState("landing");
-  const [user,sUser]     = useState(null);
-  const [tok,sTok]       = useState(null);
-  const [place,sPlace]   = useState(null);
-  const [tab,sTab]       = useState("home");
-  const [mod,sMod]       = useState(null);
-  const [xp,sXp]         = useState(0);
-  const [streak,sStreak] = useState(1);
-  const [done,sDone]     = useState([]);
-  const [badges,sBadges] = useState([]);
-  const [enc,sEnc]       = useState(null);
-  const [theme,sTheme]   = useState(getTheme);
+export default function WriteUpApp() {
+  const [screen,setScreen]=useState("landing");
+  const [user,setUser]=useState(null);
+  const [token,setToken]=useState(null);
+  const [placement,setPlacement]=useState(null);
+  const [tab,setTab]=useState("home");
+  const [activeMod,setActiveMod]=useState(null);
+  const [xp,setXp]=useState(0);
+  const [streak,setStreak]=useState(1);
+  const [doneToday,setDoneToday]=useState([]);
+  const [badges,setBadges]=useState([]);
 
-  const G=theme.G,LT=theme.LT,DK=theme.dark||theme.DK||"#1b4332";
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem("writeup_theme");
+    return THEMES[saved] || THEMES.default;
+  });
+  const G = theme.primary;
+  const LT = theme.light;
+  const DK = theme.dark;
 
-  // Android back button
-  useEffect(()=>{
-    const handle=()=>{
-      if(enc){sEnc(null);window.history.pushState({},"");return;}
-      if(mod){sMod(null);loadDone(user?.id,tok);window.history.pushState({},"");return;}
-      if(tab!=="home"){sTab("home");window.history.pushState({},"");return;}
-    };
-    window.history.pushState({},"");
-    window.addEventListener("popstate",handle);
-    return()=>window.removeEventListener("popstate",handle);
-  },[enc,mod,tab,user,tok]);
+  // Check unlocks when XP changes
+  useEffect(() => {
+    UNLOCKS.forEach(u => {
+      if (xp >= u.xp) {
+        if (u.type === "level" && user?.id) {
+          const newLevel = u.xp >= 1500 ? "Advanced" : "Intermediate";
+          if (placement?.level !== newLevel) {
+            setPlacement(p => ({...p, level: newLevel}));
+            sbPatch(`users?id=eq.${user.id}`, {level: newLevel, current_level: newLevel}, token);
+          }
+        }
+        if (u.type === "theme") {
+          const themeKey = u.xp === 200 ? "forest" : "ocean";
+          localStorage.setItem(`writeup_unlock_${themeKey}`, "true");
+        }
+      }
+    });
+  }, [xp]);
 
-  // Auto level-up
-  useEffect(()=>{
-    if(!user?.id||!tok) return;
-    const nl=xp>=1500?"Advanced":xp>=500?"Intermediate":"Beginner";
-    if(place?.level!==nl){
-      sPlace(p=>({...p,level:nl}));
-      patch(`users?id=eq.${user.id}`,{level:nl,current_level:nl},tok);
-    }
-  },[xp]);
 
-  const loadDone=async(uid,tk)=>{
-    try{const d=await get(`daily_progress?user_id=eq.${uid}&date=eq.${dateStr()}&completed=eq.true&select=module`,tk);sDone(Array.isArray(d)?d.map(x=>x.module):[]);}catch{}
+  useEffect(() => {
+    registerSW().then(reg => {
+      setSwReg(reg);
+      // Schedule daily reminder if already enabled
+      const savedTime = localStorage.getItem("writeup_notif_time");
+      const enabled = localStorage.getItem("writeup_notif_enabled") === "true";
+      if (enabled && savedTime && Notification?.permission === "granted") {
+        scheduleDailyReminder(reg, savedTime);
+      }
+      // Weekly challenge notification every Monday
+      const today = new Date();
+      if (today.getDay() === 1 && localStorage.getItem("writeup_notif_weekly") !== "false") {
+        const msg = NOTIF_MESSAGES.weekly[Math.floor(Math.random() * NOTIF_MESSAGES.weekly.length)];
+        scheduleNotification(reg, { ...msg, delayMs: 5000 });
+      }
+    });
+  }, []);
+    const data=await sbGet(`daily_progress?user_id=eq.${uid}&date=eq.${todayStr()}&completed=eq.true&select=module`,tk);
+    setDoneToday(Array.isArray(data)?data.map(d=>d.module):[]);
   };
   const loadBadges=async(uid,tk)=>{
-    try{const d=await get(`user_badges?user_id=eq.${uid}&select=badge_name`,tk);sBadges(Array.isArray(d)?d.map(x=>x.badge_name):[]);}catch{}
+    const data=await sbGet(`user_badges?user_id=eq.${uid}&select=badge_name`,tk);
+    setBadges(Array.isArray(data)?data.map(d=>d.badge_name):[]);
   };
   const afterAuth=async u=>{
-    sUser(u);sTok(u.token);sXp(u.xp||0);sStreak(u.streak||1);
-    if(u.isNew) sScreen("placement");
-    else{sPlace({level:u.level||"Beginner"});await loadDone(u.id,u.token);await loadBadges(u.id,u.token);sScreen("app");}
+    setUser(u);setToken(u.token);setXp(u.xp||0);setStreak(u.streak||1);
+    if(u.isNew){setScreen("placement");}
+    else{setPlacement({level:u.level||"Beginner"});await loadToday(u.id,u.token);await loadBadges(u.id,u.token);setScreen("app");}
   };
-  const afterPlace=async r=>{
-    sPlace(r);
-    if(user?.id) await patch(`users?id=eq.${user.id}`,{level:r.level,placement_done:true},tok);
-    sScreen("result");
-  };
-  const awardBadge=async name=>{
-    if(badges.includes(name)||!user?.id) return;
-    try{await post("user_badges",{user_id:user.id,badge_name:name},tok);}catch{}
-    sBadges(p=>[...p,name]);
-  };
-  const addXp=async(n,modId)=>{
-    if(done.includes(modId)){sEnc(rnd(ENC));return;}
-    const pts=XP[modId]||n;
-    const nx=xp+pts;
-    sXp(nx);sDone(p=>[...p,modId]);
+  const afterPlacement=async result=>{
+    setPlacement(result);
     if(user?.id){
-      try{
-        await upsert("daily_progress",{user_id:user.id,date:dateStr(),module:modId,completed:true,xp_earned:pts},tok);
-        await patch(`users?id=eq.${user.id}`,{xp:nx},tok);
-        if(modId==="peel") awardBadge("First Write");
-        if(streak>=7) awardBadge("Streak 7");
-      }catch(e){console.error(e);}
+      await sbPatch(`users?id=eq.${user.id}`,{level:result.level,placement_done:true},token);
+      await savePlacementResult(user.id,token,result.scores,result.level);
     }
+    setScreen("result");
   };
 
-  if(screen==="landing")   return <Landing go={sScreen}/>;
-  if(screen==="login")     return <AuthForm mode="login"    onDone={afterAuth} onSwitch={()=>sScreen("register")}/>;
-  if(screen==="register")  return <AuthForm mode="register" onDone={afterAuth} onSwitch={()=>sScreen("login")}/>;
-  if(screen==="placement") return <PlacementTest onDone={afterPlace}/>;
-  if(screen==="result")    return <LevelResult result={place} onContinue={()=>{loadDone(user?.id,tok);sScreen("app");}}/>;
+  const addXp=async(n,moduleId,sessionData={})=>{
+    const newXp=xp+n;
+    setXp(newXp);
+    setDoneToday(p=>[...p,moduleId]);
+    if(user?.id){
+      await sbUpsert("daily_progress",{user_id:user.id,date:todayStr(),module:moduleId,completed:true,xp_earned:n},token);
+      await sbPatch(`users?id=eq.${user.id}`,{xp:newXp,current_level:placement?.level||"Beginner"},token);
+      await saveXpHistory(user.id,token,n,moduleId);
+      // Save module session if data provided
+      if(sessionData.module){
+        await saveModuleSession(user.id,token,{...sessionData,xpEarned:n});
+      }
+      // Save PEEL attempt if provided
+      if(sessionData.peelData){
+        await savePeelAttempt(user.id,token,sessionData.peelData);
+      }
+      // Weekly snapshot every time (upserts so safe)
+      const userData=await sbGet(`users?id=eq.${user.id}`,token);
+      if(userData?.[0]) await saveWeeklySnapshot(user.id,token,userData[0]);
+      // Badges
+      if(moduleId==="peel") awardBadge("First Write");
+      if(streak>=7) awardBadge("Streak 7");
+    }
+  };
+  const awardBadge=async name=>{
+    if(badges.includes(name))return;
+    await sbPost("user_badges",{user_id:user.id,badge_name:name},token);
+    setBadges(p=>[...p,name]);
+  };
+
+  if(screen==="landing")   return <Landing go={setScreen}/>;
+  if(screen==="login")     return <AuthForm mode="login"    onDone={afterAuth} onSwitch={()=>setScreen("register")}/>;
+  if(screen==="register")  return <AuthForm mode="register" onDone={afterAuth} onSwitch={()=>setScreen("login")}/>;
+  if(screen==="placement") return <PlacementTest onDone={afterPlacement}/>;
+  if(screen==="result")    return <LevelResult result={placement} onContinue={()=>{loadToday(user?.id,token);setScreen("app");}}/>;
 
   const lvl=getLvl(xp);
   const pct=Math.round(((xp-lvl.min)/(lvl.next-lvl.min))*100);
-  const level=place?.level||"Beginner";
+  const level=placement?.level||"Beginner";
 
   return (
     <div style={{maxWidth:440,margin:"0 auto",minHeight:"100vh",background:"#f0f7f4",fontFamily:"'Segoe UI',sans-serif",display:"flex",flexDirection:"column"}}>
@@ -462,32 +630,19 @@ export default function App() {
       </div>
 
       <div style={{flex:1,overflowY:"auto",paddingBottom:70}}>
-        {mod?<ModShell mod={mod} level={level} addXp={addXp} G={G} LT={LT} DK={DK} onBack={()=>{sMod(null);loadDone(user?.id,tok);}}/>
-          :tab==="home"   ?<HomeScreen setMod={sMod} xp={xp} lvl={lvl} pct={pct} level={level} done={done} G={G} LT={LT} DK={DK}/>
-          :tab==="profile"?<ProfileScreen user={user} xp={xp} lvl={lvl} level={level} badges={badges} streak={streak} G={G} LT={LT} DK={DK}/>
-          :tab==="board"  ?<BoardScreen userId={user?.id} myXp={xp} tok={tok} G={G} LT={LT} DK={DK}/>
-          :<SettingsScreen user={user} xp={xp} place={place} G={G} LT={LT} DK={DK}
-              onTheme={t=>{sTheme(t);localStorage.setItem("wup_theme",Object.keys(THEMES).find(k=>THEMES[k]===t)||"default");}}
-              onLogout={()=>{sScreen("landing");sUser(null);sTok(null);}}/>
+        {activeMod
+          ?<ModShell mod={activeMod} level={level} addXp={addXp} onBack={()=>{setActiveMod(null);loadToday(user?.id,token);}}/>
+          :tab==="home"    ?<Home setMod={setActiveMod} xp={xp} lvl={lvl} pct={pct} level={level} doneToday={doneToday} G={G} LT={LT} DK={DK}/>
+          :tab==="profile" ?<Profile user={user} xp={xp} lvl={lvl} level={level} badges={badges} streak={streak}/>
+          :tab==="board"   ?<Board userId={user?.id} myXp={xp} token={token}/>
+          :<Settings user={user} xp={xp} placement={placement} onLogout={async()=>{setScreen("landing");setUser(null);setToken(null);}} onThemeChange={t=>{setTheme(t);}} />
         }
       </div>
 
-      {enc&&(
-        <div onClick={()=>sEnc(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.6)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:24,padding:32,maxWidth:360,width:"100%",textAlign:"center"}}>
-            <div style={{fontSize:60,marginBottom:12}}>🌟</div>
-            <h3 style={{color:G,margin:"0 0 8px"}}>{enc.title}</h3>
-            <p style={{color:"#555",fontSize:14,lineHeight:1.7,margin:"0 0 6px"}}>{enc.body}</p>
-            <p style={{color:"#888",fontSize:13,fontStyle:"italic",margin:"0 0 20px"}}>{enc.sub}</p>
-            <PBtn onClick={()=>sEnc(null)}>Keep Practising! 💪</PBtn>
-          </div>
-        </div>
-      )}
-
-      {!mod&&(
+      {!activeMod&&(
         <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:440,background:"#fff",borderTop:"1px solid #e8f5e9",display:"flex"}}>
           {[["home","🏠","Home"],["profile","👤","Profile"],["board","🏆","Ranks"],["settings","⚙️","More"]].map(([t,ic,lb])=>(
-            <button key={t} onClick={()=>sTab(t)} style={{flex:1,background:"none",border:"none",padding:"10px 0",cursor:"pointer",color:tab===t?G:"#aaa",fontWeight:tab===t?800:400,fontSize:11}}>
+            <button key={t} onClick={()=>setTab(t)} style={{flex:1,background:"none",border:"none",padding:"10px 0",cursor:"pointer",color:tab===t?G:"#aaa",fontWeight:tab===t?800:400,fontSize:11}}>
               <div style={{fontSize:22}}>{ic}</div>{lb}
             </button>
           ))}
@@ -497,20 +652,28 @@ export default function App() {
   );
 }
 
-/* ─── HOME ─────────────────────────────────────────── */
-function HomeScreen({setMod,xp,lvl,pct,level,done,G,LT,DK}) {
-  const next=UNLOCKS.find(u=>u.xp>xp);
-  const prev=[...UNLOCKS].reverse().find(u=>u.xp<=xp);
+function Home({setMod,xp,lvl,pct,level,doneToday,G,LT,DK}) {
+  // Next unlock
+  const nextUnlock = UNLOCKS.find(u => u.xp > xp);
+  const prevUnlock = [...UNLOCKS].reverse().find(u => u.xp <= xp);
+
   return (
     <div style={{padding:18}}>
+      {/* XP Progress card */}
       <Card style={{marginBottom:14,background:`linear-gradient(135deg,${DK},${G})`,color:"#fff"}}>
-        <div style={{fontSize:12,opacity:.8,marginBottom:4}}>📅 {dateStr()}</div>
-        <div style={{fontWeight:800,fontSize:16,marginBottom:2}}>{done.length>=MODS.length?"🎉 All done today!":"Today's Activities"}</div>
-        <div style={{fontSize:12,opacity:.75}}>{done.length}/{MODS.length} completed · {level}</div>
+        <div style={{fontSize:12,opacity:.8,marginBottom:4}}>📅 {todayStr()}</div>
+        <div style={{fontWeight:800,fontSize:16,marginBottom:2}}>{doneToday.length>=MODS.length?"🎉 All done today!":"Today's Activities"}</div>
+        <div style={{fontSize:12,opacity:.75}}>{doneToday.length}/{MODS.length} completed · Level: {level}</div>
         <div style={{display:"flex",gap:6,marginTop:10}}>
-          {MODS.map(m=><div key={m.id} style={{width:28,height:28,borderRadius:"50%",background:done.includes(m.id)?"#fff":"rgba(255,255,255,.25)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>{done.includes(m.id)?m.icon:"·"}</div>)}
+          {MODS.map(m=>(
+            <div key={m.id} style={{width:28,height:28,borderRadius:"50%",background:doneToday.includes(m.id)?"#fff":"rgba(255,255,255,.25)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>
+              {doneToday.includes(m.id)?m.icon:"·"}
+            </div>
+          ))}
         </div>
       </Card>
+
+      {/* XP bar */}
       <Card style={{marginBottom:10}}>
         <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:6}}>
           <span style={{fontWeight:700,color:G}}>{lvl.name} · {level}</span>
@@ -521,39 +684,46 @@ function HomeScreen({setMod,xp,lvl,pct,level,done,G,LT,DK}) {
         </div>
         <p style={{color:"#888",fontSize:12,marginTop:6}}>{lvl.next-xp} XP to next level</p>
       </Card>
-      {next&&(
-        <Card style={{marginBottom:14,background:"#fff8e1",borderLeft:"3px solid #f9a825"}}>
+
+      {/* Next unlock */}
+      {nextUnlock && (
+        <Card style={{marginBottom:14,background:"#fff8e1",borderLeft:`3px solid #f9a825`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <div>
-              <div style={{fontSize:12,color:"#e65100",fontWeight:700,marginBottom:2}}>🔓 Next Unlock — {next.xp} XP</div>
-              <div style={{fontWeight:700,color:DK,fontSize:13}}>{next.icon} {next.label}</div>
-              <div style={{fontSize:12,color:"#666"}}>{next.desc}</div>
+              <div style={{fontSize:12,color:"#e65100",fontWeight:700,marginBottom:2}}>🔓 Next Unlock — {nextUnlock.xp} XP</div>
+              <div style={{fontWeight:700,color:DK,fontSize:13}}>{nextUnlock.icon} {nextUnlock.label}</div>
+              <div style={{fontSize:12,color:"#666"}}>{nextUnlock.desc}</div>
             </div>
-            <div style={{textAlign:"right"}}><div style={{fontWeight:800,color:"#e65100",fontSize:16}}>{next.xp-xp}</div><div style={{fontSize:10,color:"#888"}}>XP away</div></div>
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <div style={{fontWeight:800,color:"#e65100",fontSize:16}}>{nextUnlock.xp-xp}</div>
+              <div style={{fontSize:10,color:"#888"}}>XP away</div>
+            </div>
           </div>
           <div style={{background:"#ffe082",borderRadius:99,height:6,marginTop:8}}>
-            <div style={{background:"#f9a825",height:6,borderRadius:99,width:`${Math.min(100,Math.round(((xp-(prev?.xp||0))/(next.xp-(prev?.xp||0)))*100))}%`,transition:"width .5s"}}/>
+            <div style={{background:"#f9a825",height:6,borderRadius:99,width:`${Math.min(100,Math.round(((xp-(prevUnlock?.xp||0))/(nextUnlock.xp-(prevUnlock?.xp||0)))*100))}%`,transition:"width .5s"}}/>
           </div>
         </Card>
       )}
+
+      {/* Modules */}
       {MODS.map(m=>(
-        <button key={m.id} onClick={()=>setMod(m)} style={{width:"100%",background:"#fff",border:`1.5px solid ${LT}`,borderRadius:16,padding:"14px 16px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,0.04)",textAlign:"left",marginBottom:10}}>
+        <button key={m.id} onClick={()=>setMod(m)}
+          style={{width:"100%",background:"#fff",border:`1.5px solid ${LT}`,borderRadius:16,padding:"14px 16px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",boxShadow:"0 2px 8px #0001",textAlign:"left",marginBottom:10}}>
           <div style={{background:m.color,borderRadius:12,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{m.icon}</div>
           <div style={{flex:1}}>
             <div style={{fontWeight:700,color:DK,fontSize:14}}>{m.name}</div>
             <div style={{color:"#888",fontSize:12,marginTop:2}}>{m.sub}</div>
           </div>
-          {done.includes(m.id)
+          {doneToday.includes(m.id)
             ?<span style={{background:"#e8f5e9",color:G,borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:700}}>✅ Done</span>
-            :<span style={{background:LT,color:G,borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>+{XP[m.id]} XP</span>}
+            :<Tag color={LT}>+{XP_PER_MODULE[m.id]} XP</Tag>}
         </button>
       ))}
     </div>
   );
 }
 
-/* ─── MOD SHELL ─────────────────────────────────────── */
-function ModShell({mod,level,addXp,onBack,G,LT,DK}) {
+function ModShell({mod,level,addXp,onBack}) {
   return (
     <div style={{padding:18}}>
       <button onClick={onBack} style={{background:"none",border:"none",color:G,fontWeight:700,fontSize:15,cursor:"pointer",padding:0,marginBottom:16}}>← Back</button>
@@ -561,461 +731,574 @@ function ModShell({mod,level,addXp,onBack,G,LT,DK}) {
         <div style={{background:mod.color,borderRadius:14,width:52,height:52,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>{mod.icon}</div>
         <div><h2 style={{margin:0,color:DK,fontSize:18}}>{mod.name}</h2><p style={{margin:0,color:"#888",fontSize:12}}>{mod.sub}</p></div>
       </div>
-      {mod.id==="grammar"    &&<GrammarMod    addXp={addXp} onBack={onBack} G={G} LT={LT} DK={DK}/>}
-      {mod.id==="vocabulary" &&<VocabMod      addXp={addXp} onBack={onBack} G={G} LT={LT} DK={DK}/>}
-      {mod.id==="peel"       &&<PeelMod       addXp={addXp} onBack={onBack} level={level} G={G} LT={LT} DK={DK}/>}
-      {mod.id==="reading"    &&<ReadingMod    addXp={addXp} onBack={onBack} G={G} LT={LT} DK={DK}/>}
-      {mod.id==="mistakes"   &&<MistakesMod   addXp={addXp} onBack={onBack} G={G} LT={LT} DK={DK}/>}
-      {mod.id==="quiz"       &&<QuizMod       addXp={addXp} onBack={onBack} G={G} LT={LT} DK={DK}/>}
+      {mod.id==="grammar"    &&<GrammarMod    addXp={addXp} onBack={onBack}/>}
+      {mod.id==="vocabulary" &&<VocabMod      addXp={addXp} onBack={onBack}/>}
+      {mod.id==="peel"       &&<PeelMod       addXp={addXp} onBack={onBack} level={level}/>}
+      {mod.id==="reading"    &&<ReadingMod    addXp={addXp} onBack={onBack}/>}
+      {mod.id==="mistakes"   &&<MistakesMod   addXp={addXp} onBack={onBack}/>}
+      {mod.id==="quiz"       &&<QuizMod       addXp={addXp} onBack={onBack}/>}
     </div>
   );
 }
 
-function DoneScreen({xp,onBack,earn,G}) {
-  useEffect(()=>{earn&&earn();},[]);
+/* ── Done Screen ── */
+function DoneScreen({xp,onBack,earnNow}) {
+  useEffect(()=>{if(earnNow)earnNow();},[]);
   return (
     <div style={{textAlign:"center",padding:48}}>
       <div style={{fontSize:64,marginBottom:12}}>🎉</div>
       <h2 style={{color:G}}>Well done!</h2>
-      <p style={{color:"#555"}}>You earned <strong style={{color:G,fontSize:20}}>+{xp} XP</strong></p>
-      <p style={{color:"#aaa",fontSize:13}}>Progress saved ✅</p>
-      <PBtn onClick={onBack}>← Back to Modules</PBtn>
+      <p style={{color:"#666"}}>You earned <strong style={{color:G,fontSize:20}}>+{xp} XP</strong></p>
+      <p style={{color:"#888",fontSize:13}}>Progress saved ✅</p>
+      <Btn full onClick={onBack}>← Back to Modules</Btn>
     </div>
   );
 }
 
-/* ─── GRAMMAR ──────────────────────────────────────── */
-function GrammarMod({addXp,onBack,G,LT,DK}) {
-  const [c]    = useState(()=>rnd(GRAMMAR_BANK));
-  const [sel,sSel] = useState(null);
-  const [done,sDone] = useState(false);
-  const conf=sel!==null,correct=sel===c.ans;
-  if(done) return <DoneScreen xp={XP.grammar} onBack={onBack} G={G} earn={()=>addXp(XP.grammar,"grammar")}/>;
+/* ── Grammar ── */
+function GrammarMod({addXp,onBack}) {
+  const [c]=useState(()=>rnd(GRAMMAR_BANK));
+  const [sel,setSel]=useState(null);
+  const [done,setDone]=useState(false);
+  const [startTime]=useState(()=>Date.now());
+  const confirmed=sel!==null;
+  const correct=sel===c.ans;
+
+  if(done)return <DoneScreen xp={10} onBack={onBack} earnNow={()=>addXp(10,"grammar",{
+    module:"grammar", score:correct?1:0, total:1, passed:correct,
+    timeSec:Math.round((Date.now()-startTime)/1000),
+    errors:correct?[]:[{question:c.question,chosen:c.opts[sel],correct:c.opts[c.ans]}],
+    title:c.title
+  })}/>;
+
   return (
     <div>
       <Card style={{background:LT,marginBottom:14}}>
-        <div style={{fontSize:12,color:"#555"}}>📚 Topic: <strong>{c.title}</strong></div>
+        <div style={{fontSize:12,color:"#888"}}>📚 Topic</div>
+        <div style={{fontWeight:800,color:DK,fontSize:16}}>{c.title}</div>
+        <div style={{fontSize:13,color:"#555",marginTop:4}}>{c.instruction}</div>
       </Card>
-      <Card style={{marginBottom:14}}><p style={{fontWeight:600,color:DK,fontSize:15,lineHeight:1.7,margin:0}}>{c.q}</p></Card>
+      <Card style={{marginBottom:14}}><p style={{fontWeight:600,color:DK,fontSize:15,lineHeight:1.7,margin:0}}>{c.question}</p></Card>
       {c.opts.map((o,oi)=>{
-        const isC=oi===c.ans,isP=oi===sel;
-        let bg="#fff",br="#e0e0e0";
-        if(conf){if(isP&&isC){bg="#e8f5e9";br=G;}else if(isP&&!isC){bg="#ffebee";br="#e53935";}else if(!isP&&isC&&!correct){bg="#fff9c4";br="#f9a825";}}
-        else if(isP){bg=LT;br=G;}
-        return <button key={oi} onClick={()=>!conf&&sSel(oi)} style={{display:"block",width:"100%",background:bg,border:`2px solid ${br}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:conf?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit",transition:"all .2s"}}>
-          {conf&&isP&&isC?"✅ ":conf&&isP&&!isC?"❌ ":conf&&!isP&&isC&&!correct?"💡 ":""}{o}
+        const isCorrect=oi===c.ans,isPicked=oi===sel;
+        let bg="#fff",border="#e0e0e0";
+        if(confirmed){
+          if(isPicked&&isCorrect){bg="#e8f5e9";border=G;}
+          else if(isPicked&&!isCorrect){bg="#ffebee";border="#e53935";}
+          else if(!isPicked&&isCorrect&&!correct){bg="#fff9c4";border="#f9a825";}
+        } else if(isPicked){bg=LT;border=G;}
+        return <button key={oi} onClick={()=>!confirmed&&setSel(oi)} style={{display:"block",width:"100%",background:bg,border:`2px solid ${border}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:confirmed?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit",transition:"all .2s"}}>
+          {confirmed&&isPicked&&isCorrect?"✅ ":confirmed&&isPicked&&!isCorrect?"❌ ":confirmed&&!isPicked&&isCorrect&&!correct?"💡 ":""}{o}
         </button>;
       })}
-      {conf&&<>
+      {confirmed&&<>
         <Card style={{background:correct?"#e8f5e9":"#fff3e0",marginBottom:10}}>
-          <p style={{margin:0,fontSize:13,color:correct?DK:"#e65100",lineHeight:1.7}}>{correct?"✅ Correct! ":"⚠️ Not quite. "}{c.exp}</p>
+          <p style={{margin:0,fontSize:13,color:correct?DK:"#e65100",lineHeight:1.7}}>
+            {correct?"✅ Correct! ":"⚠️ Not quite. "}{c.explanation}
+          </p>
         </Card>
         <Card style={{background:"#e3f2fd",marginBottom:14}}>
           <p style={{margin:0,fontSize:13,color:"#1565c0"}}>📐 <strong>Rule:</strong> {c.tip}</p>
         </Card>
-        {correct?<PBtn onClick={()=>sDone(true)}>Earn +{XP.grammar} XP →</PBtn>:<SBtn onClick={onBack}>← Try another exercise</SBtn>}
+        {correct
+          ?<Btn full onClick={()=>setDone(true)}>Earn +10 XP →</Btn>
+          :<Btn full secondary onClick={onBack}>← Try another exercise</Btn>}
       </>}
     </div>
   );
 }
 
-/* ─── VOCABULARY ───────────────────────────────────── */
-function VocabMod({addXp,onBack,G,LT,DK}) {
-  const [c]    = useState(()=>rnd(VOCAB_BANK));
-  const [phase,sPhase] = useState("learn");
-  const [sel,sSel]     = useState(null);
-  const [done,sDone]   = useState(false);
-  const conf=sel!==null,correct=sel===c.ans;
-  if(done) return <DoneScreen xp={XP.vocabulary} onBack={onBack} G={G} earn={()=>addXp(XP.vocabulary,"vocabulary")}/>;
-  if(phase==="learn") return (
+/* ── Vocabulary ── */
+function VocabMod({addXp,onBack}) {
+  const [c]=useState(()=>rnd(VOCAB_BANK));
+  const [phase,setPhase]=useState("learn");
+  const [sel,setSel]=useState(null);
+  const [done,setDone]=useState(false);
+  const [startTime]=useState(()=>Date.now());
+  const confirmed=sel!==null;
+  const correct=sel===c.ans;
+
+  if(done)return <DoneScreen xp={5} onBack={onBack} earnNow={()=>addXp(5,"vocabulary",{
+    module:"vocabulary", score:correct?1:0, total:1, passed:correct,
+    timeSec:Math.round((Date.now()-startTime)/1000),
+    errors:correct?[]:[{word:c.word,chosen:c.opts[sel],correct:c.opts[c.ans]}],
+    title:c.word
+  })}/>;
+
+  if(phase==="learn")return (
     <div>
       <Card style={{borderLeft:`4px solid ${G}`,marginBottom:14}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-          <div><h2 style={{color:G,margin:"0 0 2px",fontSize:26}}>{c.word}</h2><div style={{color:"#999",fontSize:12}}>{c.ph} · <em>{c.pos}</em></div></div>
-          <span style={{background:"#fff3e0",color:"#e65100",borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>{c.fr}</span>
+        <div style={{fontSize:11,color:"#888",marginBottom:6}}>📚 Word to Learn</div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div><h2 style={{color:G,margin:"0 0 2px",fontSize:26}}>{c.word}</h2><div style={{color:"#999",fontSize:12}}>{c.phonetic} · <em>{c.partOfSpeech}</em></div></div>
+          <Tag color="#fff3e0">{c.french}</Tag>
         </div>
-        <div style={{background:"#f9fbe7",borderRadius:10,padding:12,marginBottom:10}}>
+        <div style={{background:"#f9fbe7",borderRadius:10,padding:12,margin:"12px 0 0"}}>
           <div style={{fontSize:12,color:"#888",marginBottom:4}}>📖 Definition</div>
-          <p style={{color:"#333",fontSize:14,margin:0,lineHeight:1.7}}>{c.def}</p>
+          <p style={{color:"#333",fontSize:14,margin:0,lineHeight:1.7}}>{c.definition}</p>
         </div>
-        <div style={{background:"#e8f5e9",borderRadius:10,padding:12}}>
+        <div style={{background:"#e8f5e9",borderRadius:10,padding:12,marginTop:10}}>
           <div style={{fontSize:12,color:"#888",marginBottom:4}}>🧠 Memory Tip</div>
-          <p style={{color:DK,fontSize:13,margin:0,lineHeight:1.6}}>{c.tip}</p>
+          <p style={{color:DK,fontSize:13,margin:0,lineHeight:1.6}}>{c.memory_tip}</p>
         </div>
       </Card>
-      <PBtn onClick={()=>sPhase("practice")}>Practice this word →</PBtn>
+      <Btn full onClick={()=>setPhase("practice")}>Practice this word →</Btn>
     </div>
   );
   return (
     <div>
       <Card style={{marginBottom:14}}>
         <div style={{fontSize:12,color:"#888",marginBottom:6}}>💬 Complete the sentence:</div>
-        <p style={{fontWeight:600,color:DK,fontSize:15,lineHeight:1.7}}>{c.ex}</p>
+        <p style={{fontWeight:600,color:DK,fontSize:15,lineHeight:1.7}}>{c.example}</p>
       </Card>
       {c.opts.map((o,oi)=>{
-        const isC=oi===c.ans,isP=oi===sel;
-        let bg="#fff",br="#e0e0e0";
-        if(conf){if(isP&&isC){bg="#e8f5e9";br=G;}else if(isP&&!isC){bg="#ffebee";br="#e53935";}else if(!isP&&isC&&!correct){bg="#fff9c4";br="#f9a825";}}
-        else if(isP){bg=LT;br=G;}
-        return <button key={oi} onClick={()=>!conf&&sSel(oi)} style={{display:"block",width:"100%",background:bg,border:`2px solid ${br}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:conf?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit"}}>
-          {conf&&isP&&isC?"✅ ":conf&&isP&&!isC?"❌ ":conf&&!isP&&isC&&!correct?"💡 ":""}{o}
+        const isCorrect=oi===c.ans,isPicked=oi===sel;
+        let bg="#fff",border="#e0e0e0";
+        if(confirmed){
+          if(isPicked&&isCorrect){bg="#e8f5e9";border=G;}
+          else if(isPicked&&!isCorrect){bg="#ffebee";border="#e53935";}
+          else if(!isPicked&&isCorrect&&!correct){bg="#fff9c4";border="#f9a825";}
+        } else if(isPicked){bg=LT;border=G;}
+        return <button key={oi} onClick={()=>!confirmed&&setSel(oi)} style={{display:"block",width:"100%",background:bg,border:`2px solid ${border}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:confirmed?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit"}}>
+          {confirmed&&isPicked&&isCorrect?"✅ ":confirmed&&isPicked&&!isCorrect?"❌ ":confirmed&&!isPicked&&isCorrect&&!correct?"💡 ":""}{o}
         </button>;
       })}
-      {conf&&<>
+      {confirmed&&<>
         <Card style={{background:correct?"#e8f5e9":"#fff3e0",marginBottom:10}}>
           <p style={{margin:0,fontSize:13,color:correct?DK:"#e65100",lineHeight:1.7}}>
-            {correct?`✅ Correct! "${c.word}" fits perfectly.`:`⚠️ The correct word is "${c.opts[c.ans]}". Review the definition!`}
+            {correct?`✅ Correct! "${c.word}" fits perfectly here.`:`⚠️ Not quite. The correct word is "${c.opts[c.ans]}". Review the definition and try again!`}
           </p>
         </Card>
-        {correct?<PBtn onClick={()=>sDone(true)}>Earn +{XP.vocabulary} XP →</PBtn>:<SBtn onClick={onBack}>← Try another word</SBtn>}
+        {correct
+          ?<Btn full onClick={()=>setDone(true)}>Earn +5 XP →</Btn>
+          :<Btn full secondary onClick={onBack}>← Try another word</Btn>}
       </>}
     </div>
   );
 }
 
-/* ─── PEEL ─────────────────────────────────────────── */
-function PeelMod({addXp,onBack,level,G,LT,DK}) {
-  const [phase,sPhase]   = useState("intro");
-  const [tTab,sTTab]     = useState(0);
-  const [c]              = useState(()=>rnd(PEEL_TOPICS));
-  const [step,sStep]     = useState(0);
-  const [vals,sVals]     = useState({point:"",explanation:"",evidence:"",link:""});
-  const [fb,sFb]         = useState(null);
-  const [aiLoad,sAiLoad] = useState(false);
-  const [attempts,sAtt]  = useState(0);
-  const keys   = ["point","explanation","evidence","link"];
-  const labels = ["📌 Point","💬 Explanation","📚 Evidence","🔗 Link"];
-  const minW   = WMIN[level]||WMIN.Beginner;
+/* ── PEEL ── */
+const PEEL_THEORY = {
+  what: "PEEL is a method for writing clear, well-structured academic paragraphs. Each letter stands for one essential part of the paragraph.",
+  why: "Academic writing requires logical organisation. Without a clear structure, even good ideas fail to convince the reader. PEEL ensures every paragraph has a purpose, develops an argument, provides proof, and connects back to the essay question.",
+  parts: [
+    { letter:"P", name:"Point", color:"#e3f2fd", icon:"📌", role:"Your opening sentence. State your main argument clearly and directly. This is your claim — make it specific, not vague.", do:"Start with a strong, confident statement. Avoid 'I think' or 'In my opinion' in formal academic writing.", dont:"Do not begin with a question, a quote, or a general observation. Get straight to the point." },
+    { letter:"E", name:"Explanation", color:"#e8f5e9", icon:"💬", role:"Develop your point by explaining WHY it is true. Give 2-3 logical reasons that build on each other.", do:"Use linking words: 'Furthermore', 'In addition', 'This means that', 'As a result'. Each sentence should add new information.", dont:"Do not simply repeat your Point in different words. Every sentence must add new reasoning or a new dimension to your argument." },
+    { letter:"E", name:"Evidence", color:"#fff3e0", icon:"📚", role:"Provide concrete proof for your argument — a statistic, a study, a real example, or a quote from an expert.", do:"Introduce your evidence: 'According to...', 'Research by...', 'A study conducted by... found that...'. Be as specific as possible.", dont:"Never use vague evidence like 'studies show' without naming the study. Avoid using personal anecdotes as your main evidence in formal essays." },
+    { letter:"L", name:"Link", color:"#fce4ec", icon:"🔗", role:"Close the paragraph by connecting your argument back to the essay question or thesis statement.", do:"Use phrases like: 'Therefore...', 'This demonstrates that...', 'It is clear from the evidence that...', 'For these reasons...'", dont:"Do not introduce new arguments or evidence in the Link. Do not simply copy your Point sentence. Synthesise and reconnect." },
+  ],
+  badExample: {
+    topic: "Should technology be used more in African universities?",
+    paragraph: "Technology is good for students. Many students use phones. The internet has a lot of information. Students can find things easily. So technology is important.",
+    annotations: [
+      { part:"Point", text:"Technology is good for students.", issue:"❌ Too vague. 'Good' is not academic vocabulary. The argument is not specific enough — good in what way? For whom exactly?" },
+      { part:"Explanation", text:"Many students use phones. The internet has a lot of information. Students can find things easily.", issue:"❌ These are three unconnected observations, not a logical explanation. There is no development of WHY technology improves education. No linking words are used." },
+      { part:"Evidence", text:"(No evidence provided)", issue:"❌ There is no evidence at all. This makes the argument unconvincing and unacademic. Any claim in academic writing must be supported by proof." },
+      { part:"Link", text:"So technology is important.", issue:"❌ This is too brief and does not connect back to the specific question about African universities. 'So' is too informal for academic writing." },
+    ]
+  },
+  goodExample: {
+    topic: "Should technology be used more in African universities?",
+    paragraph: "Technology should be integrated more widely into African universities because it significantly improves both access to knowledge and the quality of learning. With smartphones and reliable internet connections, students can access thousands of academic journals and online courses that are entirely unavailable in most African university libraries. Furthermore, digital tools allow students to learn at their own pace, reinforcing difficult content outside the classroom. According to a UNESCO report published in 2022, students who regularly use digital learning tools score on average 35% higher on standardised assessments than those who rely solely on traditional methods. Given this compelling evidence, increasing technological integration in African universities is not merely a matter of modernisation — it is an urgent academic priority that would directly improve educational outcomes across the continent.",
+    annotations: [
+      { part:"Point", text:"Technology should be integrated more widely into African universities because it significantly improves both access to knowledge and the quality of learning.", issue:"✅ Clear, specific, and directly addresses the question. Uses strong academic vocabulary ('integrated', 'significantly'). Includes a 'because' to signal that reasoning will follow." },
+      { part:"Explanation", text:"With smartphones and reliable internet connections, students can access thousands of academic journals and online courses that are entirely unavailable in most African university libraries. Furthermore, digital tools allow students to learn at their own pace, reinforcing difficult content outside the classroom.", issue:"✅ Two well-developed reasons, logically connected with 'Furthermore'. Each sentence adds new information. Uses specific, academic vocabulary." },
+      { part:"Evidence", text:"According to a UNESCO report published in 2022, students who regularly use digital learning tools score on average 35% higher on standardised assessments than those who rely solely on traditional methods.", issue:"✅ Specific, credible, and properly introduced with 'According to'. Names the source (UNESCO) and the year (2022). Includes a precise statistic (35%)." },
+      { part:"Link", text:"Given this compelling evidence, increasing technological integration in African universities is not merely a matter of modernisation — it is an urgent academic priority that would directly improve educational outcomes across the continent.", issue:"✅ Directly reconnects to the question about African universities. Uses 'Given this compelling evidence' to signal synthesis. Elevates the argument with strong academic phrasing." },
+    ]
+  }
+};
 
-  const callAI = async(isRevision) => {
-    sAiLoad(true);
-    sFb(null);
-    try {
-      const res = await fetch("/api/generate",{
+const SCORING_CRITERIA = [
+  { id:"point",    label:"Clarity & Precision of Argument (Point)",    max:4, desc:"Is the main argument stated clearly, directly, and specifically? Does it directly address the question?" },
+  { id:"expl",     label:"Logical Development (Explanation)",           max:4, desc:"Does the explanation develop the point with clear reasoning? Are linking words used? Is each sentence adding new information?" },
+  { id:"evidence", label:"Quality & Relevance of Evidence",             max:4, desc:"Is the evidence specific, credible, and properly introduced? Is a source named? Is a statistic or real example used?" },
+  { id:"link",     label:"Cohesion & Return to Topic (Link)",           max:3, desc:"Does the link effectively connect back to the question? Does it synthesise the argument without introducing new ideas?" },
+  { id:"grammar",  label:"Grammar & Academic Vocabulary",               max:3, desc:"Is the grammar accurate? Is academic vocabulary used? Are there false friends or common French-speaker errors?" },
+  { id:"length",   label:"Length & Sufficient Development",             max:2, desc:"Is the paragraph long enough? Is each section sufficiently developed (minimum 2-3 sentences for Explanation)?" },
+];
+
+const WORD_MINIMUMS = {
+  Beginner:     { point:10, explanation:20, evidence:10, link:10 },
+  Intermediate: { point:15, explanation:40, evidence:20, link:15 },
+  Advanced:     { point:25, explanation:60, evidence:25, link:20 },
+};
+
+function PeelMod({addXp,onBack,level}) {
+  const [phase,setPhase]=useState("theory");
+  const [c]=useState(()=>rnd(PEEL_TOPICS));
+  const [theoryTab,setTheoryTab]=useState(0);
+  const [step,setStep]=useState(0);
+  const [vals,setVals]=useState({point:"",explanation:"",evidence:"",link:""});
+  const [feedback,setFeedback]=useState(null);
+  const [aiLoading,setAiLoading]=useState(false);
+  const [attempts,setAttempts]=useState(0);
+  const [startTime]=useState(()=>Date.now());
+  const keys=["point","explanation","evidence","link"];
+  const labels=["📌 Point","💬 Explanation","📚 Evidence","🔗 Link"];
+  const minWords = WORD_MINIMUMS[level] || WORD_MINIMUMS.Beginner;
+  const wordCount=txt=>txt.trim().split(/\s+/).filter(w=>w.length>0).length;
+
+  const getAI=async(isRevision=false)=>{
+    setAiLoading(true);
+    try{
+      const res=await fetch("/api/generate",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-          prompt:`You are a strict and fair English writing examiner evaluating a PEEL paragraph from a ${level} university student in Côte d'Ivoire (French speaker). Attempt number: ${attempts+1}.${isRevision?" The student revised based on previous feedback.":""}
+          prompt:`You are a strict but fair English writing examiner assessing a PEEL paragraph written by a ${level} university student in Côte d'Ivoire (French speaker). This is attempt number ${attempts+1}.${isRevision?" The student has revised their paragraph based on previous feedback.":""} You must provide a detailed structured assessment with a score out of 20.
 
 TOPIC: "${c.prompt}"
-POINT: ${vals.point}
-EXPLANATION: ${vals.explanation}
-EVIDENCE: ${vals.evidence}
-LINK: ${vals.link}
+STUDENT'S PARAGRAPH:
+Point: ${vals.point}
+Explanation: ${vals.explanation}
+Evidence: ${vals.evidence}
+Link: ${vals.link}
 
-WORD MINIMUMS FOR ${level.toUpperCase()}: Point=${minW.point}w, Explanation=${minW.explanation}w, Evidence=${minW.evidence}w, Link=${minW.link}w
+Your response must follow this EXACT structure:
 
-MANDATORY: Your response MUST start with this exact block. Replace only the numbers:
+---SCORES---
+POINT: [0-4]/4
+EXPLANATION: [0-4]/4
+EVIDENCE: [0-4]/4
+LINK: [0-3]/3
+GRAMMAR: [0-3]/3
+LENGTH: [0-2]/2
+TOTAL: [sum]/20
+---END SCORES---
 
-##SCORES##
-POINT:3
-EXPLANATION:3
-EVIDENCE:2
-LINK:2
-GRAMMAR:2
-LENGTH:1
-##END##
-
-Scoring rules:
-- POINT (0-4): Is the argument clear, specific, and directly answering the question?
-- EXPLANATION (0-4): Is the reasoning logical and developed with linking words?
-- EVIDENCE (0-4): Is a specific source named with a statistic? Is it properly introduced?
-- LINK (0-3): Does it synthesise and reconnect to the question without new ideas?
-- GRAMMAR (0-3): Grammar accuracy and use of academic vocabulary.
-- LENGTH (0-2): Does each section meet the word minimums above?
-
-After the ##END## block, write this feedback structure:
+---FEEDBACK---
 
 ## Overall Assessment
-2-3 honest sentences about quality. State the score and what it reflects.
+[2-3 honest sentences about the overall quality. State the score and what it means. If this is a revision, acknowledge improvement or continued weaknesses.]
 
-## 📌 Point — X/4
-For each weak sentence write: ⚠️ "[sentence]" then → Problem: [why] then → Fix: [improved version]
-If strong, write: ✅ Strong — [specific praise]
+## 📌 Point — [score]/4
+ISSUES: [List each weak or problematic sentence from the student's Point below, one per line, preceded by ⚠️]
+⚠️ "[exact problematic sentence from student]"
+→ Problem: [specific explanation of what is wrong]
+→ Fix: [rewritten improved version]
+[If the Point is strong (3-4/4), skip the ISSUES block and write: ✅ Strong — [specific praise]]
 
-## 💬 Explanation — X/4
-Same format. Identify vague or repetitive sentences.
+## 💬 Explanation — [score]/4
+ISSUES: [List each weak or problematic sentence from the student's Explanation]
+⚠️ "[exact problematic sentence]"
+→ Problem: [specific explanation]
+→ Fix: [rewritten improved version]
+[If strong, skip and write: ✅ Strong — [specific praise]]
 
-## 📚 Evidence — X/4
-Same format. If missing or weak, provide a model with a named source and statistic.
+## 📚 Evidence — [score]/4
+ISSUES:
+⚠️ "[exact problematic sentence or 'No evidence provided']"
+→ Problem: [specific explanation]
+→ Fix: [model evidence sentence with named source and statistic]
+[If strong, skip and write: ✅ Strong — [specific praise]]
 
-## 🔗 Link — X/3
-Same format. If weak, provide a model link sentence.
+## 🔗 Link — [score]/3
+ISSUES:
+⚠️ "[exact problematic sentence]"
+→ Problem: [specific explanation]
+→ Fix: [model link sentence]
+[If strong, skip and write: ✅ Strong — [specific praise]]
 
-## ✏️ Grammar & Vocabulary — X/3
-List 2-3 errors:
-❌ "[wrong sentence]"
-✅ "[corrected sentence]"
-📖 Rule: [brief grammar rule]
-Then suggest 2 stronger academic words.
+## ✏️ Grammar & Academic Vocabulary — [score]/3
+[List 2-3 specific errors:]
+❌ "[wrong sentence from student]"
+✅ "[corrected version]"
+📖 Rule: [brief grammar explanation]
 
-## 📏 Length & Development — X/2
-Comment on whether each section meets the minimums.
+[Then suggest 2 stronger academic words to replace informal ones, with examples.]
 
-## 🎯 Priority Actions
-1. [Most critical action]
-2. [Second action]
-3. [Third action]
+## 📏 Length & Development — [score]/2
+[Comment on whether each section meets the minimum word requirements for ${level} level: Point=${minWords.point} words, Explanation=${minWords.explanation} words, Evidence=${minWords.evidence} words, Link=${minWords.link} words.]
+
+## 🎯 Priority Actions — What you MUST improve
+${attempts>=1?"Based on your revision, here are the remaining issues to address:":"Here are the 3 most important things to fix before your next attempt:"}
+1. [Most critical specific action]
+2. [Second specific action]
+3. [Third specific action]
 
 ## 💪 Encouragement
-1-2 warm sentences acknowledging genuine effort.`,
+[1-2 warm sentences acknowledging specific strengths and motivating continued effort.]
+---END FEEDBACK---
+
+Be rigorous. A score of 15+/20 requires genuinely strong academic writing. Do not inflate scores.`,
           maxTokens:1500
         })
       });
-      const data = await res.json();
-      const text = data.text || "";
-
-      // Parse scores from ##SCORES## block
-      let sc = {point:0,expl:0,evidence:0,link:0,grammar:0,length:0,total:0};
-      const block = text.match(/##SCORES##([\s\S]*?)##END##/);
-      if(block) {
-        const s = block[1];
-        const ex = key => {
-          const m = s.match(new RegExp("^"+key+":(\\d+)","m"));
-          return m ? Math.max(0,parseInt(m[1])) : 0;
-        };
-        sc.point    = Math.min(4, ex("POINT"));
-        sc.expl     = Math.min(4, ex("EXPLANATION"));
-        sc.evidence = Math.min(4, ex("EVIDENCE"));
-        sc.link     = Math.min(3, ex("LINK"));
-        sc.grammar  = Math.min(3, ex("GRAMMAR"));
-        sc.length   = Math.min(2, ex("LENGTH"));
-        sc.total    = sc.point+sc.expl+sc.evidence+sc.link+sc.grammar+sc.length;
+      const data=await res.json();
+      const text=data.text||"";
+      const scoreMatch=text.match(/---SCORES---([\s\S]*?)---END SCORES---/);
+      const feedbackMatch=text.match(/---FEEDBACK---([\s\S]*?)---END FEEDBACK---/);
+      let scores={point:0,expl:0,evidence:0,link:0,grammar:0,length:0,total:0};
+      if(scoreMatch){
+        const s=scoreMatch[1];
+        scores.point=parseInt(s.match(/POINT:\s*(\d)/)?.[1]||0);
+        scores.expl=parseInt(s.match(/EXPLANATION:\s*(\d)/)?.[1]||0);
+        scores.evidence=parseInt(s.match(/EVIDENCE:\s*(\d)/)?.[1]||0);
+        scores.link=parseInt(s.match(/LINK:\s*(\d)/)?.[1]||0);
+        scores.grammar=parseInt(s.match(/GRAMMAR:\s*(\d)/)?.[1]||0);
+        scores.length=parseInt(s.match(/LENGTH:\s*(\d)/)?.[1]||0);
+        scores.total=scores.point+scores.expl+scores.evidence+scores.link+scores.grammar+scores.length;
       }
-
-      // Fallback if block not found
-      if(!block || sc.total===0) {
-        const tryGet=(patterns)=>{
-          for(const p of patterns){const m=text.match(p);if(m)return parseInt(m[1]);}
-          return 0;
-        };
-        sc.point    = Math.min(4, tryGet([/point[^:\d\n]*:\s*(\d)/im, /📌[^—\n]*(\d)\/4/i]));
-        sc.expl     = Math.min(4, tryGet([/explanation[^:\d\n]*:\s*(\d)/im, /💬[^—\n]*(\d)\/4/i]));
-        sc.evidence = Math.min(4, tryGet([/evidence[^:\d\n]*:\s*(\d)/im, /📚[^—\n]*(\d)\/4/i]));
-        sc.link     = Math.min(3, tryGet([/\blink[^:\d\n]*:\s*(\d)/im, /🔗[^—\n]*(\d)\/3/i]));
-        sc.grammar  = Math.min(3, tryGet([/grammar[^:\d\n]*:\s*(\d)/im, /✏️[^—\n]*(\d)\/3/i]));
-        sc.length   = Math.min(2, tryGet([/length[^:\d\n]*:\s*(\d)/im, /📏[^—\n]*(\d)\/2/i]));
-        sc.total    = sc.point+sc.expl+sc.evidence+sc.link+sc.grammar+sc.length;
-        // Last resort: look for total
-        if(sc.total===0) {
-          const tm = text.match(/total[^:\d\n]*:\s*(\d+)/i) || text.match(/(\d+)\s*\/\s*20/);
-          if(tm) sc.total = Math.min(20, parseInt(tm[1]));
-          // Distribute total evenly if individual scores all 0
-          if(sc.total>0 && sc.point===0 && sc.expl===0) {
-            const t=sc.total; sc.point=Math.min(4,Math.floor(t/5)); sc.expl=Math.min(4,Math.floor(t/5)); sc.evidence=Math.min(4,Math.floor(t/5)); sc.link=Math.min(3,Math.floor(t/6)); sc.grammar=Math.min(3,Math.floor(t/7)); sc.length=Math.min(2,1);
-          }
-        }
+      setFeedback({text:feedbackMatch?feedbackMatch[1].trim():text,scores,passed:scores.total>=10});
+      setAttempts(a=>a+1);
+      setPhase("feedback");
+      // 💪 PEEL low score notification
+      if(scores.total<10 && localStorage.getItem("writeup_notif_peel")!=="false"){
+        setTimeout(()=>{
+          const msg=NOTIF_MESSAGES.peelLow(scores.total);
+          showNotificationNow(msg.title,msg.body);
+        },3000);
       }
-
-      // Extract feedback text after ##END##
-      let fbText = text;
-      const endIdx = text.indexOf("##END##");
-      if(endIdx>-1) fbText = text.slice(endIdx+7).trim();
-
-      sFb({text:fbText, sc, passed:sc.total>=10});
-      sAtt(a=>a+1);
-      sPhase("feedback");
-    } catch(e) {
-      console.error("PEEL AI error:",e);
-      sFb({
-        text:"## Connection Error\n\nThe AI feedback could not be loaded. Please check your internet connection and try again.",
-        sc:{point:0,expl:0,evidence:0,link:0,grammar:0,length:0,total:0},
-        passed:false
-      });
-      sPhase("feedback");
+    }catch{
+      setFeedback({text:"Feedback could not be loaded. Please check your connection.",scores:{point:0,expl:0,evidence:0,link:0,grammar:0,length:0,total:0},passed:false});
+      setPhase("feedback");
     }
-    sAiLoad(false);
+    setAiLoading(false);
   };
 
-  const renderFb = text => {
+  // Parse feedback text to highlight problematic sentences
+  const renderFeedbackWithHighlights=(text)=>{
     if(!text) return null;
     return text.split("\n").map((line,i)=>{
-      if(!line.trim()) return <div key={i} style={{height:4}}/>;
-      if(line.startsWith("##")) return <h4 key={i} style={{color:G,margin:"16px 0 8px",fontSize:14,borderBottom:`1px solid ${LT}`,paddingBottom:4}}>{line.replace(/^#+\s*/,"")}</h4>;
-      if(line.startsWith("⚠️")) return <div key={i} style={{background:"#fff3cd",border:"1px solid #ffc107",borderRadius:8,padding:"8px 12px",margin:"6px 0",fontSize:13,color:"#856404"}}>{line}</div>;
-      if(line.startsWith("→ Problem:")) return <div key={i} style={{background:"#ffebee",borderLeft:"3px solid #e53935",padding:"6px 10px",margin:"2px 0 2px 12px",fontSize:13,color:"#c62828",lineHeight:1.6}}>{line}</div>;
-      if(line.startsWith("→ Fix:")) return <div key={i} style={{background:"#e8f5e9",borderLeft:`3px solid ${G}`,padding:"6px 10px",margin:"2px 0 8px 12px",fontSize:13,color:DK,lineHeight:1.6}}>{line}</div>;
-      if(line.startsWith("❌")) return <div key={i} style={{background:"#ffebee",borderRadius:6,padding:"6px 10px",margin:"4px 0",fontSize:13,color:"#c62828"}}>{line}</div>;
-      if(line.startsWith("✅")&&!line.toLowerCase().includes("strong")) return <div key={i} style={{background:"#e8f5e9",borderRadius:6,padding:"6px 10px",margin:"4px 0",fontSize:13,color:DK}}>{line}</div>;
-      if(line.startsWith("📖 Rule:")) return <div key={i} style={{background:"#e3f2fd",borderRadius:6,padding:"6px 10px",margin:"4px 0 8px",fontSize:12,color:"#1565c0"}}>{line}</div>;
-      return <p key={i} style={{margin:"3px 0",fontSize:13,color:"#333",lineHeight:1.7}}>{line}</p>;
+      if(line.startsWith("⚠️")){
+        return (
+          <div key={i} style={{background:"#fff3cd",border:"1px solid #ffc107",borderRadius:8,padding:"8px 12px",margin:"6px 0",fontSize:13}}>
+            <span style={{color:"#856404"}}>{line}</span>
+          </div>
+        );
+      }
+      if(line.startsWith("→ Problem:")){
+        return <div key={i} style={{background:"#ffebee",borderLeft:"3px solid #e53935",padding:"6px 10px",margin:"3px 0 3px 12px",fontSize:13,color:"#c62828",lineHeight:1.6}}>{line}</div>;
+      }
+      if(line.startsWith("→ Fix:")){
+        return <div key={i} style={{background:"#e8f5e9",borderLeft:"3px solid "+G,padding:"6px 10px",margin:"3px 0 8px 12px",fontSize:13,color:DK,lineHeight:1.6}}>{line}</div>;
+      }
+      if(line.startsWith("❌")){
+        return <div key={i} style={{background:"#ffebee",borderRadius:6,padding:"6px 10px",margin:"4px 0",fontSize:13,color:"#c62828"}}>{line}</div>;
+      }
+      if(line.startsWith("✅") && !line.includes("Strong")){
+        return <div key={i} style={{background:"#e8f5e9",borderRadius:6,padding:"6px 10px",margin:"4px 0",fontSize:13,color:DK}}>{line}</div>;
+      }
+      if(line.startsWith("📖 Rule:")){
+        return <div key={i} style={{background:"#e3f2fd",borderRadius:6,padding:"6px 10px",margin:"4px 0 8px",fontSize:12,color:"#1565c0"}}>{line}</div>;
+      }
+      if(line.startsWith("##")){
+        return <h4 key={i} style={{color:G,margin:"16px 0 8px",fontSize:14,borderBottom:`1px solid ${LT}`,paddingBottom:4}}>{line.replace(/^#+\s*/,"")}</h4>;
+      }
+      if(line.trim()==="") return <div key={i} style={{height:4}}/>;
+      return <p key={i} style={{margin:"4px 0",fontSize:13,color:"#333",lineHeight:1.7}}>{line}</p>;
     });
   };
 
-  // ── INTRO (theory + examples) ────────────────────
-  const THEORY_TABS=["About PEEL","P — Point","E — Explanation","E — Evidence","L — Link","❌ Weak","✅ Strong"];
-  const PARTS=[
-    {letter:"P",name:"Point",color:"#e3f2fd",icon:"📌",role:"Your opening sentence — state your main argument clearly and directly.",dos:"Start with a strong, confident statement. Avoid 'I think' in formal writing. Be specific.",donts:"Do not begin with a question or a quote. Do not be vague or general."},
-    {letter:"E",name:"Explanation",color:"#e8f5e9",icon:"💬",role:"Develop your point by explaining WHY it is true. Give 2-3 logical reasons.",dos:"Use linking words: 'Furthermore', 'In addition', 'This means that'. Each sentence should add new information.",donts:"Do not simply repeat your Point in other words. Every sentence must add new reasoning."},
-    {letter:"E",name:"Evidence",color:"#fff3e0",icon:"📚",role:"Provide concrete proof — a statistic, a study, a real example, or an expert quote.",dos:"Introduce: 'According to...', 'A study by... found that...'. Name your source and include a specific statistic.",donts:"Never use vague 'studies show' without naming the study. Avoid personal anecdotes as main evidence."},
-    {letter:"L",name:"Link",color:"#fce4ec",icon:"🔗",role:"Close the paragraph by connecting your argument back to the essay question.",dos:"Use: 'Therefore...', 'This demonstrates that...', 'It is clear that...'",donts:"Do not introduce new arguments in the Link. Do not simply copy your Point. Synthesise and reconnect."},
-  ];
-
-  if(phase==="intro") return (
+  // THEORY phase
+  if(phase==="theory") return (
     <div>
       <Card style={{background:`linear-gradient(135deg,${DK},${G})`,color:"#fff",marginBottom:16}}>
-        <div style={{fontSize:11,opacity:.8,marginBottom:4}}>✍️ Writing Lab · Level: {level}</div>
-        <h3 style={{margin:"0 0 6px",fontSize:18}}>The PEEL Method</h3>
-        <p style={{margin:0,fontSize:13,opacity:.85,lineHeight:1.6}}>Learn to write structured academic paragraphs step by step.</p>
+        <div style={{fontSize:11,opacity:.8,marginBottom:4}}>📚 Before you write · Level: {level}</div>
+        <h3 style={{margin:"0 0 6px",fontSize:18}}>Understanding PEEL</h3>
+        <p style={{margin:0,fontSize:13,opacity:.85,lineHeight:1.6}}>{PEEL_THEORY.what}</p>
       </Card>
-
       <div style={{display:"flex",gap:6,marginBottom:14,overflowX:"auto",paddingBottom:4}}>
-        {THEORY_TABS.map((t,ix)=>(
-          <button key={ix} onClick={()=>sTTab(ix)} style={{background:tTab===ix?G:"#fff",color:tTab===ix?"#fff":DK,border:`1.5px solid ${tTab===ix?G:"#ddd"}`,borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit",flexShrink:0}}>{t}</button>
+        {["What & Why","P — Point","E — Explanation","E — Evidence","L — Link"].map((t,idx)=>(
+          <button key={idx} onClick={()=>setTheoryTab(idx)}
+            style={{background:theoryTab===idx?G:"#fff",color:theoryTab===idx?"#fff":DK,border:`1.5px solid ${theoryTab===idx?G:"#ddd"}`,borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit",flexShrink:0}}>
+            {t}
+          </button>
         ))}
       </div>
-
-      {/* Tab 0: About PEEL */}
-      {tTab===0&&<div>
-        <Card style={{marginBottom:12,background:"#f9fbe7",borderLeft:`4px solid ${G}`}}>
-          <h4 style={{color:G,margin:"0 0 8px"}}>📜 Origin of the PEEL Method</h4>
-          <p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:"0 0 10px"}}>The PEEL paragraph structure was developed in the <strong>Australian educational context</strong> and has been widely attributed to educators at <strong>The Education Institute of Australia</strong> and further popularised in UK and international academic writing curricula during the 1990s and 2000s. It is now one of the most widely taught academic writing frameworks in universities worldwide.</p>
-          <p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>The method draws on principles from classical rhetoric and argumentation theory, particularly the idea that every claim must be <em>stated</em>, <em>reasoned</em>, <em>evidenced</em>, and <em>connected</em> to the broader argument.</p>
-        </Card>
-        <Card style={{marginBottom:12}}>
-          <h4 style={{color:G,margin:"0 0 8px"}}>❓ What is PEEL?</h4>
-          <p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>PEEL is a method for writing clear, well-structured academic paragraphs. Each letter represents one essential part of the paragraph that ensures your argument is logical, supported, and connected.</p>
-        </Card>
-        <Card style={{marginBottom:12}}>
-          <h4 style={{color:G,margin:"0 0 8px"}}>🎯 Why use PEEL?</h4>
-          <p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>Academic writing requires logical organisation. Without a clear structure, even brilliant ideas fail to convince the reader. PEEL ensures every paragraph has a purpose, develops an argument, provides proof, and connects back to the essay question.</p>
-        </Card>
-        <Card style={{background:"#fff8e1",marginBottom:12}}>
-          <h4 style={{color:"#e65100",margin:"0 0 10px"}}>📏 Your Word Minimums ({level})</h4>
-          {keys.map(k=><div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",borderBottom:"1px solid #ffe082"}}>
-            <span style={{fontWeight:600,color:DK,textTransform:"capitalize"}}>{k}</span>
-            <span style={{color:"#e65100",fontWeight:700}}>min {minW[k]} words</span>
-          </div>)}
-        </Card>
-      </div>}
-
-      {/* Tabs 1-4: Parts */}
-      {tTab>=1&&tTab<=4&&(()=>{
-        const p=PARTS[tTab-1];
-        return <div>
-          <Card style={{background:p.color,marginBottom:12,borderLeft:`4px solid ${G}`}}>
-            <div style={{fontSize:32,marginBottom:6}}>{p.icon}</div>
-            <h3 style={{color:DK,margin:"0 0 6px"}}>{p.letter} — {p.name}</h3>
-            <p style={{fontSize:14,color:"#444",lineHeight:1.8,margin:0}}>{p.role}</p>
+      {theoryTab===0&&(
+        <div>
+          <Card style={{marginBottom:12}}><h4 style={{color:G,margin:"0 0 8px"}}>❓ What is PEEL?</h4><p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>{PEEL_THEORY.what}</p></Card>
+          <Card style={{marginBottom:12}}><h4 style={{color:G,margin:"0 0 8px"}}>🎯 Why use PEEL?</h4><p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>{PEEL_THEORY.why}</p></Card>
+          <Card style={{background:"#fff8e1",marginBottom:12}}>
+            <h4 style={{color:"#e65100",margin:"0 0 10px"}}>📐 The 4 Parts at a Glance</h4>
+            {PEEL_THEORY.parts.map(p=>(
+              <div key={p.letter+p.name} style={{display:"flex",gap:10,marginBottom:10,alignItems:"flex-start"}}>
+                <div style={{background:p.color,borderRadius:10,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{p.icon}</div>
+                <div><div style={{fontWeight:700,color:DK,fontSize:14}}>{p.letter} — {p.name}</div><div style={{fontSize:12,color:"#666",lineHeight:1.5}}>{p.role}</div></div>
+              </div>
+            ))}
           </Card>
-          <Card style={{background:"#e8f5e9",marginBottom:10}}><div style={{fontWeight:700,color:G,marginBottom:6,fontSize:13}}>✅ DO</div><p style={{fontSize:13,color:"#333",lineHeight:1.8,margin:0}}>{p.dos}</p></Card>
-          <Card style={{background:"#ffebee",marginBottom:10}}><div style={{fontWeight:700,color:"#c62828",marginBottom:6,fontSize:13}}>❌ DON'T</div><p style={{fontSize:13,color:"#333",lineHeight:1.8,margin:0}}>{p.donts}</p></Card>
-        </div>;
+          <Card style={{background:LT,marginBottom:12}}>
+            <h4 style={{color:G,margin:"0 0 8px"}}>📏 Word Minimums for Your Level ({level})</h4>
+            {keys.map(k=>(
+              <div key={k} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",borderBottom:"1px solid #c8e6c9"}}>
+                <span style={{fontWeight:600,color:DK,textTransform:"capitalize"}}>{k}</span>
+                <span style={{color:G,fontWeight:700}}>min {minWords[k]} words</span>
+              </div>
+            ))}
+          </Card>
+        </div>
+      )}
+      {theoryTab>0&&theoryTab<5&&(()=>{
+        const p=PEEL_THEORY.parts[theoryTab-1];
+        return (
+          <div>
+            <Card style={{background:p.color,marginBottom:12,borderLeft:`4px solid ${G}`}}>
+              <div style={{fontSize:32,marginBottom:6}}>{p.icon}</div>
+              <h3 style={{color:DK,margin:"0 0 6px"}}>{p.letter} — {p.name}</h3>
+              <p style={{fontSize:14,color:"#444",lineHeight:1.8,margin:0}}>{p.role}</p>
+            </Card>
+            <Card style={{background:"#e8f5e9",marginBottom:12}}><div style={{fontWeight:700,color:G,marginBottom:8,fontSize:13}}>✅ DO</div><p style={{fontSize:13,color:"#333",lineHeight:1.8,margin:0}}>{p.do}</p></Card>
+            <Card style={{background:"#ffebee",marginBottom:12}}><div style={{fontWeight:700,color:"#c62828",marginBottom:8,fontSize:13}}>❌ DON'T</div><p style={{fontSize:13,color:"#333",lineHeight:1.8,margin:0}}>{p.dont}</p></Card>
+          </div>
+        );
       })()}
-
-      {/* Tab 5: Weak example */}
-      {tTab===5&&<div>
-        <Card style={{background:"#ffebee",marginBottom:14,borderLeft:"4px solid #e53935"}}>
-          <div style={{fontWeight:800,color:"#c62828",fontSize:15,marginBottom:6}}>❌ Weak Paragraph — What NOT to do</div>
-          <div style={{fontSize:12,color:"#888",marginBottom:10}}>Topic: Should technology be used more in African universities?</div>
-          <p style={{fontSize:14,color:"#333",lineHeight:1.8,fontStyle:"italic",background:"#fff",borderRadius:10,padding:12,margin:0}}>Technology is good for students. Many students use phones. The internet has a lot of information. Students can find things easily. So technology is important.</p>
-        </Card>
-        {[["Point","Technology is good for students.","❌ Too vague. 'Good' is not academic. Good in what way? For whom?"],["Explanation","Many students use phones. The internet has information.","❌ Three unconnected observations. No logical development, no linking words."],["Evidence","(No evidence provided)","❌ No evidence at all — this makes the argument unconvincing."],["Link","So technology is important.","❌ Too brief. Does not reconnect to African universities. 'So' is too informal."]].map(([part,text,issue])=>(
-          <Card key={part} style={{marginBottom:10,borderLeft:"3px solid #e53935"}}>
-            <div style={{fontWeight:700,color:"#c62828",fontSize:12,marginBottom:6}}>❌ {part}</div>
-            <p style={{fontSize:13,color:"#333",fontStyle:"italic",margin:"0 0 6px",background:"#fff9f9",padding:"6px 10px",borderRadius:8}}>"{text}"</p>
-            <p style={{fontSize:13,color:"#555",margin:0,lineHeight:1.7}}>{issue}</p>
-          </Card>
-        ))}
-      </div>}
-
-      {/* Tab 6: Strong example */}
-      {tTab===6&&<div>
-        <Card style={{background:"#e8f5e9",marginBottom:14,borderLeft:`4px solid ${G}`}}>
-          <div style={{fontWeight:800,color:G,fontSize:15,marginBottom:6}}>✅ Strong Paragraph — A model to follow</div>
-          <div style={{fontSize:12,color:"#666",marginBottom:10}}>Topic: Should technology be used more in African universities?</div>
-          <p style={{fontSize:14,color:"#333",lineHeight:1.9,background:"#fff",borderRadius:10,padding:12,margin:0}}>Technology should be integrated more widely into African universities because it significantly improves both access to knowledge and the quality of learning. With smartphones and reliable internet, students can access thousands of academic journals unavailable in most African university libraries. Furthermore, digital tools allow students to learn at their own pace. According to UNESCO (2022), students who regularly use digital learning tools score 35% higher on standardised assessments. Given this compelling evidence, increasing technological integration in African universities is an urgent academic priority that would directly improve educational outcomes.</p>
-        </Card>
-        {[["Point","Technology should be integrated more widely into African universities because it significantly improves both access to knowledge and the quality of learning.","✅ Clear, specific, directly answers the question. Uses 'because' to signal reasoning. Academic vocabulary."],["Explanation","With smartphones and reliable internet, students can access thousands of academic journals. Furthermore, digital tools allow students to learn at their own pace.","✅ Two well-developed reasons, logically connected with 'Furthermore'. Each sentence adds new information."],["Evidence","According to UNESCO (2022), students who regularly use digital learning tools score 35% higher on standardised assessments.","✅ Specific, credible, properly introduced. Names the source (UNESCO) and year (2022) with a precise statistic."],["Link","Given this compelling evidence, increasing technological integration in African universities is an urgent academic priority.","✅ Directly reconnects to the question. 'Given this compelling evidence' signals synthesis effectively."]].map(([part,text,issue])=>(
-          <Card key={part} style={{marginBottom:10,borderLeft:`3px solid ${G}`}}>
-            <div style={{fontWeight:700,color:G,fontSize:12,marginBottom:6}}>✅ {part}</div>
-            <p style={{fontSize:13,color:"#333",fontStyle:"italic",margin:"0 0 6px",background:"#f9fbe7",padding:"6px 10px",borderRadius:8}}>"{text}"</p>
-            <p style={{fontSize:13,color:"#555",margin:0,lineHeight:1.7}}>{issue}</p>
-          </Card>
-        ))}
-      </div>}
-
-      <div style={{display:"flex",gap:10,marginTop:8}}>
-        {tTab>0&&<SBtn onClick={()=>sTTab(t=>t-1)} style={{flex:"none",width:"auto",padding:"12px 20px"}}>← Previous</SBtn>}
-        {tTab<THEORY_TABS.length-1
-          ?<PBtn style={{flex:1}} onClick={()=>sTTab(t=>t+1)}>Next →</PBtn>
-          :<PBtn style={{flex:1}} onClick={()=>sPhase("write")}>✍️ Start Writing</PBtn>}
+      <div style={{display:"flex",gap:10,marginTop:4}}>
+        {theoryTab>0&&<Btn secondary onClick={()=>setTheoryTab(t=>t-1)}>← Previous</Btn>}
+        {theoryTab<4?<Btn full onClick={()=>setTheoryTab(t=>t+1)}>Next →</Btn>:<Btn full onClick={()=>setPhase("bad")}>See Examples →</Btn>}
       </div>
     </div>
   );
 
-  // ── WRITE ────────────────────────────────────────
+  // BAD EXAMPLE
+  if(phase==="bad") return (
+    <div>
+      <Card style={{background:"#ffebee",marginBottom:14,borderLeft:"4px solid #e53935"}}>
+        <div style={{fontWeight:800,color:"#c62828",fontSize:16,marginBottom:4}}>❌ Weak Paragraph — What NOT to do</div>
+        <div style={{fontSize:12,color:"#666",marginBottom:10}}>Topic: {PEEL_THEORY.badExample.topic}</div>
+        <p style={{fontSize:14,color:"#333",lineHeight:1.8,fontStyle:"italic",background:"#fff",borderRadius:10,padding:12,margin:0}}>{PEEL_THEORY.badExample.paragraph}</p>
+      </Card>
+      <h4 style={{color:DK,marginBottom:10}}>🔍 Why is this paragraph weak?</h4>
+      {PEEL_THEORY.badExample.annotations.map((a,i)=>(
+        <Card key={i} style={{marginBottom:10,borderLeft:"3px solid #e53935"}}>
+          <div style={{fontWeight:700,color:"#c62828",fontSize:12,marginBottom:6}}>❌ {a.part}</div>
+          {a.text&&<p style={{fontSize:13,color:"#333",fontStyle:"italic",margin:"0 0 6px",background:"#fff9f9",padding:"6px 10px",borderRadius:8}}>"{a.text}"</p>}
+          <p style={{fontSize:13,color:"#555",margin:0,lineHeight:1.7}}>{a.issue}</p>
+        </Card>
+      ))}
+      <div style={{display:"flex",gap:10,marginTop:8}}>
+        <Btn secondary onClick={()=>setPhase("theory")}>← Theory</Btn>
+        <Btn full onClick={()=>setPhase("good")}>See Good Example →</Btn>
+      </div>
+    </div>
+  );
+
+  // GOOD EXAMPLE
+  if(phase==="good") return (
+    <div>
+      <Card style={{background:"#e8f5e9",marginBottom:14,borderLeft:"4px solid "+G}}>
+        <div style={{fontWeight:800,color:G,fontSize:16,marginBottom:4}}>✅ Strong Paragraph — A model to follow</div>
+        <div style={{fontSize:12,color:"#666",marginBottom:10}}>Topic: {PEEL_THEORY.goodExample.topic}</div>
+        <p style={{fontSize:14,color:"#333",lineHeight:1.9,background:"#fff",borderRadius:10,padding:12,margin:0}}>{PEEL_THEORY.goodExample.paragraph}</p>
+      </Card>
+      <h4 style={{color:DK,marginBottom:10}}>🔍 Why is this paragraph strong?</h4>
+      {PEEL_THEORY.goodExample.annotations.map((a,i)=>(
+        <Card key={i} style={{marginBottom:10,borderLeft:`3px solid ${G}`}}>
+          <div style={{fontWeight:700,color:G,fontSize:12,marginBottom:6}}>✅ {a.part}</div>
+          <p style={{fontSize:13,color:"#333",fontStyle:"italic",margin:"0 0 6px",background:"#f9fbe7",padding:"6px 10px",borderRadius:8}}>"{a.text}"</p>
+          <p style={{fontSize:13,color:"#555",margin:0,lineHeight:1.7}}>{a.issue}</p>
+        </Card>
+      ))}
+      <div style={{display:"flex",gap:10,marginTop:8}}>
+        <Btn secondary onClick={()=>setPhase("bad")}>← Bad Example</Btn>
+        <Btn full onClick={()=>setPhase("write")}>Write My Paragraph →</Btn>
+      </div>
+    </div>
+  );
+
+  // WRITE phase
   if(phase==="write") return (
     <div>
-      {attempts>0&&<Card style={{background:"#fff3e0",marginBottom:12,borderLeft:"3px solid #f57c00"}}><p style={{margin:0,fontSize:13,color:"#e65100",fontWeight:600}}>🔄 Revision #{attempts} — Apply all feedback carefully before resubmitting.</p></Card>}
+      {attempts>0&&(
+        <Card style={{background:"#fff3e0",marginBottom:12,borderLeft:"3px solid #f57c00"}}>
+          <p style={{margin:0,fontSize:13,color:"#e65100",fontWeight:600}}>🔄 Revision attempt #{attempts} — Apply the feedback and improve your paragraph.</p>
+        </Card>
+      )}
       <Card style={{background:LT,marginBottom:14}}>
-        <div style={{fontSize:11,color:"#555"}}>📝 Topic · {level}</div>
+        <div style={{fontSize:11,color:"#888"}}>📝 Topic · {level} Level</div>
         <div style={{fontWeight:800,color:DK,fontSize:15,marginTop:2}}>{c.title}</div>
         <div style={{color:"#555",fontSize:13,marginTop:4,lineHeight:1.6}}>{c.prompt}</div>
       </Card>
       <div style={{display:"flex",gap:6,marginBottom:16}}>
-        {keys.map((k,ix)=>(
+        {keys.map((k,idx)=>(
           <div key={k} style={{flex:1,textAlign:"center"}}>
-            <div style={{height:6,borderRadius:99,background:vals[k]&&wc(vals[k])>=minW[k]?G:vals[k]?"#f57c00":ix===step?"#81c784":"#e0e0e0",marginBottom:4,transition:"background .3s"}}/>
-            <div style={{fontSize:10,color:ix<=step?G:"#bbb",fontWeight:ix===step?800:400}}>{k.charAt(0).toUpperCase()}</div>
+            <div style={{height:6,borderRadius:99,background:vals[k]&&wordCount(vals[k])>=minWords[k]?G:vals[k]?"#f57c00":idx===step?"#81c784":"#e0e0e0",marginBottom:4,transition:"background .3s"}}/>
+            <div style={{fontSize:10,color:idx<=step?G:"#bbb",fontWeight:idx===step?800:400}}>{k.charAt(0).toUpperCase()}</div>
           </div>
         ))}
       </div>
       {(()=>{
-        const p=PARTS[step];
-        return <div>
-          <Card style={{background:p.color,marginBottom:10,borderLeft:`4px solid ${G}`}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-              <div><div style={{fontWeight:800,color:DK,fontSize:15}}>{p.icon} {labels[step]}</div><div style={{fontSize:12,color:"#555",marginTop:4,lineHeight:1.5}}>{p.role}</div></div>
-              <div style={{background:G,color:"#fff",borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:700,textAlign:"center",flexShrink:0}}>min {minW[keys[step]]}<br/>words</div>
+        const p=PEEL_THEORY.parts[step];
+        return (
+          <div>
+            <Card style={{background:p.color,marginBottom:10,borderLeft:`4px solid ${G}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                <div>
+                  <div style={{fontWeight:800,color:DK,fontSize:15}}>{p.icon} {labels[step]}</div>
+                  <div style={{fontSize:12,color:"#666",marginTop:4,lineHeight:1.5}}>{p.role}</div>
+                </div>
+                <div style={{background:G,color:"#fff",borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,flexShrink:0,textAlign:"center"}}>
+                  min {minWords[keys[step]]}<br/>words
+                </div>
+              </div>
+              <div style={{marginTop:8,fontSize:12,color:"#555"}}><strong>DO:</strong> {p.do}</div>
+            </Card>
+            <Card style={{background:"#f0f7f4",marginBottom:10}}>
+              <div style={{fontSize:11,color:"#888",marginBottom:4}}>📋 Model from a strong paragraph:</div>
+              <p style={{fontSize:13,color:"#444",margin:0,lineHeight:1.8,fontStyle:"italic"}}>"{c.example[keys[step]]}"</p>
+            </Card>
+            {/* Show previous feedback for this section if revision */}
+            {attempts>0&&feedback&&(
+              <Card style={{background:"#fff8e1",marginBottom:10}}>
+                <div style={{fontSize:11,color:"#e65100",fontWeight:700,marginBottom:4}}>⚠️ Previous feedback on your {keys[step]}:</div>
+                <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6,fontStyle:"italic"}}>{vals[keys[step]]}</p>
+              </Card>
+            )}
+            <textarea
+              value={vals[keys[step]]}
+              onChange={e=>setVals(p=>({...p,[keys[step]]:e.target.value}))}
+              placeholder={`Write your ${keys[step]} here… (minimum ${minWords[keys[step]]} words for ${level} level)`}
+              rows={6}
+              style={{width:"100%",boxSizing:"border-box",border:`2px solid ${vals[keys[step]]&&wordCount(vals[keys[step]])>=minWords[keys[step]]?G:vals[keys[step]]?"#f57c00":"#ddd"}`,borderRadius:12,padding:12,fontSize:14,resize:"vertical",outline:"none",fontFamily:"inherit",transition:"border .2s"}}
+            />
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginTop:4,marginBottom:10}}>
+              <span style={{color:wordCount(vals[keys[step]])>=minWords[keys[step]]?G:wordCount(vals[keys[step]])>0?"#f57c00":"#aaa",fontWeight:600}}>
+                {wordCount(vals[keys[step]])} / {minWords[keys[step]]} words min
+                {wordCount(vals[keys[step]])>=minWords[keys[step]]?" ✅":wordCount(vals[keys[step]])>0?" ⚠️":""}
+              </span>
+              <span style={{color:"#aaa"}}>{vals[keys[step]].length} chars</span>
             </div>
-            <div style={{marginTop:8,fontSize:12,color:"#555"}}><strong>DO:</strong> {p.dos}</div>
-          </Card>
-          <Card style={{background:"#f0f7f4",marginBottom:10}}>
-            <div style={{fontSize:11,color:"#888",marginBottom:4}}>📋 Model example:</div>
-            <p style={{fontSize:13,color:"#444",margin:0,lineHeight:1.8,fontStyle:"italic"}}>"{c.example[keys[step]]}"</p>
-          </Card>
-          {step>0&&vals[keys[step-1]]&&<Card style={{background:"#fafafa",marginBottom:10}}>
-            <div style={{fontSize:11,color:"#888",marginBottom:4}}>📄 Your {keys[step-1]}:</div>
-            <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6,fontStyle:"italic"}}>"{vals[keys[step-1]]}"</p>
-          </Card>}
-          <textarea value={vals[keys[step]]} onChange={e=>sVals(p=>({...p,[keys[step]]:e.target.value}))}
-            placeholder={`Write your ${keys[step]} here… (min ${minW[keys[step]]} words)`} rows={5}
-            style={{width:"100%",boxSizing:"border-box",border:`2px solid ${vals[keys[step]]&&wc(vals[keys[step]])>=minW[keys[step]]?G:vals[keys[step]]?"#f57c00":"#ddd"}`,borderRadius:12,padding:12,fontSize:14,resize:"vertical",outline:"none",fontFamily:"inherit",transition:"border .2s"}}/>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginTop:4,marginBottom:10}}>
-            <span style={{color:wc(vals[keys[step]])>=minW[keys[step]]?G:wc(vals[keys[step]])>0?"#f57c00":"#aaa",fontWeight:600}}>
-              {wc(vals[keys[step]])} / {minW[keys[step]]} words {wc(vals[keys[step]])>=minW[keys[step]]?"✅":wc(vals[keys[step]])>0?"⚠️":""}
-            </span>
-            <span style={{color:"#aaa"}}>{vals[keys[step]].length} chars</span>
+            {step>0&&vals[keys[step-1]]&&(
+              <Card style={{background:"#fafafa",marginBottom:10}}>
+                <div style={{fontSize:11,color:"#888",marginBottom:4}}>📄 Your {keys[step-1]}:</div>
+                <p style={{fontSize:12,color:"#555",margin:0,lineHeight:1.6,fontStyle:"italic"}}>"{vals[keys[step-1]]}"</p>
+              </Card>
+            )}
+            <Btn full
+              disabled={!vals[keys[step]]||wordCount(vals[keys[step]])<minWords[keys[step]]||aiLoading}
+              onClick={()=>{if(step<3)setStep(s=>s+1);else getAI(attempts>0);}}>
+              {aiLoading?"Analysing your paragraph…":step<3?`Next: ${labels[step+1]} →`:"🤖 Submit for Assessment"}
+            </Btn>
           </div>
-          <PBtn
-            onClick={()=>{if(step<3)sStep(s=>s+1);else callAI(attempts>0);}}
-            disabled={!vals[keys[step]]||wc(vals[keys[step]])<minW[keys[step]]||aiLoad}
-            style={{background:aiLoad?"#ccc":undefined}}>
-            {aiLoad?"⏳ Analysing your paragraph…":step<3?`Next: ${labels[step+1]} →`:"🤖 Submit for AI Assessment"}
-          </PBtn>
-        </div>;
+        );
       })()}
     </div>
   );
 
-  // ── FEEDBACK ─────────────────────────────────────
-  if(phase==="feedback"&&fb) {
-    const CRIT=[{id:"point",label:"Clarity & Precision (Point)",max:4},{id:"expl",label:"Logical Development (Explanation)",max:4},{id:"evidence",label:"Quality of Evidence",max:4},{id:"link",label:"Cohesion & Link",max:3},{id:"grammar",label:"Grammar & Vocabulary",max:3},{id:"length",label:"Length & Development",max:2}];
-    const headerBg = fb.sc.total>=15?`linear-gradient(135deg,${DK},${G})`:fb.sc.total>=10?"linear-gradient(135deg,#e65100,#ff9800)":"linear-gradient(135deg,#c62828,#e53935)";
-    return (
-      <div>
-        <Card style={{background:headerBg,color:"#fff",marginBottom:16,textAlign:"center"}}>
-          <div style={{fontSize:13,opacity:.85,marginBottom:4}}>📊 Attempt #{attempts} · {fb.passed?"✅ PASSED":"❌ REVISION REQUIRED"}</div>
-          <div style={{fontSize:52,fontWeight:900,marginBottom:4}}>{fb.sc.total}<span style={{fontSize:24,fontWeight:400}}>/20</span></div>
-          <div style={{fontSize:14,fontWeight:700,opacity:.9}}>
-            {fb.sc.total>=17?"🏆 Excellent":fb.sc.total>=14?"👏 Good":fb.sc.total>=10?"📈 Passed":"💪 Below Average — Revision Required"}
-          </div>
-          {!fb.passed&&<div style={{fontSize:12,opacity:.85,marginTop:8,background:"rgba(0,0,0,.2)",borderRadius:8,padding:"6px 12px"}}>You need 10/20 to pass. Read each ⚠️ carefully, apply all fixes, then resubmit.</div>}
-        </Card>
-        <Card style={{marginBottom:14}}>
-          <h4 style={{color:DK,margin:"0 0 12px"}}>📋 Score Breakdown</h4>
-          {CRIT.map(cr=>{const s=fb.sc[cr.id]||0,pct=Math.round((s/cr.max)*100);return(
+  // FEEDBACK phase
+  if(phase==="feedback"&&feedback) return (
+    <div>
+      {/* Score card */}
+      <Card style={{background:`linear-gradient(135deg,${feedback.scores.total>=15?DK:feedback.scores.total>=10?"#f57c00":"#c62828"},${feedback.scores.total>=15?G:feedback.scores.total>=10?"#ff9800":"#e53935"})`,color:"#fff",marginBottom:16,textAlign:"center"}}>
+        <div style={{fontSize:13,opacity:.85,marginBottom:4}}>
+          📊 Attempt #{attempts} · {feedback.passed?"✅ PASSED":"❌ NOT YET PASSED — Revision Required"}
+        </div>
+        <div style={{fontSize:52,fontWeight:900,marginBottom:4}}>{feedback.scores.total}<span style={{fontSize:24,fontWeight:400}}>/20</span></div>
+        <div style={{fontSize:14,fontWeight:700,opacity:.9}}>
+          {feedback.scores.total>=17?"🏆 Excellent":feedback.scores.total>=14?"👏 Good":feedback.scores.total>=10?"📈 Satisfactory — Passed":"💪 Below Average — Must Revise"}
+        </div>
+        {!feedback.passed&&<div style={{fontSize:12,opacity:.85,marginTop:6,background:"rgba(0,0,0,.2)",borderRadius:8,padding:"6px 12px"}}>You need 10/20 to pass. Read the feedback carefully, revise your paragraph, and resubmit.</div>}
+      </Card>
+
+      {/* Score breakdown */}
+      <Card style={{marginBottom:14}}>
+        <h4 style={{color:DK,margin:"0 0 12px"}}>📋 Score Breakdown</h4>
+        {SCORING_CRITERIA.map(cr=>{
+          const s=feedback.scores[cr.id]||0;
+          const pct=Math.round((s/cr.max)*100);
+          return (
             <div key={cr.id} style={{marginBottom:12}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
                 <span style={{fontWeight:600,color:DK}}>{cr.label}</span>
@@ -1025,54 +1308,70 @@ Comment on whether each section meets the minimums.
                 <div style={{background:pct>=75?G:pct>=50?"#f57c00":"#e53935",height:8,borderRadius:99,width:`${pct}%`,transition:"width .6s"}}/>
               </div>
             </div>
-          );})}
-        </Card>
-        <Card style={{marginBottom:14}}>
-          <h4 style={{color:G,marginBottom:12}}>🔍 Detailed Analysis</h4>
-          {renderFb(fb.text)}
-        </Card>
-        <Card style={{background:"#f9fbe7",marginBottom:14}}>
-          <h5 style={{color:DK,margin:"0 0 12px"}}>📄 Your Submitted Paragraph</h5>
-          {keys.map(k=>(
-            <div key={k} style={{marginBottom:12,paddingBottom:12,borderBottom:k!=="link"?"1px solid #eee":"none"}}>
-              <div style={{fontSize:11,fontWeight:700,color:G,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{k}</div>
-              <p style={{fontSize:13,color:"#444",margin:0,lineHeight:1.7}}>{vals[k]}</p>
-            </div>
-          ))}
-        </Card>
-        {fb.passed
-          ?<div>
-            <Card style={{background:LT,textAlign:"center",marginBottom:14}}>
-              <div style={{fontSize:36,marginBottom:4}}>🎉</div>
-              <p style={{color:G,fontWeight:700,margin:0}}>Passed with {fb.sc.total}/20!</p>
-              <p style={{color:"#555",fontSize:13,margin:"4px 0 0"}}>+{XP.peel} XP earned!</p>
-            </Card>
-            <PBtn onClick={()=>addXp(XP.peel,"peel")}>Claim +{XP.peel} XP & Continue →</PBtn>
+          );
+        })}
+      </Card>
+
+      {/* Detailed annotated feedback */}
+      <Card style={{marginBottom:14}}>
+        <h4 style={{color:G,marginBottom:12}}>🔍 Detailed Analysis</h4>
+        <div>{renderFeedbackWithHighlights(feedback.text)}</div>
+      </Card>
+
+      {/* Student paragraph */}
+      <Card style={{background:"#f9fbe7",marginBottom:14}}>
+        <h5 style={{color:DK,margin:"0 0 12px"}}>📄 Your Submitted Paragraph</h5>
+        {keys.map(k=>(
+          <div key={k} style={{marginBottom:12,paddingBottom:12,borderBottom:k!=="link"?"1px solid #eee":"none"}}>
+            <div style={{fontSize:11,fontWeight:700,color:G,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>{k}</div>
+            <p style={{fontSize:13,color:"#444",margin:0,lineHeight:1.7}}>{vals[k]}</p>
           </div>
-          :<div>
-            <Card style={{background:"#fff3e0",marginBottom:14,borderLeft:"3px solid #f57c00"}}>
-              <h5 style={{color:"#e65100",margin:"0 0 8px"}}>🔄 How to revise:</h5>
-              <p style={{fontSize:13,color:"#555",margin:0,lineHeight:1.8}}>1. Read every ⚠️ highlighted sentence carefully.<br/>2. Read each → Problem and → Fix.<br/>3. Rewrite your paragraph applying all corrections.<br/>4. You must reach 10/20 to pass and earn XP.</p>
-            </Card>
-            <PBtn onClick={()=>{sPhase("write");sStep(0);}}>🔄 Revise My Paragraph →</PBtn>
-          </div>
-        }
-      </div>
-    );
-  }
-  return <Spinner/>;
+        ))}
+      </Card>
+
+      {feedback.passed ? (
+        <div>
+          <Card style={{background:LT,textAlign:"center",marginBottom:14}}>
+            <div style={{fontSize:36,marginBottom:4}}>🎉</div>
+            <p style={{color:G,fontWeight:700,margin:0}}>Congratulations! You passed with {feedback.scores.total}/20.</p>
+            <p style={{color:"#555",fontSize:13,margin:"4px 0 0"}}>You earned +50 XP for passing the PEEL assessment.</p>
+          </Card>
+          <Btn full onClick={()=>{addXp(50,"peel",{
+          module:"peel", score:feedback.scores.total, total:20,
+          passed:true, timeSec:Math.round((Date.now()-startTime)/1000),
+          title:c.title,
+          peelData:{
+            topic:c.prompt, attemptNum:attempts,
+            vals, scores:feedback.scores,
+            passed:true, timeSec:Math.round((Date.now()-startTime)/1000)
+          }
+        });onBack();}}>Claim +50 XP & Continue →</Btn>
+        </div>
+      ) : (
+        <div>
+          <Card style={{background:"#fff3e0",marginBottom:14,borderLeft:"3px solid #f57c00"}}>
+            <h5 style={{color:"#e65100",margin:"0 0 8px"}}>🔄 What to do now:</h5>
+            <p style={{fontSize:13,color:"#555",margin:0,lineHeight:1.8}}>1. Read every ⚠️ highlighted sentence above carefully.<br/>2. Read each "→ Problem" and "→ Fix" explanation.<br/>3. Rewrite your paragraph applying all the corrections.<br/>4. Resubmit — you must reach 10/20 to pass.</p>
+          </Card>
+          <Btn full onClick={()=>{setPhase("write");setStep(0);}}>🔄 Revise My Paragraph →</Btn>
+        </div>
+      )}
+    </div>
+  );
+
+  return <div style={{padding:20,textAlign:"center"}}><Loader text="Loading…"/></div>;
 }
 
-/* ─── READING ──────────────────────────────────────── */
-function ReadingMod({addXp,onBack,G,LT,DK}) {
-  const [c]    = useState(()=>rnd(READING_BANK));
-  const [phase,sP] = useState("read");
-  const [ans,sA]   = useState([null,null,null]);
-  const [checked,sC] = useState(false);
-  const [done,sD]  = useState(false);
-  const score = ans.filter((a,i)=>a===c.qs[i]?.ans).length;
-  if(done) return <DoneScreen xp={XP.reading} onBack={onBack} G={G} earn={()=>addXp(XP.reading,"reading")}/>;
-  if(phase==="read") return (
+/* ── Reading ── */
+function ReadingMod({addXp,onBack}) {
+  const [c]=useState(()=>rnd(READING_BANK));
+  const [phase,setPhase]=useState("read");
+  const [ans,setAns]=useState([null,null,null]);
+  const [checked,setChecked]=useState(false);
+  const [done,setDone]=useState(false);
+  if(done)return <DoneScreen xp={20} onBack={onBack} earnNow={()=>addXp(20,"reading")}/>;
+  const score=ans.filter((a,i)=>a===c.questions[i]?.ans).length;
+  if(phase==="read")return (
     <div>
       <Card style={{marginBottom:14}}>
         <div style={{fontSize:11,color:"#888",marginBottom:4}}>📖 {c.topic}</div>
@@ -1081,121 +1380,160 @@ function ReadingMod({addXp,onBack,G,LT,DK}) {
       </Card>
       <Card style={{background:"#fff8e1",marginBottom:14}}>
         <div style={{fontWeight:700,color:"#e65100",marginBottom:10,fontSize:13}}>📖 Glossary</div>
-        {c.gloss.map(g=><div key={g.w} style={{display:"flex",gap:8,marginBottom:8,fontSize:13}}><strong style={{color:DK,minWidth:110,flexShrink:0}}>{g.w}</strong><span style={{color:"#555",lineHeight:1.5}}>{g.d}</span></div>)}
+        {c.glossary.map(g=><div key={g.word} style={{display:"flex",gap:8,marginBottom:8,fontSize:13}}>
+          <strong style={{color:DK,minWidth:110,flexShrink:0}}>{g.word}</strong>
+          <span style={{color:"#555",lineHeight:1.5}}>{g.definition}</span>
+        </div>)}
       </Card>
-      <PBtn onClick={()=>sP("quiz")}>Answer Questions →</PBtn>
+      <Btn full onClick={()=>setPhase("quiz")}>Answer Questions →</Btn>
     </div>
   );
   return (
     <div>
       <h4 style={{color:DK,marginBottom:14}}>📝 Comprehension Questions</h4>
-      {c.qs.map((q,qi)=>(
+      {c.questions.map((q,qi)=>(
         <Card key={qi} style={{marginBottom:14}}>
           <p style={{fontWeight:600,color:DK,fontSize:14,marginBottom:10,lineHeight:1.6}}>{qi+1}. {q.q}</p>
           {q.opts.map((o,oi)=>{
-            const isC=oi===q.ans,isP=oi===ans[qi];
-            let bg="#f9f9f9",br="#e0e0e0";
-            if(checked){if(isP&&isC){bg="#e8f5e9";br=G;}else if(isP&&!isC){bg="#ffebee";br="#e53935";}else if(!isP&&isC){bg="#fff9c4";br="#f9a825";}}
-            else if(isP){bg=LT;br=G;}
-            return <button key={oi} onClick={()=>{if(!checked)sA(a=>{const n=[...a];n[qi]=oi;return n;})}} style={{display:"block",width:"100%",background:bg,border:`1.5px solid ${br}`,borderRadius:10,padding:"10px 14px",marginBottom:8,cursor:checked?"default":"pointer",textAlign:"left",fontSize:13,fontFamily:"inherit"}}>
-              {checked&&isP&&isC?"✅ ":checked&&isP&&!isC?"❌ ":checked&&!isP&&isC?"💡 ":""}{o}
+            const isCorrect=oi===q.ans,isPicked=oi===ans[qi];
+            let bg="#f9f9f9",border="#e0e0e0";
+            if(checked){
+              if(isPicked&&isCorrect){bg="#e8f5e9";border=G;}
+              else if(isPicked&&!isCorrect){bg="#ffebee";border="#e53935";}
+              else if(!isPicked&&isCorrect){bg="#fff9c4";border="#f9a825";}
+            } else if(isPicked){bg=LT;border=G;}
+            return <button key={oi} onClick={()=>{if(!checked)setAns(a=>{const n=[...a];n[qi]=oi;return n;})}} style={{display:"block",width:"100%",background:bg,border:`1.5px solid ${border}`,borderRadius:10,padding:"10px 14px",marginBottom:8,cursor:checked?"default":"pointer",textAlign:"left",fontSize:13,fontFamily:"inherit"}}>
+              {checked&&isPicked&&isCorrect?"✅ ":checked&&isPicked&&!isCorrect?"❌ ":checked&&!isPicked&&isCorrect?"💡 ":""}{o}
             </button>;
           })}
         </Card>
       ))}
       {!checked
-        ?<PBtn onClick={()=>sC(true)} disabled={ans.includes(null)} style={{background:ans.includes(null)?"#ccc":undefined}}>Check Answers</PBtn>
+        ?<Btn full disabled={ans.includes(null)} onClick={()=>setChecked(true)}>Check Answers</Btn>
         :<div>
           <Card style={{background:score===3?LT:"#fff3e0",textAlign:"center",marginBottom:14}}>
-            <strong style={{color:score===3?G:"#e65100",fontSize:16}}>{score}/3 correct {score===3?"🎉":"— keep reading!"}</strong>
+            <strong style={{color:score===3?G:"#e65100",fontSize:16}}>{score}/3 correct {score===3?"🎉":"— keep reading to improve!"}</strong>
           </Card>
-          <PBtn onClick={()=>sD(true)}>Earn +{XP.reading} XP</PBtn>
+          <Btn full onClick={()=>setDone(true)}>Earn +20 XP</Btn>
         </div>}
     </div>
   );
 }
 
-/* ─── MISTAKES ─────────────────────────────────────── */
-function MistakesMod({addXp,onBack,G,LT,DK}) {
-  const [c]  = useState(()=>rnd(MISTAKES_BANK));
-  const [done,sD] = useState(false);
-  if(done) return <DoneScreen xp={XP.mistakes} onBack={onBack} G={G} earn={()=>addXp(XP.mistakes,"mistakes")}/>;
+/* ── Mistakes ── */
+function MistakesMod({addXp,onBack}) {
+  const [c]=useState(()=>rnd(MISTAKES_BANK));
+  const [done,setDone]=useState(false);
+  if(done)return <DoneScreen xp={10} onBack={onBack} earnNow={()=>addXp(10,"mistakes")}/>;
   return (
     <div>
-      <Card style={{borderLeft:"4px solid #ff9800",marginBottom:14}}>
-        <span style={{background:"#fff3e0",color:"#e65100",borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>{c.title}</span>
+      <Card style={{borderLeft:`4px solid #ff9800`,marginBottom:14}}>
+        <Tag color="#fff3e0">{c.title}</Tag>
         <div style={{display:"flex",alignItems:"center",gap:8,marginTop:12}}>
           <span style={{fontSize:18}}>🇫🇷</span>
-          <span style={{fontSize:13,color:"#666",fontStyle:"italic"}}>French pattern: <strong>{c.fr}</strong></span>
+          <span style={{fontSize:13,color:"#666",fontStyle:"italic",lineHeight:1.5}}>French pattern: <strong>{c.french_pattern}</strong></span>
         </div>
       </Card>
-      <Card style={{background:"#ffebee",marginBottom:10}}><div style={{fontSize:12,color:"#c62828",fontWeight:700,marginBottom:8}}>❌ Common Error</div><p style={{color:"#333",fontSize:14,margin:0,fontStyle:"italic"}}>"{c.wrong}"</p></Card>
-      <Card style={{background:"#e8f5e9",marginBottom:10}}><div style={{fontSize:12,color:G,fontWeight:700,marginBottom:8}}>✅ Correct English</div><p style={{color:"#333",fontSize:14,margin:0,fontStyle:"italic"}}>"{c.right}"</p></Card>
-      <Card style={{background:"#e3f2fd",marginBottom:14}}><div style={{fontSize:12,color:"#1565c0",fontWeight:700,marginBottom:8}}>📐 Rule</div><p style={{color:"#333",fontSize:13,margin:0,lineHeight:1.8}}>{c.rule}</p></Card>
+      <Card style={{background:"#ffebee",marginBottom:10}}>
+        <div style={{fontSize:12,color:"#c62828",fontWeight:700,marginBottom:8}}>❌ Common Error</div>
+        <p style={{color:"#333",fontSize:14,margin:0,fontStyle:"italic"}}>"{c.wrong_english}"</p>
+      </Card>
+      <Card style={{background:"#e8f5e9",marginBottom:10}}>
+        <div style={{fontSize:12,color:G,fontWeight:700,marginBottom:8}}>✅ Correct English</div>
+        <p style={{color:"#333",fontSize:14,margin:0,fontStyle:"italic"}}>"{c.correct_english}"</p>
+      </Card>
+      <Card style={{background:"#e3f2fd",marginBottom:14}}>
+        <div style={{fontSize:12,color:"#1565c0",fontWeight:700,marginBottom:8}}>📐 Rule & Explanation</div>
+        <p style={{color:"#333",fontSize:13,margin:0,lineHeight:1.8}}>{c.rule}</p>
+      </Card>
       <Card style={{marginBottom:14}}>
         <div style={{fontSize:13,fontWeight:700,color:DK,marginBottom:12}}>📝 More Examples</div>
-        {c.ex.map((e,i)=><div key={i} style={{marginBottom:12,paddingBottom:12,borderBottom:i<c.ex.length-1?"1px solid #f0f0f0":"none"}}>
-          <div style={{fontSize:13,color:"#c62828",marginBottom:4}}>❌ {e.w}</div>
-          <div style={{fontSize:13,color:G}}>✅ {e.r}</div>
-        </div>)}
+        {c.extra_examples.map((e,i)=>(
+          <div key={i} style={{marginBottom:12,paddingBottom:12,borderBottom:i<c.extra_examples.length-1?"1px solid #f0f0f0":"none"}}>
+            <div style={{fontSize:13,color:"#c62828",marginBottom:4}}>❌ {e.wrong}</div>
+            <div style={{fontSize:13,color:G}}>✅ {e.right}</div>
+          </div>
+        ))}
       </Card>
-      <PBtn onClick={()=>sD(true)}>Got it! Earn +{XP.mistakes} XP</PBtn>
+      <Btn full onClick={()=>setDone(true)}>Got it! Earn +10 XP</Btn>
     </div>
   );
 }
 
-/* ─── QUIZ ─────────────────────────────────────────── */
-function QuizMod({addXp,onBack,G,LT,DK}) {
-  const [qs]   = useState(()=>rnd(QUIZ_SETS));
-  const [i,sI] = useState(0);
-  const [sel,sSel] = useState(null);
-  const [score,sScore] = useState(0);
-  const [review,sReview] = useState(false);
-  const [done,sDone] = useState(false);
-  const q=qs[i],conf=sel!==null,correct=sel===q?.ans;
-  if(done) return <DoneScreen xp={score*6} onBack={onBack} G={G} earn={()=>addXp(score*6,"quiz")}/>;
-  if(review) return (
+/* ── Quiz ── */
+function QuizMod({addXp,onBack}) {
+  const [qs]=useState(()=>rnd(QUIZ_BANK));
+  const [i,setI]=useState(0);
+  const [sel,setSel]=useState(null);
+  const [score,setScore]=useState(0);
+  const [review,setReview]=useState(false);
+  const [done,setDone]=useState(false);
+  const [startTime]=useState(()=>Date.now());
+
+  if(done)return <DoneScreen xp={score*6} onBack={onBack} earnNow={()=>addXp(score*6,"quiz",{
+    module:"quiz", score, total:qs.length, passed:score>=3,
+    timeSec:Math.round((Date.now()-startTime)/1000),
+    title:"Daily Quiz"
+  })}/>;
+
+
+  const q=qs[i];
+  const confirmed=sel!==null;
+  const correct=sel===q?.ans;
+
+  if(review)return (
     <div>
       <Card style={{textAlign:"center",marginBottom:16}}>
         <div style={{fontSize:52}}>{score>=4?"🏆":score>=2?"👏":"💪"}</div>
         <h3 style={{color:G,margin:"8px 0 4px"}}>Quiz Complete!</h3>
-        <p style={{color:"#555",fontSize:14}}>Score: <strong style={{color:G,fontSize:20}}>{score}/{qs.length}</strong></p>
-        <p style={{color:"#888",fontSize:13}}>{score>=4?"Excellent!":score>=2?"Good effort — keep practising!":"Review the lessons and try again!"}</p>
+        <p style={{color:"#666",fontSize:14}}>Score: <strong style={{color:G,fontSize:20}}>{score}/{qs.length}</strong></p>
+        <p style={{color:"#888",fontSize:13}}>{score>=4?"Excellent work! You have strong English foundations.":score>=2?"Good effort — review the explanations and keep practising!":"Review the lessons carefully and try again — every attempt is progress!"}</p>
       </Card>
-      {score>0?<PBtn onClick={()=>sDone(true)}>Claim +{score*6} XP →</PBtn>:<SBtn onClick={onBack}>← No XP — Try again tomorrow</SBtn>}
+      <Card style={{background:LT,marginBottom:14}}>
+        <p style={{margin:0,fontSize:13,color:G,fontWeight:600}}>⭐ XP earned: +{score*6} (6 XP per correct answer)</p>
+      </Card>
+      <Btn full onClick={()=>setDone(true)}>Claim +{score*6} XP →</Btn>
     </div>
   );
-  const next=()=>{if(i<qs.length-1){sI(x=>x+1);sSel(null);}else sReview(true);};
+
+  const next=()=>{if(i<qs.length-1){setI(p=>p+1);setSel(null);}else setReview(true);};
+
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#888",marginBottom:8}}>
-        <span>Q {i+1}/{qs.length}</span><span style={{color:G,fontWeight:700}}>Score: {score}/{i+(conf?1:0)}</span>
+        <span>Q {i+1}/{qs.length}</span>
+        <span style={{color:G,fontWeight:700}}>Score: {score}/{i+(confirmed?1:0)}</span>
       </div>
       <div style={{background:"#e8f5e9",borderRadius:8,height:6,marginBottom:14}}>
         <div style={{background:G,height:6,borderRadius:8,width:`${(i/qs.length)*100}%`,transition:"width .4s"}}/>
       </div>
       <Card style={{marginBottom:14}}><p style={{fontWeight:700,color:DK,fontSize:15,lineHeight:1.6,margin:0}}>{q.q}</p></Card>
       {q.opts.map((o,oi)=>{
-        const isC=oi===q.ans,isP=oi===sel;
-        let bg="#fff",br="#e0e0e0";
-        if(conf){if(isP&&isC){bg="#e8f5e9";br=G;}else if(isP&&!isC){bg="#ffebee";br="#e53935";}else if(!isP&&isC&&!correct){bg="#fff9c4";br="#f9a825";}}
-        else if(isP){bg=LT;br=G;}
-        return <button key={oi} onClick={()=>{if(!conf){sSel(oi);if(oi===q.ans)sScore(s=>s+1);}}} style={{display:"block",width:"100%",background:bg,border:`2px solid ${br}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:conf?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit"}}>
-          {conf&&isP&&isC?"✅ ":conf&&isP&&!isC?"❌ ":conf&&!isP&&isC&&!correct?"💡 ":""}{o}
+        const isCorrect=oi===q.ans,isPicked=oi===sel;
+        let bg="#fff",border="#e0e0e0";
+        if(confirmed){
+          if(isPicked&&isCorrect){bg="#e8f5e9";border=G;}
+          else if(isPicked&&!isCorrect){bg="#ffebee";border="#e53935";}
+          else if(!isPicked&&isCorrect&&!correct){bg="#fff9c4";border="#f9a825";}
+        } else if(isPicked){bg=LT;border=G;}
+        return <button key={oi} onClick={()=>{if(!confirmed){setSel(oi);if(oi===q.ans)setScore(s=>s+1);}}} style={{display:"block",width:"100%",background:bg,border:`2px solid ${border}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:confirmed?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit"}}>
+          {confirmed&&isPicked&&isCorrect?"✅ ":confirmed&&isPicked&&!isCorrect?"❌ ":confirmed&&!isPicked&&isCorrect&&!correct?"💡 ":""}{o}
         </button>;
       })}
-      {conf&&<>
+      {confirmed&&<>
         <Card style={{background:correct?"#e8f5e9":"#fff3e0",marginBottom:10}}>
-          <p style={{margin:0,fontSize:13,color:correct?DK:"#e65100",lineHeight:1.7}}>{correct?"✅ Correct! ":"⚠️ Not quite. "}{q.exp}</p>
+          <p style={{margin:0,fontSize:13,color:correct?DK:"#e65100",lineHeight:1.7}}>
+            {correct?"✅ Correct! ":"⚠️ Not quite. "}{q.exp}
+          </p>
         </Card>
-        <PBtn onClick={next}>{i<qs.length-1?"Next →":"See Results"}</PBtn>
+        <Btn full onClick={next}>{i<qs.length-1?"Next Question →":"See Results"}</Btn>
       </>}
     </div>
   );
 }
 
-/* ─── PROFILE ──────────────────────────────────────── */
-function ProfileScreen({user,xp,lvl,level,badges,streak,G,LT,DK}) {
+/* ── Profile ── */
+function Profile({user,xp,lvl,level,badges,streak}) {
   return (
     <div style={{padding:18}}>
       <div style={{background:`linear-gradient(135deg,${DK},${G})`,borderRadius:20,padding:24,color:"#fff",textAlign:"center",marginBottom:18}}>
@@ -1213,7 +1551,7 @@ function ProfileScreen({user,xp,lvl,level,badges,streak,G,LT,DK}) {
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         {BADGES_DEF.map(b=>{
           const earned=badges.includes(b.name);
-          return <div key={b.name} style={{background:earned?"#fff":"#f5f5f5",borderRadius:14,padding:14,opacity:earned?1:.55,boxShadow:earned?"0 2px 8px rgba(0,0,0,0.08)":"none"}}>
+          return <div key={b.name} style={{background:earned?"#fff":"#f5f5f5",borderRadius:14,padding:14,opacity:earned?1:.55,boxShadow:earned?"0 2px 8px #0002":"none"}}>
             <div style={{fontSize:28}}>{b.icon}</div>
             <div style={{fontWeight:700,fontSize:13,color:DK,marginTop:4}}>{b.name}</div>
             <div style={{fontSize:11,color:"#777",lineHeight:1.4}}>{b.desc}</div>
@@ -1225,231 +1563,715 @@ function ProfileScreen({user,xp,lvl,level,badges,streak,G,LT,DK}) {
   );
 }
 
-/* ─── LEADERBOARD ──────────────────────────────────── */
-function BoardScreen({userId,myXp,tok,G,LT,DK}) {
-  const [lb,sLb]     = useState([]);
-  const [load,sLoad] = useState(true);
-  const [rank,sRank] = useState(null);
-  const [ref,sRef]   = useState(null);
+/* ── Leaderboard ── */
+function Board({userId,myXp,token}) {
+  const [lb,setLb]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [lastRefresh,setLastRefresh]=useState(null);
+  const [myRank,setMyRank]=useState(null);
 
-  const fetchLb = async () => {
-    try {
-      const d=await get("public_leaderboard?limit=10",tok);
-      if(Array.isArray(d)){
-        const upd=d.map(u=>u.id===userId?{...u,xp:myXp}:u).sort((a,b)=>b.xp-a.xp);
-        sLb(upd);
-        const all=await get("public_leaderboard?limit=50",tok);
-        if(Array.isArray(all)){
-          const allU=all.map(u=>u.id===userId?{...u,xp:myXp}:u).sort((a,b)=>b.xp-a.xp);
-          const r=allU.findIndex(u=>u.id===userId)+1;
-          sRank(r>0?r:null);
+  const fetchLb=async()=>{
+    try{
+      const data=await sbGet("public_leaderboard?limit=10",token);
+      if(Array.isArray(data)){
+        // Update my XP in the list in real time
+        const updated=data.map(u=>u.id===userId?{...u,xp:myXp}:u);
+        // Re-sort after updating my XP
+        updated.sort((a,b)=>b.xp-a.xp);
+        setLb(updated);
+        // Find my rank in full leaderboard
+        const allData=await sbGet("public_leaderboard?limit=50",token);
+        if(Array.isArray(allData)){
+          const allUpdated=allData.map(u=>u.id===userId?{...u,xp:myXp}:u);
+          allUpdated.sort((a,b)=>b.xp-a.xp);
+          const rank=allUpdated.findIndex(u=>u.id===userId)+1;
+          setMyRank(rank>0?rank:null);
         }
       }
-    } catch{}
-    sLoad(false);sRef(new Date());
+    }catch(e){console.error("leaderboard error",e);}
+    setLoading(false);
+    setLastRefresh(new Date());
   };
 
-  useEffect(()=>{fetchLb();const iv=setInterval(fetchLb,30000);return()=>clearInterval(iv);},[myXp]);
+  useEffect(()=>{
+    fetchLb();
+    // Auto-refresh every 30 seconds
+    const interval=setInterval(fetchLb,30000);
+    return ()=>clearInterval(interval);
+  },[myXp]);
 
   const medals=["🥇","🥈","🥉"];
-  const lc={Bronze:"#cd7f32",Silver:"#9e9e9e",Gold:"#ffd700",Platinum:"#4fc3f7",Beginner:"#81c784",Intermediate:"#42a5f5",Advanced:"#ab47bc"};
+  const levelColors={Bronze:"#cd7f32",Silver:"#9e9e9e",Gold:"#ffd700",Platinum:"#4fc3f7",Beginner:"#81c784",Intermediate:"#42a5f5",Advanced:"#ab47bc"};
 
   return (
     <div style={{padding:18}}>
+      {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
         <div>
           <h3 style={{color:DK,margin:"0 0 4px"}}>🏆 Leaderboard</h3>
-          <p style={{color:"#888",fontSize:12,margin:0}}>{ref?`Updated ${ref.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`:""}</p>
+          <p style={{color:"#888",fontSize:12,margin:0}}>
+            {lastRefresh?`Updated ${lastRefresh.toLocaleTimeString([],({hour:"2-digit",minute:"2-digit"}))}`:"Loading…"}
+          </p>
         </div>
-        <button onClick={fetchLb} style={{background:LT,border:"none",borderRadius:10,padding:"6px 12px",color:G,fontWeight:700,fontSize:12,cursor:"pointer"}}>🔄 Refresh</button>
+        <button onClick={fetchLb} style={{background:LT,border:"none",borderRadius:10,padding:"6px 12px",color:G,fontWeight:700,fontSize:12,cursor:"pointer"}}>
+          🔄 Refresh
+        </button>
       </div>
-      {rank&&rank>10&&<Card style={{background:`linear-gradient(135deg,${DK},${G})`,color:"#fff",marginBottom:16}}>
-        <div style={{fontSize:12,opacity:.8,marginBottom:4}}>📍 Your Rank</div>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <div style={{fontSize:32,fontWeight:900}}>#{rank}</div>
-          <div><div style={{fontWeight:700}}>Keep going!</div><div style={{fontSize:12,opacity:.8}}>⭐ {myXp} XP</div></div>
-        </div>
-      </Card>}
-      {load&&<Spinner/>}
-      {!load&&lb.length===0&&<Card style={{textAlign:"center",padding:32}}><div style={{fontSize:40,marginBottom:8}}>🏆</div><p style={{color:"#888"}}>No students yet. Be the first!</p></Card>}
-      {lb.slice(0,10).map((l,ix)=>{
-        const isMe=l.id===userId,r=ix+1;
-        return <div key={l.id} style={{background:isMe?LT:"#fff",border:isMe?`2px solid ${G}`:"1px solid #eee",borderRadius:14,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,marginBottom:10,boxShadow:r<=3?"0 2px 12px rgba(0,0,0,0.08)":"none"}}>
-          <div style={{width:36,textAlign:"center",flexShrink:0}}>{r<=3?<span style={{fontSize:24}}>{medals[ix]}</span>:<span style={{fontSize:14,fontWeight:800,color:"#bbb"}}>#{r}</span>}</div>
-          <div style={{width:36,height:36,borderRadius:"50%",background:isMe?G:"#e0e0e0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,color:isMe?"#fff":"#999"}}>{l.name?.charAt(0)?.toUpperCase()||"?"}</div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontWeight:isMe?800:600,color:isMe?G:DK,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.name}{isMe?" (You)":""}</div>
-            <div style={{display:"flex",gap:6,marginTop:3}}>
-              {l.level&&<span style={{fontSize:10,fontWeight:700,color:lc[l.level]||"#888"}}>{l.level}</span>}
-              {l.streak>0&&<span style={{fontSize:11,color:"#888"}}>🔥{l.streak}</span>}
+
+      {/* My rank card if not in top 10 */}
+      {myRank&&myRank>10&&(
+        <Card style={{background:`linear-gradient(135deg,${DK},${G})`,color:"#fff",marginBottom:16}}>
+          <div style={{fontSize:12,opacity:.8,marginBottom:4}}>📍 Your Current Rank</div>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{fontSize:32,fontWeight:900}}>#{myRank}</div>
+            <div>
+              <div style={{fontWeight:700,fontSize:15}}>Keep going!</div>
+              <div style={{fontSize:12,opacity:.8}}>⭐ {myXp} XP — You need more to reach the top 10</div>
             </div>
           </div>
-          <div style={{textAlign:"right",flexShrink:0}}>
-            <div style={{fontWeight:800,color:G,fontSize:15}}>⭐{isMe?myXp:l.xp}</div>
-            {l.peel_avg_score>0&&<div style={{fontSize:10,color:"#aaa"}}>PEEL:{l.peel_avg_score}/20</div>}
+        </Card>
+      )}
+
+      {loading&&<Loader text="Loading leaderboard…"/>}
+
+      {/* Top 10 */}
+      {!loading&&lb.length===0&&(
+        <Card style={{textAlign:"center",padding:32}}>
+          <div style={{fontSize:40,marginBottom:8}}>🏆</div>
+          <p style={{color:"#888"}}>No students yet. Be the first!</p>
+        </Card>
+      )}
+
+      {lb.slice(0,10).map((l,idx)=>{
+        const isMe=l.id===userId;
+        const rank=idx+1;
+        return (
+          <div key={l.id} style={{
+            background:isMe?LT:"#fff",
+            border:isMe?`2px solid ${G}`:"1px solid #eee",
+            borderRadius:14,padding:"12px 16px",
+            display:"flex",alignItems:"center",gap:12,
+            marginBottom:10,
+            boxShadow:rank<=3?"0 2px 12px #0002":"none",
+            transform:rank<=3?"scale(1.01)":"none",
+            transition:"all .2s"
+          }}>
+            {/* Rank */}
+            <div style={{width:36,textAlign:"center",flexShrink:0}}>
+              {rank<=3
+                ?<span style={{fontSize:24}}>{medals[idx]}</span>
+                :<span style={{fontSize:14,fontWeight:800,color:"#bbb"}}>#{rank}</span>}
+            </div>
+            {/* Avatar */}
+            <div style={{width:36,height:36,borderRadius:"50%",background:isMe?G:"#e0e0e0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,color:isMe?"#fff":"#999"}}>
+              {l.name?.charAt(0)?.toUpperCase()||"?"}
+            </div>
+            {/* Info */}
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:isMe?800:600,color:isMe?G:DK,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                {l.name}{isMe?" (You)":""}
+              </div>
+              <div style={{display:"flex",gap:6,marginTop:3,alignItems:"center"}}>
+                {l.level&&<span style={{fontSize:10,fontWeight:700,color:levelColors[l.level]||"#888"}}>{l.level}</span>}
+                {l.streak>0&&<span style={{fontSize:11,color:"#888"}}>🔥{l.streak}</span>}
+              </div>
+            </div>
+            {/* XP */}
+            <div style={{textAlign:"right",flexShrink:0}}>
+              <div style={{fontWeight:800,color:G,fontSize:15}}>⭐{isMe?myXp:l.xp}</div>
+              {l.peel_avg_score>0&&<div style={{fontSize:10,color:"#aaa"}}>PEEL: {l.peel_avg_score}/20</div>}
+            </div>
           </div>
-        </div>;
+        );
       })}
-      {!load&&lb.length>0&&<Card style={{background:"#f9fbe7",marginTop:8}}>
-        <div style={{fontSize:12,color:"#888",marginBottom:8}}>📊 Stats</div>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          {[["👥 Students",lb.length],["🏆 Top XP",`${lb[0]?.xp||0} XP`],["📍 Your Rank",rank?`#${rank}`:"—"],["⭐ Your XP",`${myXp} XP`]].map(([l,v])=>(
-            <div key={l} style={{textAlign:"center",background:"#fff",borderRadius:10,padding:"8px 4px"}}>
-              <div style={{fontSize:13,fontWeight:700,color:DK}}>{v}</div>
-              <div style={{fontSize:11,color:"#888"}}>{l}</div>
-            </div>
-          ))}
-        </div>
-      </Card>}
+
+      {/* Stats */}
+      {!loading&&lb.length>0&&(
+        <Card style={{background:"#f9fbe7",marginTop:8}}>
+          <div style={{fontSize:12,color:"#888",marginBottom:8}}>📊 Leaderboard Stats</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {[
+              ["👥 Students",lb.length],
+              ["🏆 Top XP",`${lb[0]?.xp||0} XP`],
+              ["📍 Your Rank",myRank?`#${myRank}`:"—"],
+              ["⭐ Your XP",`${myXp} XP`],
+            ].map(([label,val])=>(
+              <div key={label} style={{textAlign:"center",background:"#fff",borderRadius:10,padding:"8px 4px"}}>
+                <div style={{fontSize:13,fontWeight:700,color:DK}}>{val}</div>
+                <div style={{fontSize:11,color:"#888"}}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
 
-/* ─── SETTINGS ─────────────────────────────────────── */
-function SettingsScreen({user,xp,place,onTheme,onLogout,G,LT,DK}) {
-  const [notifP,sNP]  = useState(typeof Notification!=="undefined"?Notification.permission:"default");
-  const [notifT,sNT]  = useState(localStorage.getItem("wup_notif_time")||"08:00");
-  const [saving,sSaving]=useState(false);
-  const [saved,sSaved] =useState(false);
-  const [offSt,sOff]  = useState("checking");
-  const [caching,sCaching]=useState(false);
-  const [activeT,sAT] = useState(localStorage.getItem("wup_theme")||"default");
+/* ══ XP SYSTEM & UNLOCKS ══ */
+const XP_PER_MODULE = {
+  grammar:5, vocabulary:5, reading:20, mistakes:10, quiz:10, peel:50
+};
 
-  useEffect(()=>{
-    (async()=>{
-      try{const r=await (async()=>{try{const db=await new Promise((res,rej)=>{const r=indexedDB.open("writeup-v1",1);r.onupgradeneeded=e=>{if(!e.target.result.objectStoreNames.contains("c"))e.target.result.createObjectStore("c",{keyPath:"k"});};r.onsuccess=e=>res(e.target.result);r.onerror=e=>rej(e);});const tx=db.transaction("c","readonly");const req=tx.objectStore("c").get("ready");return new Promise(res=>{req.onsuccess=()=>res(req.result?.v||false);req.onerror=()=>res(false);});}catch{return false;}})();sOff(r?"ready":"not_cached");}catch{}
-    })();
-  },[]);
+const UNLOCKS = [
+  { xp:100,  type:"peel_topics",  label:"Advanced PEEL Topics",     desc:"Unlock 4 challenging writing topics",  icon:"📝" },
+  { xp:200,  type:"theme",        label:"Dark Forest Theme",         desc:"Unlock a deep green visual theme",     icon:"🌲" },
+  { xp:500,  type:"level",        label:"Intermediate Level",        desc:"Automatically move to Intermediate",   icon:"🌿" },
+  { xp:800,  type:"exercises",    label:"Advanced Exercises",        desc:"Unlock harder grammar & quiz sets",    icon:"🎯" },
+  { xp:1000, type:"theme",        label:"Ocean Blue Theme",          desc:"Unlock a blue ocean visual theme",     icon:"🌊" },
+  { xp:1500, type:"level",        label:"Advanced Level",            desc:"Automatically move to Advanced",       icon:"🌳" },
+  { xp:2000, type:"certificate",  label:"Certificate of Achievement",desc:"Download your official PDF certificate",icon:"🏆" },
+];
 
-  const enableNotif=async()=>{
-    if(typeof Notification==="undefined")return;
-    const p=await Notification.requestPermission();
-    sNP(p);
-    if(p==="granted"){localStorage.setItem("wup_notif_enabled","true");new Notification("✅ Enabled!",{body:"Daily reminder set for "+notifT});}
-  };
-  const saveNotif=()=>{
-    sSaving(true);localStorage.setItem("wup_notif_time",notifT);
-    setTimeout(()=>{sSaving(false);sSaved(true);setTimeout(()=>sSaved(false),2000);},500);
-  };
-  const doCache=async()=>{
-    sCaching(true);
-    try{
-      const db=await new Promise((res,rej)=>{const r=indexedDB.open("writeup-v1",1);r.onupgradeneeded=e=>{if(!e.target.result.objectStoreNames.contains("c"))e.target.result.createObjectStore("c",{keyPath:"k"});};r.onsuccess=e=>res(e.target.result);r.onerror=e=>rej(e);});
-      const items=[...GRAMMAR_BANK.map((v,i)=>({k:`g${i}`,v})),...VOCAB_BANK.map((v,i)=>({k:`vb${i}`,v})),...MISTAKES_BANK.map((v,i)=>({k:`m${i}`,v})),{k:"ready",v:true}];
-      for(const item of items){const tx=db.transaction("c","readwrite");tx.objectStore("c").put(item);await new Promise(r=>{tx.oncomplete=r;tx.onerror=r;});}
-      sOff("ready");
-      if(typeof Notification!=="undefined"&&Notification.permission==="granted")new Notification("✅ Cached!",{body:"Content available offline."});
-    }catch{alert("Could not cache. Try again.");}
-    sCaching(false);
-  };
-  const doTheme=k=>{sAT(k);localStorage.setItem("wup_theme",k);onTheme(THEMES[k]);};
-  const doCert=()=>{
-    const canvas=document.createElement("canvas");canvas.width=800;canvas.height=560;
-    const ctx=canvas.getContext("2d");
-    ctx.fillStyle="#f9fbe7";ctx.fillRect(0,0,800,560);
-    ctx.strokeStyle="#2D6A4F";ctx.lineWidth=8;ctx.strokeRect(20,20,760,520);
-    ctx.strokeStyle="#81c784";ctx.lineWidth=3;ctx.strokeRect(30,30,740,500);
-    ctx.fillStyle="#2D6A4F";ctx.font="bold 36px Georgia,serif";ctx.textAlign="center";ctx.fillText("WriteUP UPGC",400,90);
-    ctx.font="17px Georgia,serif";ctx.fillStyle="#555";ctx.fillText("Université Peleforo Gon Coulibaly · Korhogo, Côte d'Ivoire",400,120);
-    ctx.fillStyle="#2D6A4F";ctx.fillRect(100,135,600,3);
-    ctx.font="bold 26px Georgia,serif";ctx.fillStyle="#1b4332";ctx.fillText("Certificate of Achievement",400,180);
-    ctx.font="17px Georgia,serif";ctx.fillStyle="#333";ctx.fillText("This certifies that",400,225);
-    ctx.font="bold 40px Georgia,serif";ctx.fillStyle="#2D6A4F";ctx.fillText(user?.name||"Student",400,278);
-    const nw=ctx.measureText(user?.name||"Student").width;ctx.fillStyle="#81c784";ctx.fillRect(400-nw/2,288,nw,3);
-    ctx.font="17px Georgia,serif";ctx.fillStyle="#333";
-    ctx.fillText("has successfully completed the WriteUP UPGC Academic English Programme",400,330);
-    ctx.fillText(`reaching ${place?.level||"Beginner"} level with ${xp} XP earned`,400,360);
-    ctx.font="bold 15px Georgia,serif";ctx.fillStyle="#2D6A4F";
-    [["Level",place?.level||"Beginner"],["XP Earned",String(xp)],["Date",new Date().toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})]].forEach(([l,v],i)=>{
-      const px=160+i*220;ctx.fillText(l,px,415);ctx.font="13px Georgia,serif";ctx.fillStyle="#555";ctx.fillText(v,px,435);ctx.font="bold 15px Georgia,serif";ctx.fillStyle="#2D6A4F";
+const THEMES = {
+  default: { primary:"#2D6A4F", light:"#d8f3dc", dark:"#1b4332", name:"Default Green" },
+  forest:  { primary:"#1a3a2a", light:"#c8e6c9", dark:"#0d1f17", name:"Dark Forest" },
+  ocean:   { primary:"#1565c0", light:"#bbdefb", dark:"#0d47a1", name:"Ocean Blue" },
+};
+
+const ENCOURAGE_MESSAGES = [
+  { title:"🔥 Already done today!", body:"You've already earned XP for this module today. Come back tomorrow for more!", sub:"But practice makes perfect — keep going!" },
+  { title:"💪 Great effort!", body:"No XP today — you already earned it! But every practice session counts.", sub:"Consistency is the key to mastery." },
+  { title:"⭐ You're dedicated!", body:"XP already collected today. Your commitment shows real growth!", sub:"See you tomorrow for fresh XP!" },
+  { title:"🎯 Keep practising!", body:"Today's XP is already in your account. Extra practice = extra mastery!", sub:"The best students practise even without rewards." },
+];
+
+/* ══ OFFLINE CACHE (IndexedDB) ══ */
+const DB_NAME = "writeup-offline";
+const DB_VERSION = 1;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains("content"))
+        db.createObjectStore("content", { keyPath:"key" });
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+async function cacheContent(key, data) {
+  try {
+    const db = await openDB();
+    const tx = db.transaction("content","readwrite");
+    tx.objectStore("content").put({ key, data, cachedAt: new Date().toISOString() });
+    await new Promise(r => { tx.oncomplete = r; tx.onerror = r; });
+  } catch(e) { console.error("Cache error:", e); }
+}
+
+async function getCachedContent(key) {
+  try {
+    const db = await openDB();
+    const tx = db.transaction("content","readonly");
+    const req = tx.objectStore("content").get(key);
+    return new Promise(resolve => {
+      req.onsuccess = () => resolve(req.result?.data || null);
+      req.onerror = () => resolve(null);
     });
-    ctx.fillStyle="#888";ctx.font="12px Georgia,serif";ctx.fillText("writeup-upgc.vercel.app",400,510);
-    const a=document.createElement("a");a.href=canvas.toDataURL("image/png");a.download=`WriteUP_Certificate_${(user?.name||"Student").replace(/\s+/g,"_")}.png`;a.click();
+  } catch(e) { return null; }
+}
+
+async function cacheAllOfflineContent() {
+  // Cache all Grammar exercises
+  for (let i = 0; i < GRAMMAR_BANK.length; i++) {
+    await cacheContent(`grammar_${i}`, GRAMMAR_BANK[i]);
+  }
+  // Cache all Vocabulary cards
+  for (let i = 0; i < VOCAB_BANK.length; i++) {
+    await cacheContent(`vocab_${i}`, VOCAB_BANK[i]);
+  }
+  // Cache mistakes
+  for (let i = 0; i < MISTAKES_BANK.length; i++) {
+    await cacheContent(`mistake_${i}`, MISTAKES_BANK[i]);
+  }
+  await cacheContent("offline_ready", { ready:true, cachedAt:new Date().toISOString() });
+  return true;
+}
+
+async function isOfflineReady() {
+  const result = await getCachedContent("offline_ready");
+  return !!result?.ready;
+}
+
+/* ══ CERTIFICATE GENERATOR ══ */
+function generateCertificate(userName, level, xp, date) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 800; canvas.height = 560;
+  const ctx = canvas.getContext("2d");
+  // Background
+  ctx.fillStyle = "#f9fbe7";
+  ctx.fillRect(0, 0, 800, 560);
+  // Border
+  ctx.strokeStyle = "#2D6A4F";
+  ctx.lineWidth = 8;
+  ctx.strokeRect(20, 20, 760, 520);
+  ctx.strokeStyle = "#81c784";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(30, 30, 740, 500);
+  // Header
+  ctx.fillStyle = "#2D6A4F";
+  ctx.font = "bold 36px Georgia, serif";
+  ctx.textAlign = "center";
+  ctx.fillText("WriteUP UPGC", 400, 90);
+  ctx.font = "18px Georgia, serif";
+  ctx.fillStyle = "#555";
+  ctx.fillText("Université Peleforo Gon Coulibaly · Korhogo, Côte d'Ivoire", 400, 120);
+  // Divider
+  ctx.fillStyle = "#2D6A4F";
+  ctx.fillRect(100, 135, 600, 3);
+  // Certificate title
+  ctx.font = "bold 28px Georgia, serif";
+  ctx.fillStyle = "#1b4332";
+  ctx.fillText("Certificate of Achievement", 400, 185);
+  // Body
+  ctx.font = "18px Georgia, serif";
+  ctx.fillStyle = "#333";
+  ctx.fillText("This certifies that", 400, 230);
+  // Student name
+  ctx.font = "bold 42px Georgia, serif";
+  ctx.fillStyle = "#2D6A4F";
+  ctx.fillText(userName, 400, 285);
+  // Underline name
+  const nameWidth = ctx.measureText(userName).width;
+  ctx.fillStyle = "#81c784";
+  ctx.fillRect(400 - nameWidth/2, 295, nameWidth, 3);
+  // Achievement text
+  ctx.font = "18px Georgia, serif";
+  ctx.fillStyle = "#333";
+  ctx.fillText("has successfully completed the WriteUP UPGC Academic English Programme", 400, 335);
+  ctx.fillText(`reaching ${level} level with ${xp} XP earned`, 400, 365);
+  // Stats row
+  ctx.font = "bold 16px Georgia, serif";
+  ctx.fillStyle = "#2D6A4F";
+  [["Level", level], ["XP Earned", xp.toString()], ["Date", date]].forEach(([label, val], i) => {
+    const x = 180 + i * 220;
+    ctx.fillText(label, x, 420);
+    ctx.font = "14px Georgia, serif";
+    ctx.fillStyle = "#555";
+    ctx.fillText(val, x, 440);
+    ctx.font = "bold 16px Georgia, serif";
+    ctx.fillStyle = "#2D6A4F";
+  });
+  // Footer
+  ctx.fillStyle = "#888";
+  ctx.font = "13px Georgia, serif";
+  ctx.fillText("This certificate was issued by WriteUP UPGC — Academic English Platform", 400, 500);
+  ctx.fillText("writeup-upgc.vercel.app", 400, 520);
+  return canvas.toDataURL("image/png");
+}
+
+const NOTIF_MESSAGES = {
+  daily: [
+    { title:"✍️ WriteUP UPGC", body:"Your daily English challenge is ready! Keep your streak going 🔥" },
+    { title:"📚 Time to learn!", body:"New grammar exercise + word of the day waiting for you." },
+    { title:"🎯 Daily challenge!", body:"Complete today's modules and earn XP. Don't break your streak!" },
+    { title:"✏️ WriteUP UPGC", body:"5 minutes of English today = big progress this week. Let's go!" },
+  ],
+  inactive: [
+    { title:"😴 We miss you!", body:"You haven't practised English in 2 days. Come back and keep your progress!" },
+    { title:"⚠️ Your streak is at risk!", body:"Log in now to save your streak and continue your English journey." },
+    { title:"📉 Don't lose your progress!", body:"2 days without practice. Your classmates are moving ahead — come back!" },
+  ],
+  levelUp: (level) => ({ title:"🏆 Level Up!", body:`Congratulations! You just reached ${level} level. Keep pushing! 🎉` }),
+  peelLow: (score) => ({ title:"💪 Keep improving!", body:`Your PEEL score was ${score}/20. Review the feedback and try again — you can do better!` }),
+  weekly: [
+    { title:"📅 Weekly Challenge!", body:"A new weekly challenge just dropped! Complete all 6 modules this week for bonus XP. 🌟" },
+    { title:"🌟 New week, new goals!", body:"This week's challenge: score 15+/20 on your PEEL paragraph. Ready?" },
+  ],
+};
+
+async function registerSW() {
+  if (!("serviceWorker" in navigator)) return null;
+  try {
+    const reg = await navigator.serviceWorker.register("/sw.js");
+    return reg;
+  } catch (e) { console.error("SW registration failed:", e); return null; }
+}
+
+async function requestNotifPermission() {
+  if (!("Notification" in window)) return "unsupported";
+  if (Notification.permission === "granted") return "granted";
+  if (Notification.permission === "denied") return "denied";
+  const result = await Notification.requestPermission();
+  return result;
+}
+
+function scheduleNotification(sw, { title, body, delayMs }) {
+  if (!sw || Notification.permission !== "granted") return;
+  sw.active?.postMessage({ type:"SCHEDULE_NOTIFICATION", title, body, delay:delayMs });
+}
+
+function showNotificationNow(title, body) {
+  if (Notification.permission === "granted") {
+    new Notification(title, { body, icon:"/favicon.svg", vibrate:[200,100,200] });
+  }
+}
+
+function scheduleDailyReminder(sw, timeStr) {
+  // timeStr = "HH:MM"
+  const [h, m] = timeStr.split(":").map(Number);
+  const now = new Date();
+  const next = new Date();
+  next.setHours(h, m, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  const delay = next - now;
+  const msg = NOTIF_MESSAGES.daily[Math.floor(Math.random() * NOTIF_MESSAGES.daily.length)];
+  scheduleNotification(sw, { ...msg, delayMs: delay });
+  // Store in localStorage for persistence
+  localStorage.setItem("writeup_notif_time", timeStr);
+}
+
+/* ── Settings ── */
+function Settings({user, onLogout, xp, placement, onThemeChange}) {
+  const [notifPerm, setNotifPerm] = useState(Notification?.permission || "default");
+  const [notifTime, setNotifTime] = useState(localStorage.getItem("writeup_notif_time") || "08:00");
+  const [notifEnabled, setNotifEnabled] = useState(localStorage.getItem("writeup_notif_enabled") === "true");
+  const [swReg, setSwReg] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [offlineStatus, setOfflineStatus] = useState("checking");
+  const [caching, setCaching] = useState(false);
+  const [activeTheme, setActiveTheme] = useState(localStorage.getItem("writeup_theme") || "default");
+
+  useEffect(() => {
+    registerSW().then(reg => setSwReg(reg));
+    isOfflineReady().then(ready => setOfflineStatus(ready ? "ready" : "not_cached"));
+  }, []);
+
+  const enableNotifications = async () => {
+    const perm = await requestNotifPermission();
+    setNotifPerm(perm);
+    if (perm === "granted") {
+      setNotifEnabled(true);
+      localStorage.setItem("writeup_notif_enabled", "true");
+      scheduleDailyReminder(swReg, notifTime);
+      showNotificationNow("✅ Notifications enabled!", "Daily reminder set for " + notifTime);
+    }
   };
 
-  const lvl=getLvl(xp);
-  const canF=xp>=200,canO=xp>=1000,canC=xp>=2000;
+  const saveNotifSettings = () => {
+    setSaving(true);
+    if (notifEnabled && notifPerm === "granted") {
+      scheduleDailyReminder(swReg, notifTime);
+      localStorage.setItem("writeup_notif_time", notifTime);
+    }
+    setTimeout(() => { setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2000); }, 500);
+  };
+
+  const handleCacheOffline = async () => {
+    setCaching(true);
+    try {
+      await cacheAllOfflineContent();
+      setOfflineStatus("ready");
+      showNotificationNow("✅ Content cached!", "Grammar, Vocabulary & Mistakes are now available offline.");
+    } catch(e) {
+      alert("Could not cache content. Please try again.");
+    }
+    setCaching(false);
+  };
+
+  const handleThemeChange = (key) => {
+    if (THEMES[key]) {
+      setActiveTheme(key);
+      localStorage.setItem("writeup_theme", key);
+      onThemeChange(THEMES[key]);
+    }
+  };
+
+  const handleCertificate = () => {
+    const dataUrl = generateCertificate(
+      user?.name || "Student",
+      placement?.level || "Beginner",
+      xp,
+      new Date().toLocaleDateString("en-GB", {day:"numeric",month:"long",year:"numeric"})
+    );
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = `WriteUP_UPGC_Certificate_${user?.name?.replace(/\s+/g,"_")}.png`;
+    a.click();
+  };
+
+  const lvl = getLvl(xp);
+  const canForest = xp >= 200;
+  const canOcean = xp >= 1000;
+  const canCertificate = xp >= 2000;
 
   return (
     <div style={{padding:18}}>
-      <h3 style={{color:DK,marginBottom:16}}>⚙️ Settings</h3>
+      <h3 style={{color:"#1b4332",marginBottom:16}}>⚙️ Settings</h3>
+
+      {/* Profile */}
       <Card style={{marginBottom:14,padding:"14px 16px"}}>
         <div style={{fontSize:12,color:"#888",marginBottom:2}}>Logged in as</div>
-        <div style={{fontWeight:700,color:DK,fontSize:15}}>{user?.name}</div>
+        <div style={{fontWeight:700,color:"#1b4332",fontSize:15}}>{user?.name}</div>
         <div style={{fontSize:13,color:"#888",marginBottom:8}}>{user?.email}</div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          <span style={{background:LT,color:G,borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>{place?.level||"Beginner"}</span>
+          <span style={{background:"#d8f3dc",color:"#2D6A4F",borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>{placement?.level||"Beginner"}</span>
           <span style={{background:"#e3f2fd",color:"#1565c0",borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>⭐ {xp} XP</span>
           <span style={{background:"#fff8e1",color:"#f57c00",borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>{lvl.name}</span>
         </div>
       </Card>
 
-      {/* Themes */}
+      {/* 🎨 Themes */}
       <Card style={{marginBottom:14}}>
-        <div style={{fontWeight:700,color:DK,fontSize:15,marginBottom:12}}>🎨 Visual Themes</div>
-        {[{k:"default",name:"🌿 Default Green",locked:false,req:0},{k:"forest",name:"🌲 Dark Forest",locked:!canF,req:200},{k:"ocean",name:"🌊 Ocean Blue",locked:!canO,req:1000}].map(t=>(
-          <div key={t.k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"10px 12px",borderRadius:12,background:activeT===t.k?"#e8f5e9":t.locked?"#f5f5f5":"#fff",border:activeT===t.k?`2px solid ${G}`:"1.5px solid #eee",opacity:t.locked?.6:1}}>
+        <div style={{fontWeight:700,color:"#1b4332",fontSize:15,marginBottom:12}}>🎨 Visual Themes</div>
+        {[
+          { key:"default", name:"🌿 Default Green", locked:false, xpReq:0 },
+          { key:"forest",  name:"🌲 Dark Forest",   locked:!canForest, xpReq:200 },
+          { key:"ocean",   name:"🌊 Ocean Blue",    locked:!canOcean,  xpReq:1000 },
+        ].map(t=>(
+          <div key={t.key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"10px 12px",borderRadius:12,background:activeTheme===t.key?"#e8f5e9":t.locked?"#f5f5f5":"#fff",border:activeTheme===t.key?"2px solid #2D6A4F":"1.5px solid #eee",opacity:t.locked?.6:1}}>
             <div>
-              <div style={{fontWeight:700,color:DK,fontSize:13}}>{t.name}</div>
-              {t.locked&&<div style={{fontSize:11,color:"#f57c00"}}>🔒 Unlock at {t.req} XP ({t.req-xp} more)</div>}
+              <div style={{fontWeight:700,color:"#1b4332",fontSize:13}}>{t.name}</div>
+              {t.locked&&<div style={{fontSize:11,color:"#f57c00"}}>🔒 Unlock at {t.xpReq} XP ({t.xpReq-xp} more needed)</div>}
             </div>
-            {!t.locked&&<button onClick={()=>doTheme(t.k)} style={{background:activeT===t.k?G:"#e0e0e0",color:activeT===t.k?"#fff":"#555",border:"none",borderRadius:10,padding:"6px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{activeT===t.k?"Active":"Apply"}</button>}
+            {!t.locked&&(
+              <button onClick={()=>handleThemeChange(t.key)}
+                style={{background:activeTheme===t.key?"#2D6A4F":"#e0e0e0",color:activeTheme===t.key?"#fff":"#555",border:"none",borderRadius:10,padding:"6px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
+                {activeTheme===t.key?"Active":"Apply"}
+              </button>
+            )}
           </div>
         ))}
       </Card>
 
-      {/* Certificate */}
-      <Card style={{marginBottom:14,background:canC?"#f9fbe7":"#f5f5f5",opacity:canC?1:.7}}>
+      {/* 🏆 Certificate */}
+      <Card style={{marginBottom:14,background:canCertificate?"#f9fbe7":"#f5f5f5",opacity:canCertificate?1:.7}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
-            <div style={{fontWeight:700,color:DK,fontSize:15}}>🏆 Certificate</div>
-            <div style={{fontSize:12,color:"#888",marginTop:3}}>{canC?"Download your official certificate":"🔒 Unlock at 2000 XP — "+String(2000-xp)+" more needed"}</div>
+            <div style={{fontWeight:700,color:"#1b4332",fontSize:15}}>🏆 Certificate of Achievement</div>
+            <div style={{fontSize:12,color:"#888",marginTop:3}}>
+              {canCertificate
+                ?"Download your official achievement certificate as PNG"
+                :`🔒 Unlock at 2000 XP — you need ${2000-xp} more XP`}
+            </div>
           </div>
-          {canC&&<button onClick={doCert} style={{background:G,color:"#fff",border:"none",borderRadius:10,padding:"8px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>⬇️ Download</button>}
+          {canCertificate&&(
+            <button onClick={handleCertificate}
+              style={{background:"#2D6A4F",color:"#fff",border:"none",borderRadius:10,padding:"8px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>
+              ⬇️ Download
+            </button>
+          )}
         </div>
-        {!canC&&<div style={{background:"#ffe082",borderRadius:99,height:6,marginTop:10}}><div style={{background:"#f9a825",height:6,borderRadius:99,width:`${Math.min(100,Math.round((xp/2000)*100))}%`,transition:"width .5s"}}/></div>}
+        {!canCertificate&&(
+          <div style={{background:"#ffe082",borderRadius:99,height:6,marginTop:10}}>
+            <div style={{background:"#f9a825",height:6,borderRadius:99,width:`${Math.min(100,Math.round((xp/2000)*100))}%`,transition:"width .5s"}}/>
+          </div>
+        )}
       </Card>
 
-      {/* Offline */}
+      {/* 📴 Offline Mode */}
       <Card style={{marginBottom:14}}>
-        <div style={{fontWeight:700,color:DK,fontSize:15,marginBottom:6}}>📴 Offline Mode</div>
-        <div style={{fontSize:12,color:"#888",marginBottom:12}}>Cache Grammar, Vocabulary & Mistakes for use without internet.</div>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-          <div style={{width:10,height:10,borderRadius:"50%",background:offSt==="ready"?"#4caf50":offSt==="checking"?"#ff9800":"#bbb"}}/>
-          <span style={{fontSize:13,color:"#555",fontWeight:600}}>{offSt==="ready"?"✅ Cached & Ready":offSt==="checking"?"Checking…":"Not cached yet"}</span>
+        <div style={{fontWeight:700,color:"#1b4332",fontSize:15,marginBottom:6}}>📴 Offline Mode</div>
+        <div style={{fontSize:12,color:"#888",marginBottom:12}}>
+          Cache Grammar, Vocabulary & Mistakes locally so you can practise without internet.
         </div>
-        <button onClick={doCache} disabled={caching||offSt==="ready"}
-          style={{width:"100%",background:offSt==="ready"?"#e8f5e9":G,color:offSt==="ready"?G:"#fff",border:offSt==="ready"?`1.5px solid ${G}`:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:14,cursor:caching||offSt==="ready"?"default":"pointer",fontFamily:"inherit",opacity:caching?.7:1}}>
-          {caching?"⏳ Caching…":offSt==="ready"?"✅ Already cached":"📥 Cache for Offline Use"}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{width:10,height:10,borderRadius:"50%",background:offlineStatus==="ready"?"#4caf50":offlineStatus==="checking"?"#ff9800":"#bbb"}}/>
+            <span style={{fontSize:13,color:"#555",fontWeight:600}}>
+              {offlineStatus==="ready"?"Content cached ✅":offlineStatus==="checking"?"Checking…":"Not cached yet"}
+            </span>
+          </div>
+        </div>
+        <button onClick={handleCacheOffline} disabled={caching||offlineStatus==="ready"}
+          style={{width:"100%",background:offlineStatus==="ready"?"#e8f5e9":"#2D6A4F",color:offlineStatus==="ready"?"#2D6A4F":"#fff",border:offlineStatus==="ready"?"1.5px solid #2D6A4F":"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:14,cursor:caching||offlineStatus==="ready"?"default":"pointer",fontFamily:"inherit",opacity:caching?.7:1}}>
+          {caching?"⏳ Caching content…":offlineStatus==="ready"?"✅ Already cached — Ready offline":"📥 Cache for Offline Use"}
         </button>
-      </Card>
-
-      {/* Notifications */}
-      <Card style={{marginBottom:14}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:notifP==="granted"?12:0}}>
-          <div>
-            <div style={{fontWeight:700,color:DK,fontSize:15}}>🔔 Notifications</div>
-            <div style={{fontSize:12,color:"#888",marginTop:2}}>{notifP==="granted"?"✅ Enabled":notifP==="denied"?"❌ Blocked in browser settings":"Not yet enabled"}</div>
-          </div>
-          {notifP!=="granted"&&notifP!=="denied"&&<button onClick={enableNotif} style={{background:G,color:"#fff",border:"none",borderRadius:10,padding:"8px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>Enable</button>}
-        </div>
-        {notifP==="granted"&&<>
-          <div style={{marginBottom:12}}>
-            <div style={{fontSize:13,fontWeight:600,color:DK,marginBottom:6}}>⏰ Daily reminder time</div>
-            <input type="time" value={notifT} onChange={e=>sNT(e.target.value)} style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${G}`,borderRadius:10,padding:"10px 14px",fontSize:15,outline:"none",fontFamily:"inherit",color:DK}}/>
-          </div>
-          <button onClick={saveNotif} style={{width:"100%",background:saved?"#e8f5e9":G,color:saved?G:"#fff",border:saved?`1.5px solid ${G}`:"none",borderRadius:12,padding:"11px",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit",transition:"all .3s"}}>
-            {saving?"Saving…":saved?"✅ Saved!":"Save Settings"}
+        {offlineStatus==="ready"&&(
+          <button onClick={async()=>{
+            await cacheContent("offline_ready",{ready:false});
+            setOfflineStatus("not_cached");
+          }} style={{width:"100%",background:"none",border:"none",color:"#bbb",fontSize:12,cursor:"pointer",marginTop:6,fontFamily:"inherit"}}>
+            Clear cache
           </button>
-        </>}
+        )}
       </Card>
 
+      {/* 🔔 Notifications */}
+      <Card style={{marginBottom:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div>
+            <div style={{fontWeight:700,color:"#1b4332",fontSize:15}}>🔔 Notifications</div>
+            <div style={{fontSize:12,color:"#888",marginTop:2}}>
+              {notifPerm==="granted"?"✅ Enabled":notifPerm==="denied"?"❌ Blocked in browser settings":"Not yet enabled"}
+            </div>
+          </div>
+          {notifPerm!=="granted"&&notifPerm!=="denied"&&(
+            <button onClick={enableNotifications}
+              style={{background:"#2D6A4F",color:"#fff",border:"none",borderRadius:10,padding:"8px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
+              Enable
+            </button>
+          )}
+        </div>
+        {notifPerm==="granted"&&(
+          <>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:13,fontWeight:600,color:"#1b4332",marginBottom:6}}>⏰ Daily reminder time</div>
+              <input type="time" value={notifTime} onChange={e=>setNotifTime(e.target.value)}
+                style={{width:"100%",boxSizing:"border-box",border:"1.5px solid #2D6A4F",borderRadius:10,padding:"10px 14px",fontSize:15,outline:"none",fontFamily:"inherit",color:"#1b4332"}}/>
+            </div>
+            <button onClick={saveNotifSettings}
+              style={{width:"100%",background:saved?"#e8f5e9":"#2D6A4F",color:saved?"#2D6A4F":"#fff",border:saved?"1.5px solid #2D6A4F":"none",borderRadius:12,padding:"11px",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit",transition:"all .3s"}}>
+              {saving?"Saving…":saved?"✅ Saved!":"Save Settings"}
+            </button>
+          </>
+        )}
+      </Card>
+
+      {/* Privacy */}
       <Card style={{marginBottom:14,padding:"14px 16px"}}>
-        <div style={{fontWeight:600,color:DK,fontSize:14}}>🔒 Privacy</div>
+        <div style={{fontWeight:600,color:"#1b4332",fontSize:14}}>🔒 Privacy</div>
         <div style={{fontSize:12,color:"#888",marginTop:4}}>ARTCI compliance n°2013-450 · Secured by Supabase</div>
       </Card>
 
-      <button onClick={onLogout} style={{width:"100%",marginTop:4,background:"#ffebee",color:"#c62828",border:"1.5px solid #ffcdd2",borderRadius:12,padding:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Log Out</button>
+      <button onClick={onLogout}
+        style={{width:"100%",marginTop:4,background:"#ffebee",color:"#c62828",border:"1.5px solid #ffcdd2",borderRadius:12,padding:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+        Log Out
+      </button>
+    </div>
+  );
+}
+  const [notifPerm, setNotifPerm] = useState(Notification?.permission || "default");
+  const [notifTime, setNotifTime] = useState(localStorage.getItem("writeup_notif_time") || "08:00");
+  const [notifEnabled, setNotifEnabled] = useState(localStorage.getItem("writeup_notif_enabled") === "true");
+  const [swReg, setSwReg] = useState(null);
+  const [showEncourage, setShowEncourage] = useState(null); // {title,body,sub}
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    registerSW().then(reg => setSwReg(reg));
+  }, []);
+
+  const enableNotifications = async () => {
+    const perm = await requestNotifPermission();
+    setNotifPerm(perm);
+    if (perm === "granted") {
+      setNotifEnabled(true);
+      localStorage.setItem("writeup_notif_enabled", "true");
+      scheduleDailyReminder(swReg, notifTime);
+      showNotificationNow("✅ Notifications enabled!", "You'll receive your daily challenge reminder at " + notifTime);
+    }
+  };
+
+  const saveNotifSettings = () => {
+    setSaving(true);
+    if (notifEnabled && notifPerm === "granted") {
+      scheduleDailyReminder(swReg, notifTime);
+      localStorage.setItem("writeup_notif_time", notifTime);
+    }
+    setTimeout(() => { setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2000); }, 500);
+  };
+
+  const lvl = getLvl(xp);
+
+  return (
+    <div style={{padding:18}}>
+      <h3 style={{color:DK,marginBottom:16}}>⚙️ Settings</h3>
+
+      {/* Profile card */}
+      <Card style={{marginBottom:14,padding:"14px 16px"}}>
+        <div style={{fontSize:12,color:"#888",marginBottom:2}}>Logged in as</div>
+        <div style={{fontWeight:700,color:DK,fontSize:15}}>{user?.name}</div>
+        <div style={{fontSize:13,color:"#888",marginBottom:8}}>{user?.email}</div>
+        <div style={{display:"flex",gap:10}}>
+          <Tag>{placement?.level||"Beginner"}</Tag>
+          <Tag color="#e3f2fd">⭐ {xp} XP</Tag>
+          <Tag color={lvl.color==="#ffd700"?"#fffde7":LT}>{lvl.name}</Tag>
+        </div>
+      </Card>
+
+      {/* 🔔 Notifications */}
+      <Card style={{marginBottom:14}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div>
+            <div style={{fontWeight:700,color:DK,fontSize:15}}>🔔 Notifications</div>
+            <div style={{fontSize:12,color:"#888",marginTop:2}}>
+              {notifPerm==="granted"?"✅ Enabled":notifPerm==="denied"?"❌ Blocked in browser":"Not yet enabled"}
+            </div>
+          </div>
+          {notifPerm!=="granted" && notifPerm!=="denied" && (
+            <button onClick={enableNotifications}
+              style={{background:G,color:"#fff",border:"none",borderRadius:10,padding:"8px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>
+              Enable
+            </button>
+          )}
+          {notifPerm==="denied" && (
+            <span style={{fontSize:11,color:"#e53935",maxWidth:100,textAlign:"right",lineHeight:1.4}}>Enable in browser settings</span>
+          )}
+        </div>
+
+        {notifPerm==="granted" && (
+          <>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:13,fontWeight:600,color:DK,marginBottom:6}}>⏰ Daily reminder time</div>
+              <input type="time" value={notifTime}
+                onChange={e=>setNotifTime(e.target.value)}
+                style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${G}`,borderRadius:10,padding:"10px 14px",fontSize:15,outline:"none",fontFamily:"inherit",color:DK}} />
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:13,fontWeight:600,color:DK,marginBottom:8}}>📬 Notification types</div>
+              {[
+                ["daily","📅 Daily challenge reminder","Every day at your chosen time"],
+                ["inactive","😴 Inactivity alert","After 2 days without practice"],
+                ["peel","💪 PEEL encouragement","After a score below 10/20"],
+                ["level","🏆 Level up celebration","When you reach a new level"],
+                ["weekly","🌟 Weekly challenge","Every Monday morning"],
+              ].map(([key,label,desc])=>{
+                const stored = localStorage.getItem(`writeup_notif_${key}`) !== "false";
+                return (
+                  <div key={key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                    <div>
+                      <div style={{fontSize:13,fontWeight:600,color:DK}}>{label}</div>
+                      <div style={{fontSize:11,color:"#888"}}>{desc}</div>
+                    </div>
+                    <button onClick={()=>{
+                      const cur=localStorage.getItem(`writeup_notif_${key}`)!=="false";
+                      localStorage.setItem(`writeup_notif_${key}`,(!cur).toString());
+                    }}
+                      style={{background:stored?G:"#e0e0e0",color:stored?"#fff":"#999",border:"none",borderRadius:20,padding:"4px 14px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                      {stored?"ON":"OFF"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <button onClick={saveNotifSettings}
+              style={{width:"100%",background:saved?"#e8f5e9":G,color:saved?G:"#fff",border:saved?`1.5px solid ${G}`:"none",borderRadius:12,padding:"11px",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit",transition:"all .3s"}}>
+              {saving?"Saving…":saved?"✅ Saved!":"Save Notification Settings"}
+            </button>
+          </>
+        )}
+      </Card>
+
+      {/* 📴 Offline */}
+      <Card style={{marginBottom:14,padding:"14px 16px"}}>
+        <div style={{fontWeight:600,color:DK,fontSize:14,marginBottom:4}}>📴 Offline Mode</div>
+        <div style={{fontSize:12,color:"#888",marginBottom:10}}>Grammar and Vocabulary work offline once loaded.</div>
+        <button onClick={async()=>{
+          if("serviceWorker" in navigator){
+            const reg=await navigator.serviceWorker.ready;
+            showNotificationNow("✅ Content cached!","Grammar and Vocabulary are now available offline.");
+          }
+        }} style={{background:LT,color:G,border:"none",borderRadius:10,padding:"8px 16px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+          📥 Cache for Offline
+        </button>
+      </Card>
+
+      {/* Privacy */}
+      <Card style={{marginBottom:14,padding:"14px 16px"}}>
+        <div style={{fontWeight:600,color:DK,fontSize:14}}>🔒 Privacy</div>
+        <div style={{fontSize:12,color:"#888",marginTop:4}}>ARTCI compliance n°2013-450 · Data stored securely on Supabase</div>
+      </Card>
+
+      <button onClick={onLogout}
+        style={{width:"100%",marginTop:4,background:"#ffebee",color:"#c62828",border:"1.5px solid #ffcdd2",borderRadius:12,padding:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+        Log Out
+      </button>
     </div>
   );
 }
