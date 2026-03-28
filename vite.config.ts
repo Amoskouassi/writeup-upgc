@@ -4,12 +4,12 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   build: {
-    target: ['es2015', 'chrome58', 'firefox57', 'safari11', 'edge18'],
+    target: 'es2015',
     outDir: 'dist',
-    minify: 'terser',
-    cssCodeSplit: false,
+    minify: false,
     rollupOptions: {
       output: {
+        format: 'iife',
         manualChunks: undefined,
       }
     }
