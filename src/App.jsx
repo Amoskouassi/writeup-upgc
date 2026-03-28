@@ -7,6 +7,7 @@ const THEMES = {
   ocean:   { G:"#1565c0", LT:"#bbdefb", DK:"#0d47a1" },
 };
 
+
 /* ─── SUPABASE ───────────────────────────────────────── */
 const SB  = "https://qnxeyoxashvbljjmqkrp.supabase.co";
 const KEY = "sb_publishable_lgRs4KqlUybNQ--KiZP7BA_m-ntu3CC";
