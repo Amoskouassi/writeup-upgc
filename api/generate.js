@@ -11,40 +11,38 @@ export default async function handler(req, res) {
     if (!prompt || typeof prompt !== "string" || prompt.trim() === "") {
       return res.status(400).json({ error: "prompt is required" });
     }
-    const apiKey = process.env.ANTHROPIC_KEY;
+
+    const apiKey = process.env.GEMINI_KEY;
     if (!apiKey) {
-      return res.status(500).json({ error: "API key not configured on server" });
+      return res.status(500).json({ error: "GEMINI_KEY not configured" });
     }
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-opus-4-6",
-        max_tokens: maxTokens,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: maxTokens },
+        }),
+      }
+    );
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("Anthropic error:", JSON.stringify(data));
+      console.error("Gemini error:", JSON.stringify(data));
       return res.status(response.status).json({
-        error: data?.error?.message || "Anthropic API error",
-        details: data
+        error: data?.error?.message || "Gemini API error",
       });
     }
 
-    const text = data.content?.[0]?.text || "";
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
     return res.status(200).json({ text });
 
   } catch (error) {
     console.error("api/generate.js error:", error);
-    return res.status(500).json({ error: error.message || "Failed to generate content" });
+    return res.status(500).json({ error: error.message });
   }
 }
