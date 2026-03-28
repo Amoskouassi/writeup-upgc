@@ -47,7 +47,7 @@ const ENC = [
   {title:"💪 Great dedication!",   body:"No XP today — you already earned it! Every session builds skills.", sub:"Consistency is the key."},
 ];
 
-/* ─── SIMPLE UI ──────────────────────────────────────── */
+/* ─── UI ──────────────────────────────────────────── */
 function Spinner() {
   return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:48}}>
@@ -107,7 +107,7 @@ const MISTAKES_BANK = [
   {title:"'Since' vs 'For'",fr:"J'étudie l'anglais depuis 3 ans",wrong:"I study English since 3 years.",right:"I have been studying English for 3 years.",rule:"'Since' = a specific point in time. 'For' = a duration. Both require present perfect.",ex:[{w:"She lives here since 5 years.",r:"She has lived here for 5 years."},{w:"I wait since 2 o'clock.",r:"I have been waiting since 2 o'clock."}]},
   {title:"'Actually' ≠ 'Actuellement'",fr:"Actuellement, je travaille à l'UPGC",wrong:"Actually, I am a student at UPGC right now.",right:"Currently, I am a student at UPGC.",rule:"'Actually' means 'in fact'. For 'actuellement', use 'currently', 'at present', or 'at the moment'.",ex:[{w:"Actually, the economy is growing.",r:"Currently, the economy is growing."},{w:"He actually studies medicine.",r:"He is currently studying medicine."}]},
   {title:"Double Negatives",fr:"Je n'ai rien dit",wrong:"I didn't say nothing.",right:"I didn't say anything.",rule:"English does NOT allow double negatives. Use either 'not...anything' OR 'nothing' alone — never both together.",ex:[{w:"She doesn't know nothing.",r:"She doesn't know anything."},{w:"He never tells nobody.",r:"He never tells anybody."}]},
-  {title:"'Assist' vs 'Attend'",fr:"J'ai assisté au cours ce matin",wrong:"I assisted the lecture this morning.",right:"I attended the lecture this morning.",rule:"'Assist' = to help someone. 'Attend' = to be present at an event. Common false friend for French speakers.",ex:[{w:"She assisted the wedding.",r:"She attended the wedding."},{w:"All students must assist the orientation.",r:"All students must attend the orientation."}]},
+  {title:"'Assist' vs 'Attend'",fr:"J'ai assisté au cours ce matin",wrong:"I assisted the lecture this morning.",right:"I attended the lecture this morning.",rule:"'Assist' = to help someone. 'Attend' = to be present at an event.",ex:[{w:"She assisted the wedding.",r:"She attended the wedding."},{w:"All students must assist the orientation.",r:"All students must attend the orientation."}]},
   {title:"Uncountable Nouns",fr:"Des informations / Des conseils",wrong:"She gave me some informations and advices.",right:"She gave me some information and advice.",rule:"These are uncountable in English: information, advice, furniture, equipment, luggage, news, research, knowledge, progress.",ex:[{w:"The news are bad.",r:"The news is bad."},{w:"Can you give me some advices?",r:"Can you give me some advice?"}]},
   {title:"Future Plans",fr:"Je fais ça demain",wrong:"I study tomorrow instead of going out.",right:"I am going to study tomorrow instead of going out.",rule:"For personal future plans, use 'going to' + base verb.",ex:[{w:"She travels to Abidjan next week.",r:"She is going to travel to Abidjan next week."},{w:"I eat with my family tonight.",r:"I am going to eat with my family tonight."}]},
 ];
@@ -270,10 +270,8 @@ function LevelResult({result,onContinue}) {
 }
 
 /* ═══════════════════════════════════════════════════════
-   AUTH
+   CORRECTION 3 — LANDING : logo et titre bien séparés
 ═══════════════════════════════════════════════════════ */
-
-// ── CORRECTION 1 : Landing page — titre en blanc, layout comme image mobile ──
 function Landing({go}) {
   return (
     <div style={{
@@ -282,33 +280,44 @@ function Landing({go}) {
       display:"flex",
       flexDirection:"column",
       alignItems:"center",
-      justifyContent:"flex-start",
-      paddingTop:80,
-      padding:"80px 28px 40px",
+      justifyContent:"center",
+      padding:"40px 28px",
       color:"#fff",
       textAlign:"center",
       fontFamily:"'Segoe UI',sans-serif"
     }}>
-      <div style={{fontSize:72,marginBottom:16}}>✍️</div>
+      {/* Logo seul, bien séparé du titre */}
+      <div style={{fontSize:80,lineHeight:1,marginBottom:20}}>✍️</div>
+
+      {/* Titre et sous-titre */}
       <h1 style={{
-        fontSize:36,
+        fontSize:34,
         fontWeight:900,
         margin:"0 0 10px",
-        color:"#ffffff",         /* ← blanc pur */
-        letterSpacing:1
+        color:"#ffffff",
+        letterSpacing:0.5,
+        lineHeight:1.2
       }}>WriteUP UPGC</h1>
-      <p style={{opacity:.9,fontSize:17,marginBottom:6,color:"#fff"}}>Academic English for L2 Students</p>
-      <p style={{opacity:.65,fontSize:13,marginBottom:56,color:"#fff"}}>Université Peleforo Gon Coulibaly · Korhogo, Côte d'Ivoire</p>
+      <p style={{opacity:.9,fontSize:16,marginBottom:6,color:"#fff",margin:"0 0 8px"}}>
+        Academic English for L2 Students
+      </p>
+      <p style={{opacity:.6,fontSize:13,marginBottom:48,color:"#fff"}}>
+        Université Peleforo Gon Coulibaly · Korhogo, Côte d'Ivoire
+      </p>
+
+      {/* Boutons */}
       <div style={{display:"flex",flexDirection:"column",gap:14,width:"100%",maxWidth:320,marginBottom:48}}>
         <button onClick={()=>go("login")} style={{
           background:"#fff",color:"#2D6A4F",border:"none",borderRadius:14,
-          padding:"16px",fontWeight:800,fontSize:16,cursor:"pointer",width:"100%"
+          padding:"16px",fontWeight:800,fontSize:16,cursor:"pointer",width:"100%",
+          boxShadow:"0 4px 16px rgba(0,0,0,0.15)"
         }}>Log In</button>
         <button onClick={()=>go("register")} style={{
           background:"transparent",color:"#fff",border:"2px solid rgba(255,255,255,0.7)",
           borderRadius:14,padding:"16px",fontWeight:800,fontSize:16,cursor:"pointer",width:"100%"
         }}>Sign Up</button>
       </div>
+
       <div style={{display:"flex",gap:18,opacity:.6,fontSize:12,flexWrap:"wrap",justifyContent:"center"}}>
         {["🌐 PWA","🆓 Free","🎯 Level Test","📚 Rich Content","💾 Cloud Save"].map(t=><span key={t}>{t}</span>)}
       </div>
@@ -316,6 +325,9 @@ function Landing({go}) {
   );
 }
 
+/* ═══════════════════════════════════════════════════════
+   AUTH
+═══════════════════════════════════════════════════════ */
 function AuthForm({mode,onDone,onSwitch}) {
   const [f,sF]=useState({name:"",email:"",pw:""});
   const [load,sL]=useState(false);
@@ -591,7 +603,7 @@ function QuizMod({addXp,onBack,G,LT,DK}) {
       {q.opts.map((o,oi)=>{
         const isC=oi===q.ans,isP=oi===sel;
         let bg="#fff",br="#e0e0e0";
-        if(conf){if(isP&&isC){bg="#e8f5e9";br=G;}else if(isP&&!isC){bg="#ffebee";br="#e53935";}else if(!isP&&isC&&!correct){bg="#fff9c4";br="#f9a825";}}
+        if(conf){if(isP&&isC){bg="#e8f5e9";br=G;}else if(isP&&!isC){bg:"#ffebee";br="#e53935";}else if(!isP&&isC&&!correct){bg="#fff9c4";br="#f9a825";}}
         else if(isP){bg=LT;br=G;}
         return <button key={oi} onClick={()=>{if(!conf){sSel(oi);if(oi===q.ans)sScore(s=>s+1);}}} style={{display:"block",width:"100%",background:bg,border:`2px solid ${br}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:conf?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit"}}>
           {conf&&isP&&isC?"✅ ":conf&&isP&&!isC?"❌ ":conf&&!isP&&isC&&!correct?"💡 ":""}{o}
@@ -607,10 +619,10 @@ function QuizMod({addXp,onBack,G,LT,DK}) {
   );
 }
 
-/* ─── PEEL MODULE ─────────────────────────────────────────────────────────────
-   CORRECTION 2 : L'appel IA passe par /api/generate (backend Vercel)
-   et non directement vers api.anthropic.com (bloqué par CORS en production).
-─────────────────────────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════
+   CORRECTION 1 — PEEL : appel via /api/generate (Vercel)
+   avec fallback direct Anthropic si /api/generate échoue
+═══════════════════════════════════════════════════════ */
 function PeelMod({addXp,onBack,level,G,LT,DK}) {
   const [phase,sPhase]=useState("intro");
   const [tTab,sTTab]=useState(0);
@@ -626,108 +638,127 @@ function PeelMod({addXp,onBack,level,G,LT,DK}) {
 
   const PARTS=[
     {letter:"P",name:"Point",color:"#e3f2fd",icon:"📌",role:"Your opening sentence — state your main argument clearly.",dos:"Start with a strong, confident statement. Be specific.",donts:"Do not begin with a question. Do not be vague."},
-    {letter:"E",name:"Explanation",color:"#e8f5e9",icon:"💬",role:"Explain WHY your point is true. Give 2-3 logical reasons.",dos:"Use linking words: 'Furthermore', 'In addition', 'This means that'.",donts:"Do not simply repeat your Point. Every sentence must add new reasoning."},
-    {letter:"E",name:"Evidence",color:"#fff3e0",icon:"📚",role:"Provide concrete proof — a statistic, study, or expert quote.",dos:"Introduce: 'According to...', 'A study by... found that...'. Name your source.",donts:"Never use vague 'studies show' without naming the study."},
-    {letter:"L",name:"Link",color:"#fce4ec",icon:"🔗",role:"Close the paragraph by connecting back to the essay question.",dos:"Use: 'Therefore...', 'This demonstrates that...', 'It is clear that...'",donts:"Do not introduce new arguments. Do not simply copy your Point."},
+    {letter:"E",name:"Explanation",color:"#e8f5e9",icon:"💬",role:"Explain WHY your point is true. Give 2-3 logical reasons.",dos:"Use: 'Furthermore', 'In addition', 'This means that'.",donts:"Do not simply repeat your Point."},
+    {letter:"E",name:"Evidence",color:"#fff3e0",icon:"📚",role:"Provide concrete proof — a statistic, study, or expert quote.",dos:"Introduce: 'According to...'. Name your source.",donts:"Never use vague 'studies show' without naming the study."},
+    {letter:"L",name:"Link",color:"#fce4ec",icon:"🔗",role:"Close the paragraph by connecting back to the essay question.",dos:"Use: 'Therefore...', 'This demonstrates that...'",donts:"Do not introduce new arguments."},
   ];
 
-  // ── CORRECTION : appel via /api/generate (votre serverless Vercel) ──
+  /* ── Appel IA robuste : /api/generate en priorité, fallback direct ── */
   const callAI=async(isRevision)=>{
     sAiLoad(true);sFb(null);
-    const prompt=`You are a strict English writing examiner evaluating a PEEL paragraph from a ${level} university student in Côte d'Ivoire. Attempt: ${attempts+1}.${isRevision?" Student revised based on previous feedback.":""}
 
-TOPIC: "${c.prompt}"
+    const systemPrompt=`You are a strict English writing examiner for a ${level} university student in Côte d'Ivoire. You MUST respond ONLY with a valid JSON object. Start with { and end with }. Absolutely no text before or after the JSON.`;
+
+    const userPrompt=`Score this PEEL paragraph. Topic: "${c.prompt}"
 POINT: ${vals.point}
 EXPLANATION: ${vals.explanation}
 EVIDENCE: ${vals.evidence}
 LINK: ${vals.link}
+Word minimums (${level}): Point=${minW.point}w, Explanation=${minW.explanation}w, Evidence=${minW.evidence}w, Link=${minW.link}w
 
-WORD MINIMUMS (${level}): Point=${minW.point}w, Explanation=${minW.explanation}w, Evidence=${minW.evidence}w, Link=${minW.link}w
+Return ONLY this JSON (replace values with your assessment):
+{
+  "point_score": 3,
+  "explanation_score": 3,
+  "evidence_score": 2,
+  "link_score": 2,
+  "grammar_score": 2,
+  "length_score": 1,
+  "point_feedback": "Your detailed feedback on the Point here.",
+  "explanation_feedback": "Your detailed feedback on the Explanation here.",
+  "evidence_feedback": "Your detailed feedback on the Evidence here.",
+  "link_feedback": "Your detailed feedback on the Link here.",
+  "grammar_note": "Note one grammar strength and one weakness.",
+  "priority_action": "The single most important thing to improve."
+}
+Scoring rules: point_score 0-4, explanation_score 0-4, evidence_score 0-4, link_score 0-3, grammar_score 0-3, length_score 0-2. Total=/20. Pass=10/20.`;
 
-Start your response with exactly this block (replace X with numbers only):
-##SCORES##
-POINT:X
-EXPLANATION:X
-EVIDENCE:X
-LINK:X
-GRAMMAR:X
-LENGTH:X
-##END##
-
-Scoring: POINT(0-4), EXPLANATION(0-4), EVIDENCE(0-4), LINK(0-3), GRAMMAR(0-3), LENGTH(0-2). Total=/20. Pass=10/20.
-
-Then write structured feedback with these sections:
-## Overall Assessment
-## Point Analysis
-## Explanation Analysis
-## Evidence Analysis
-## Link Analysis
-## Grammar & Vocabulary (show ❌ wrong sentence then ✅ corrected sentence)
-## Priority Actions (3 numbered actions)
-## Encouragement`;
+    /* ── Fonction commune de parsing de la réponse ── */
+    const parseResponse=(text)=>{
+      const match=text.match(/\{[\s\S]*\}/);
+      if(!match) throw new Error("No JSON found");
+      const p=JSON.parse(match[0]);
+      const safe=(v,max)=>Math.min(max,Math.max(0,isNaN(Number(v))?0:Number(v)));
+      const sc={
+        point:   safe(p.point_score,4),
+        expl:    safe(p.explanation_score,4),
+        evidence:safe(p.evidence_score,4),
+        link:    safe(p.link_score,3),
+        grammar: safe(p.grammar_score,3),
+        length:  safe(p.length_score,2),
+      };
+      sc.total=sc.point+sc.expl+sc.evidence+sc.link+sc.grammar+sc.length;
+      return {
+        sc,
+        passed:sc.total>=10,
+        feedbacks:{
+          point:    String(p.point_feedback||""),
+          expl:     String(p.explanation_feedback||""),
+          evidence: String(p.evidence_feedback||""),
+          link:     String(p.link_feedback||""),
+          grammar:  String(p.grammar_note||""),
+          action:   String(p.priority_action||""),
+        }
+      };
+    };
 
     try{
-      // Appel au backend Vercel /api/generate qui détient la clé ANTHROPIC_KEY
-      const response=await fetch("/api/generate",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({prompt, maxTokens:1200})
-      });
+      let result=null;
 
-      if(!response.ok){
-        const errData=await response.json().catch(()=>({}));
-        throw new Error(errData.error||`HTTP ${response.status}`);
+      /* ── Tentative 1 : /api/generate (backend Vercel avec ANTHROPIC_KEY) ── */
+      try{
+        const res=await fetch("/api/generate",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            prompt:`${systemPrompt}\n\n${userPrompt}`,
+            maxTokens:800
+          })
+        });
+        if(res.ok){
+          const data=await res.json();
+          if(data.text) result=parseResponse(data.text);
+        }
+      }catch(e1){
+        console.warn("Backend /api/generate failed, trying direct API:",e1.message);
       }
 
-      const data=await response.json();
-      const text=data.text||"";
-
-      // Parser le bloc ##SCORES##
-      let sc={point:0,expl:0,evidence:0,link:0,grammar:0,length:0,total:0};
-      const block=text.match(/##SCORES##([\s\S]*?)##END##/);
-      if(block){
-        const s=block[1];
-        const ex=key=>{const m=s.match(new RegExp("^"+key+":(\\d+)","im"));return m?Math.max(0,parseInt(m[1])):0;};
-        sc.point=Math.min(4,ex("POINT"));
-        sc.expl=Math.min(4,ex("EXPLANATION"));
-        sc.evidence=Math.min(4,ex("EVIDENCE"));
-        sc.link=Math.min(3,ex("LINK"));
-        sc.grammar=Math.min(3,ex("GRAMMAR"));
-        sc.length=Math.min(2,ex("LENGTH"));
-        sc.total=sc.point+sc.expl+sc.evidence+sc.link+sc.grammar+sc.length;
+      /* ── Tentative 2 : appel direct Anthropic (développement local) ── */
+      if(!result){
+        const res2=await fetch("https://api.anthropic.com/v1/messages",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            model:"claude-sonnet-4-20250514",
+            max_tokens:800,
+            system:systemPrompt,
+            messages:[{role:"user",content:userPrompt}]
+          })
+        });
+        const data2=await res2.json();
+        const raw=data2.content?.find(b=>b.type==="text")?.text||"";
+        result=parseResponse(raw);
       }
 
-      // Texte du feedback (après ##END##)
-      let fbText=text;
-      const endIdx=text.indexOf("##END##");
-      if(endIdx>-1) fbText=text.slice(endIdx+7).trim();
-
-      sFb({text:fbText,sc,passed:sc.total>=10});
+      sFb(result);
       sAtt(a=>a+1);
       sPhase("feedback");
+
     }catch(e){
       console.error("PEEL AI error:",e);
       sFb({
-        text:`## Connection Error\n\n⚠️ Could not reach the AI feedback server.\n\n**Reason:** ${e.message||"Unknown error"}\n\nPlease check your internet connection and try again. If the problem persists, contact your administrator.`,
         sc:{point:0,expl:0,evidence:0,link:0,grammar:0,length:0,total:0},
-        passed:false
+        passed:false,
+        feedbacks:{
+          point:"AI feedback unavailable.",
+          expl:"",evidence:"",link:"",
+          grammar:"",
+          action:`Error: ${e.message}. Please check that ANTHROPIC_KEY is set in Vercel environment variables.`
+        }
       });
       sPhase("feedback");
     }
     sAiLoad(false);
-  };
-
-  const renderFb=text=>{
-    if(!text) return null;
-    return text.split("\n").map((line,i)=>{
-      if(!line.trim()) return <div key={i} style={{height:4}}/>;
-      if(line.startsWith("##")) return <h4 key={i} style={{color:G,margin:"16px 0 8px",fontSize:14,borderBottom:`1px solid ${LT}`,paddingBottom:4}}>{line.replace(/^#+\s*/,"")}</h4>;
-      if(line.startsWith("❌")) return <div key={i} style={{background:"#ffebee",borderRadius:6,padding:"6px 10px",margin:"4px 0",fontSize:13,color:"#c62828"}}>{line}</div>;
-      if(line.startsWith("✅")) return <div key={i} style={{background:"#e8f5e9",borderRadius:6,padding:"6px 10px",margin:"4px 0",fontSize:13,color:DK}}>{line}</div>;
-      if(line.startsWith("⚠️")) return <div key={i} style={{background:"#fff3cd",border:"1px solid #ffc107",borderRadius:8,padding:"8px 12px",margin:"6px 0",fontSize:13,color:"#856404"}}>{line}</div>;
-      if(/^\d+\./.test(line)) return <div key={i} style={{background:"#f3e5f5",borderRadius:6,padding:"6px 10px",margin:"4px 0",fontSize:13,color:"#4a148c"}}>{line}</div>;
-      return <p key={i} style={{margin:"3px 0",fontSize:13,color:"#333",lineHeight:1.7}}>{line}</p>;
-    });
   };
 
   const TABS=["About PEEL","P — Point","E — Explanation","E — Evidence","L — Link","❌ Weak","✅ Strong"];
@@ -744,11 +775,10 @@ Then write structured feedback with these sections:
           <button key={ix} onClick={()=>sTTab(ix)} style={{background:tTab===ix?G:"#fff",color:tTab===ix?"#fff":DK,border:`1.5px solid ${tTab===ix?G:"#ddd"}`,borderRadius:20,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit",flexShrink:0}}>{t}</button>
         ))}
       </div>
-
       {tTab===0&&<div>
         <Card style={{background:LT,marginBottom:12,borderLeft:`4px solid ${G}`}}>
           <h4 style={{color:G,margin:"0 0 8px"}}>❓ What is PEEL?</h4>
-          <p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>PEEL is a method for writing clear, well-structured academic paragraphs. Each letter represents one essential part: <strong>P</strong>oint, <strong>E</strong>xplanation, <strong>E</strong>vidence, <strong>L</strong>ink.</p>
+          <p style={{fontSize:14,color:"#333",lineHeight:1.8,margin:0}}>PEEL is a method for writing clear academic paragraphs: <strong>P</strong>oint, <strong>E</strong>xplanation, <strong>E</strong>vidence, <strong>L</strong>ink.</p>
         </Card>
         <Card style={{background:"#fff8e1",marginBottom:12}}>
           <h4 style={{color:"#e65100",margin:"0 0 10px"}}>📏 Your Word Minimums ({level})</h4>
@@ -758,7 +788,6 @@ Then write structured feedback with these sections:
           </div>)}
         </Card>
       </div>}
-
       {tTab>=1&&tTab<=4&&(()=>{const p=PARTS[tTab-1];return <div>
         <Card style={{background:p.color,marginBottom:12,borderLeft:`4px solid ${G}`}}>
           <div style={{fontSize:32,marginBottom:6}}>{p.icon}</div>
@@ -768,18 +797,15 @@ Then write structured feedback with these sections:
         <Card style={{background:"#e8f5e9",marginBottom:10}}><div style={{fontWeight:700,color:G,marginBottom:6,fontSize:13}}>✅ DO</div><p style={{fontSize:13,color:"#333",lineHeight:1.8,margin:0}}>{p.dos}</p></Card>
         <Card style={{background:"#ffebee",marginBottom:10}}><div style={{fontWeight:700,color:"#c62828",marginBottom:6,fontSize:13}}>❌ DON'T</div><p style={{fontSize:13,color:"#333",lineHeight:1.8,margin:0}}>{p.donts}</p></Card>
       </div>;})()} 
-
       {tTab===5&&<Card style={{background:"#ffebee",marginBottom:14,borderLeft:"4px solid #e53935"}}>
-        <div style={{fontWeight:800,color:"#c62828",fontSize:15,marginBottom:10}}>❌ Weak Paragraph — What NOT to do</div>
-        <p style={{fontSize:14,color:"#333",lineHeight:1.8,fontStyle:"italic",background:"#fff",borderRadius:10,padding:12,margin:0}}>Technology is good for students. Many students use phones. The internet has a lot of information. Students can find things easily. So technology is important.</p>
-        <div style={{marginTop:12,fontSize:13,color:"#c62828",lineHeight:1.8}}><strong>Problems:</strong> No specific argument. No reasoning. No evidence. Link is too short and informal.</div>
+        <div style={{fontWeight:800,color:"#c62828",fontSize:15,marginBottom:10}}>❌ Weak Paragraph</div>
+        <p style={{fontSize:14,color:"#333",lineHeight:1.8,fontStyle:"italic",background:"#fff",borderRadius:10,padding:12,margin:0}}>Technology is good for students. Many students use phones. The internet has a lot of information. So technology is important.</p>
+        <div style={{marginTop:12,fontSize:13,color:"#c62828",lineHeight:1.8}}><strong>Problems:</strong> No specific argument. No reasoning. No evidence. Link too short.</div>
       </Card>}
-
       {tTab===6&&<Card style={{background:"#e8f5e9",marginBottom:14,borderLeft:`4px solid ${G}`}}>
-        <div style={{fontWeight:800,color:G,fontSize:15,marginBottom:10}}>✅ Strong Paragraph — A model</div>
+        <div style={{fontWeight:800,color:G,fontSize:15,marginBottom:10}}>✅ Strong Paragraph</div>
         <p style={{fontSize:14,color:"#333",lineHeight:1.9,background:"#fff",borderRadius:10,padding:12,margin:0}}>{c.example.point} {c.example.explanation} {c.example.evidence} {c.example.link}</p>
       </Card>}
-
       <div style={{display:"flex",gap:10,marginTop:8}}>
         {tTab>0&&<SBtn onClick={()=>sTTab(t=>t-1)} style={{flex:"none",width:"auto",padding:"12px 20px"}}>← Prev</SBtn>}
         {tTab<TABS.length-1
@@ -793,7 +819,6 @@ Then write structured feedback with these sections:
     <div>
       {attempts>0&&<Card style={{background:"#fff3e0",marginBottom:12,borderLeft:"3px solid #f57c00"}}><p style={{margin:0,fontSize:13,color:"#e65100",fontWeight:600}}>🔄 Revision #{attempts} — Apply all feedback carefully.</p></Card>}
       <Card style={{background:LT,marginBottom:14}}>
-        <div style={{fontSize:11,color:"#555"}}>📝 Topic · {level}</div>
         <div style={{fontWeight:800,color:DK,fontSize:15,marginTop:2}}>{c.title}</div>
         <div style={{color:"#555",fontSize:13,marginTop:4,lineHeight:1.6}}>{c.prompt}</div>
       </Card>
@@ -834,7 +859,15 @@ Then write structured feedback with these sections:
   );
 
   if(phase==="feedback"&&fb){
-    const CRIT=[{id:"point",label:"Point (Clarity)",max:4},{id:"expl",label:"Explanation (Logic)",max:4},{id:"evidence",label:"Evidence (Quality)",max:4},{id:"link",label:"Link (Cohesion)",max:3},{id:"grammar",label:"Grammar & Vocab",max:3},{id:"length",label:"Length",max:2}];
+    const CRIT=[
+      {id:"point",  label:"Point (Clarity)",    max:4},
+      {id:"expl",   label:"Explanation (Logic)", max:4},
+      {id:"evidence",label:"Evidence (Quality)", max:4},
+      {id:"link",   label:"Link (Cohesion)",     max:3},
+      {id:"grammar",label:"Grammar & Vocab",     max:3},
+      {id:"length", label:"Length",              max:2},
+    ];
+    const fbLabels={point:fb.feedbacks.point,expl:fb.feedbacks.expl,evidence:fb.feedbacks.evidence,link:fb.feedbacks.link};
     const headerBg=fb.sc.total>=15?`linear-gradient(135deg,${DK},${G})`:fb.sc.total>=10?"linear-gradient(135deg,#e65100,#ff9800)":"linear-gradient(135deg,#c62828,#e53935)";
     return (
       <div>
@@ -847,8 +880,10 @@ Then write structured feedback with these sections:
         </Card>
         <Card style={{marginBottom:14}}>
           <h4 style={{color:DK,margin:"0 0 12px"}}>📋 Score Breakdown</h4>
-          {CRIT.map(cr=>{const s=fb.sc[cr.id]||0,pct=Math.round((s/cr.max)*100);return(
-            <div key={cr.id} style={{marginBottom:12}}>
+          {CRIT.map(cr=>{
+            const s=fb.sc[cr.id]||0;
+            const pct=Math.round((s/cr.max)*100);
+            return <div key={cr.id} style={{marginBottom:12}}>
               <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:4}}>
                 <span style={{fontWeight:600,color:DK}}>{cr.label}</span>
                 <span style={{color:pct>=75?G:pct>=50?"#f57c00":"#e53935",fontWeight:700}}>{s}/{cr.max}</span>
@@ -856,18 +891,23 @@ Then write structured feedback with these sections:
               <div style={{background:"#e0e0e0",borderRadius:99,height:8}}>
                 <div style={{background:pct>=75?G:pct>=50?"#f57c00":"#e53935",height:8,borderRadius:99,width:`${pct}%`,transition:"width .6s"}}/>
               </div>
-            </div>
-          );})}
+              {fbLabels[cr.id]&&<p style={{fontSize:12,color:"#555",margin:"6px 0 0",lineHeight:1.6}}>{fbLabels[cr.id]}</p>}
+            </div>;
+          })}
         </Card>
-        <Card style={{marginBottom:14}}>
-          <h4 style={{color:G,marginBottom:12}}>🔍 Detailed Feedback</h4>
-          {renderFb(fb.text)}
-        </Card>
+        {fb.feedbacks.grammar&&<Card style={{background:"#e3f2fd",marginBottom:14}}>
+          <div style={{fontWeight:700,color:"#1565c0",marginBottom:6,fontSize:13}}>✏️ Grammar & Vocabulary</div>
+          <p style={{fontSize:13,color:"#333",margin:0,lineHeight:1.7}}>{fb.feedbacks.grammar}</p>
+        </Card>}
+        {fb.feedbacks.action&&<Card style={{background:"#fff8e1",marginBottom:14}}>
+          <div style={{fontWeight:700,color:"#e65100",marginBottom:6,fontSize:13}}>🎯 Priority Action</div>
+          <p style={{fontSize:13,color:"#555",margin:0,lineHeight:1.7}}>{fb.feedbacks.action}</p>
+        </Card>}
         {fb.passed
           ?<PBtn onClick={()=>addXp(XP_MAP.peel,"peel")} style={{background:G}}>Claim +{XP_MAP.peel} XP & Continue →</PBtn>
           :<div>
             <Card style={{background:"#fff3e0",marginBottom:14,borderLeft:"3px solid #f57c00"}}>
-              <p style={{fontSize:13,color:"#555",margin:0,lineHeight:1.8}}>🔄 Read every ⚠️ carefully, apply all fixes, then resubmit. You need 10/20 to pass.</p>
+              <p style={{fontSize:13,color:"#555",margin:0,lineHeight:1.8}}>🔄 Read the feedback above carefully, apply all fixes, then resubmit. You need 10/20 to pass.</p>
             </Card>
             <PBtn onClick={()=>{sPhase("write");sStep(0);}} style={{background:G}}>🔄 Revise My Paragraph →</PBtn>
           </div>
@@ -918,7 +958,7 @@ function HomeScreen({setMod,xp,lvl,pct,level,done,G,LT,DK}) {
         </Card>
       )}
       {MODS.map(m=>(
-        <button key={m.id} onClick={()=>setMod(m)} style={{width:"100%",background:"#fff",border:`1.5px solid ${LT}`,borderRadius:16,padding:"14px 16px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,0.04)",textAlign:"left",marginBottom:10}}>
+        <button key={m.id} onClick={()=>setMod(m)} style={{width:"100%",background:"#fff",border:`1.5px solid ${LT}`,borderRadius:16,padding:"14px 16px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,0.04)",textAlign:"left",marginBottom:10,fontFamily:"inherit"}}>
           <div style={{background:m.color,borderRadius:12,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{m.icon}</div>
           <div style={{flex:1}}>
             <div style={{fontWeight:700,color:DK,fontSize:14}}>{m.name}</div>
@@ -965,7 +1005,6 @@ function ProfileScreen({user,xp,lvl,level,badges,streak,G,LT,DK}) {
 function BoardScreen({userId,myXp,tok,G,LT,DK}) {
   const [lb,sLb]=useState([]);
   const [load,sLoad]=useState(true);
-
   useEffect(()=>{
     (async()=>{
       try{
@@ -975,7 +1014,6 @@ function BoardScreen({userId,myXp,tok,G,LT,DK}) {
       sLoad(false);
     })();
   },[myXp]);
-
   const medals=["🥇","🥈","🥉"];
   return (
     <div style={{padding:18}}>
@@ -1000,30 +1038,88 @@ function BoardScreen({userId,myXp,tok,G,LT,DK}) {
   );
 }
 
-function SettingsScreen({user,onTheme,onLogout,G,LT,DK}) {
+/* ═══════════════════════════════════════════════════════
+   CORRECTION 5 — SETTINGS : thèmes verrouillés + popup de déblocage
+═══════════════════════════════════════════════════════ */
+function SettingsScreen({user,onTheme,onLogout,G,LT,DK,xp}) {
   const [activeT,sAT]=useState("default");
-  const doTheme=k=>{sAT(k);onTheme(THEMES[k]);};
+  const [popup,sPopup]=useState(null); // theme key à confirmer
+
+  const THEME_LIST=[
+    {k:"default",name:"🌿 Default Green",req:0,   desc:"The original UPGC green theme."},
+    {k:"forest", name:"🌲 Dark Forest",   req:200, desc:"Deep forest green — darker and more focused."},
+    {k:"ocean",  name:"🌊 Ocean Blue",    req:1000,desc:"Calm ocean blue for a fresh look."},
+  ];
+
+  const applyTheme=(k)=>{
+    sAT(k);
+    onTheme(THEMES[k]);
+    sPopup(null);
+  };
+
+  const handleClick=(t)=>{
+    if(xp<t.req) return; // bouton désactivé, rien
+    if(t.k===activeT) return; // déjà actif
+    sPopup(t); // ouvre le popup de confirmation
+  };
+
   return (
     <div style={{padding:18}}>
       <h3 style={{color:DK,marginBottom:16}}>⚙️ Settings</h3>
+
+      {/* ── Thèmes ── */}
       <Card style={{marginBottom:14}}>
         <div style={{fontWeight:700,color:DK,fontSize:15,marginBottom:12}}>🎨 Visual Themes</div>
-        {[{k:"default",name:"🌿 Default Green"},{k:"forest",name:"🌲 Dark Forest"},{k:"ocean",name:"🌊 Ocean Blue"}].map(t=>(
-          <div key={t.k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"10px 12px",borderRadius:12,background:activeT===t.k?"#e8f5e9":"#fff",border:activeT===t.k?`2px solid ${G}`:"1.5px solid #eee"}}>
-            <div style={{fontWeight:700,color:DK,fontSize:13}}>{t.name}</div>
-            <button onClick={()=>doTheme(t.k)} style={{background:activeT===t.k?G:"#e0e0e0",color:activeT===t.k?"#fff":"#555",border:"none",borderRadius:10,padding:"6px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{activeT===t.k?"Active":"Apply"}</button>
-          </div>
-        ))}
+        {THEME_LIST.map(t=>{
+          const locked=xp<t.req;
+          const isActive=activeT===t.k;
+          return (
+            <div key={t.k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"12px 14px",borderRadius:12,background:isActive?LT:locked?"#f5f5f5":"#fff",border:isActive?`2px solid ${G}`:"1.5px solid #eee",opacity:locked?.5:1}}>
+              <div>
+                <div style={{fontWeight:700,color:DK,fontSize:13}}>{t.name}</div>
+                {locked
+                  ? <div style={{fontSize:11,color:"#e65100",marginTop:2}}>🔒 Unlocks at {t.req} XP — {t.req-xp} XP to go</div>
+                  : <div style={{fontSize:11,color:"#888",marginTop:2}}>{t.desc}</div>}
+              </div>
+              {!locked&&(
+                <button
+                  onClick={()=>handleClick(t)}
+                  style={{background:isActive?G:"#e0e0e0",color:isActive?"#fff":"#555",border:"none",borderRadius:10,padding:"7px 16px",fontWeight:700,fontSize:12,cursor:isActive?"default":"pointer",fontFamily:"inherit",flexShrink:0}}>
+                  {isActive?"Active ✓":"Apply"}
+                </button>
+              )}
+            </div>
+          );
+        })}
       </Card>
+
+      {/* ── Compte ── */}
       <Card style={{marginBottom:14,padding:"14px 16px"}}>
         <div style={{fontWeight:600,color:DK,fontSize:14}}>👤 Account</div>
         <div style={{fontSize:13,color:"#888",marginTop:4}}>{user?.name} · {user?.email}</div>
       </Card>
+
       <Card style={{marginBottom:14,padding:"14px 16px"}}>
         <div style={{fontWeight:600,color:DK,fontSize:14}}>🔒 Privacy</div>
         <div style={{fontSize:12,color:"#888",marginTop:4}}>ARTCI compliance · Secured by Supabase</div>
       </Card>
+
       <button onClick={onLogout} style={{width:"100%",marginTop:4,background:"#ffebee",color:"#c62828",border:"1.5px solid #ffcdd2",borderRadius:12,padding:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Log Out</button>
+
+      {/* ── Popup de confirmation de thème ── */}
+      {popup&&(
+        <div onClick={()=>sPopup(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.55)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:20,padding:28,maxWidth:340,width:"100%",textAlign:"center",boxShadow:"0 8px 40px rgba(0,0,0,.2)"}}>
+            <div style={{fontSize:48,marginBottom:12}}>{popup.name.split(" ")[0]}</div>
+            <h3 style={{color:DK,margin:"0 0 8px"}}>{popup.name}</h3>
+            <p style={{color:"#555",fontSize:14,lineHeight:1.7,margin:"0 0 20px"}}>{popup.desc}<br/>Would you like to switch to this theme?</p>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>sPopup(null)} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid #e0e0e0",background:"#fff",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit",color:"#555"}}>Cancel</button>
+              <button onClick={()=>applyTheme(popup.k)} style={{flex:1,padding:"12px",borderRadius:12,border:"none",background:G,color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>Apply ✓</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1092,17 +1188,21 @@ export default function App() {
 
   return (
     <div style={{maxWidth:440,margin:"0 auto",minHeight:"100vh",background:"#f0f7f4",fontFamily:"'Segoe UI',sans-serif",display:"flex",flexDirection:"column"}}>
-      <div style={{background:G,color:"#fff",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center",position:"sticky",top:0,zIndex:10}}>
-        <div>
-          <div style={{fontWeight:900,fontSize:16}}>✍️ WriteUP UPGC</div>
-          <div style={{fontSize:11,opacity:.75}}>{user?.name} · {level}</div>
+
+      {/* ═══ CORRECTION 2 — Header NON épinglé (sticky supprimé) ═══ */}
+      {!mod&&(
+        <div style={{background:G,color:"#fff",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontWeight:900,fontSize:16}}>✍️ WriteUP UPGC</div>
+            <div style={{fontSize:11,opacity:.75}}>{user?.name} · {level}</div>
+          </div>
+          <div style={{display:"flex",gap:10,alignItems:"center"}}>
+            <div style={{textAlign:"center"}}><div style={{fontWeight:700,fontSize:13}}>🔥{streak}</div><div style={{fontSize:10,opacity:.7}}>streak</div></div>
+            <div style={{textAlign:"center"}}><div style={{fontWeight:700,fontSize:13}}>⭐{xp}</div><div style={{fontSize:10,opacity:.7}}>XP</div></div>
+            <div style={{background:lvl.color,color:"#000",borderRadius:8,padding:"3px 9px",fontSize:11,fontWeight:800}}>{lvl.name}</div>
+          </div>
         </div>
-        <div style={{display:"flex",gap:10,alignItems:"center"}}>
-          <div style={{textAlign:"center"}}><div style={{fontWeight:700,fontSize:13}}>🔥{streak}</div><div style={{fontSize:10,opacity:.7}}>streak</div></div>
-          <div style={{textAlign:"center"}}><div style={{fontWeight:700,fontSize:13}}>⭐{xp}</div><div style={{fontSize:10,opacity:.7}}>XP</div></div>
-          <div style={{background:lvl.color,color:"#000",borderRadius:8,padding:"3px 9px",fontSize:11,fontWeight:800}}>{lvl.name}</div>
-        </div>
-      </div>
+      )}
 
       <div style={{flex:1,overflowY:"auto",paddingBottom:70}}>
         {mod
@@ -1122,7 +1222,7 @@ export default function App() {
           :tab==="home"   ?<HomeScreen setMod={sMod} xp={xp} lvl={lvl} pct={pct} level={level} done={done} G={G} LT={LT} DK={DK}/>
           :tab==="profile"?<ProfileScreen user={user} xp={xp} lvl={lvl} level={level} badges={badges} streak={streak} G={G} LT={LT} DK={DK}/>
           :tab==="board"  ?<BoardScreen userId={user?.id} myXp={xp} tok={tok} G={G} LT={LT} DK={DK}/>
-          :<SettingsScreen user={user} onTheme={sTheme} onLogout={()=>{sScreen("landing");sUser(null);sTok(null);}} G={G} LT={LT} DK={DK}/>
+          :<SettingsScreen user={user} onTheme={sTheme} onLogout={()=>{sScreen("landing");sUser(null);sTok(null);}} G={G} LT={LT} DK={DK} xp={xp}/>
         }
       </div>
 
@@ -1141,7 +1241,7 @@ export default function App() {
       {!mod&&(
         <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:440,background:"#fff",borderTop:"1px solid #e8f5e9",display:"flex"}}>
           {[["home","🏠","Home"],["profile","👤","Profile"],["board","🏆","Ranks"],["settings","⚙️","More"]].map(([t,ic,lb])=>(
-            <button key={t} onClick={()=>sTab(t)} style={{flex:1,background:"none",border:"none",padding:"10px 0",cursor:"pointer",color:tab===t?G:"#aaa",fontWeight:tab===t?800:400,fontSize:11}}>
+            <button key={t} onClick={()=>sTab(t)} style={{flex:1,background:"none",border:"none",padding:"10px 0",cursor:"pointer",color:tab===t?G:"#aaa",fontWeight:tab===t?800:400,fontSize:11,fontFamily:"inherit"}}>
               <div style={{fontSize:22}}>{ic}</div>{lb}
             </button>
           ))}
