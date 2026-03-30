@@ -978,5 +978,379 @@ function HomeScreen({setMod,xp,lvl,pct,level,done,G,LT,DK,onCertificate}) {
         </div>
       </Card>
 
-      <Card style={{marginBottom:10}}>
-        
+     <Card style={{marginBottom:10}}>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:6}}>
+          <span style={{fontWeight:700,color:G}}>{lvl.name} · {level}</span>
+          <span style={{color:"#888"}}>{xp}/{lvl.next} XP</span>
+        </div>
+        <div style={{background:"#e8f5e9",borderRadius:99,height:10}}>
+          <div style={{background:G,height:10,borderRadius:99,width:`${pct}%`,transition:"width .5s"}}/>
+        </div>
+        <p style={{color:"#888",fontSize:12,marginTop:6}}>{lvl.next-xp} XP to next level</p>
+      </Card>
+
+      {/* Certificate unlock banner */}
+      {canCert&&(
+        <button onClick={onCertificate} style={{width:"100%",background:`linear-gradient(135deg,${DK},${G})`,border:"none",borderRadius:16,padding:"14px 18px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",marginBottom:10,textAlign:"left",fontFamily:"inherit"}}>
+          <div style={{fontSize:36}}>🏆</div>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:800,color:"#fff",fontSize:15}}>Certificate Available!</div>
+            <div style={{color:"rgba(255,255,255,0.8)",fontSize:12,marginTop:2}}>You've earned {xp} XP — download your official certificate</div>
+          </div>
+          <div style={{color:"rgba(255,255,255,0.8)",fontSize:20}}>→</div>
+        </button>
+      )}
+
+      {/* Next unlock */}
+      {next&&!canCert&&(
+        <Card style={{marginBottom:14,background:"#fff8e1",borderLeft:"3px solid #f9a825"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontSize:12,color:"#e65100",fontWeight:700,marginBottom:2}}>🔓 Next Unlock — {next.xp} XP</div>
+              <div style={{fontWeight:700,color:DK,fontSize:13}}>{next.icon} {next.label}</div>
+              <div style={{fontSize:12,color:"#666"}}>{next.desc}</div>
+            </div>
+            <div style={{textAlign:"right"}}><div style={{fontWeight:800,color:"#e65100",fontSize:16}}>{next.xp-xp}</div><div style={{fontSize:10,color:"#888"}}>XP away</div></div>
+          </div>
+          <div style={{background:"#ffe082",borderRadius:99,height:6,marginTop:8}}>
+            <div style={{background:"#f9a825",height:6,borderRadius:99,width:`${Math.min(100,Math.round(((xp-(prev?.xp||0))/(next.xp-(prev?.xp||0)))*100))}%`,transition:"width .5s"}}/>
+          </div>
+        </Card>
+      )}
+
+      {MODS.map(m=>(
+        <button key={m.id} onClick={()=>setMod(m)} style={{width:"100%",background:"#fff",border:`1.5px solid ${LT}`,borderRadius:16,padding:"14px 16px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,0.04)",textAlign:"left",marginBottom:10,fontFamily:"inherit"}}>
+          <div style={{background:m.color,borderRadius:12,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{m.icon}</div>
+          <div style={{flex:1}}>
+            <div style={{fontWeight:700,color:DK,fontSize:14}}>{m.name}</div>
+            <div style={{color:"#888",fontSize:12,marginTop:2}}>{m.sub}</div>
+          </div>
+          {done.includes(m.id)
+            ?<span style={{background:"#e8f5e9",color:G,borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:700}}>✅ Done</span>
+            :<span style={{background:LT,color:G,borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>+{XP_MAP[m.id]} XP</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/* ─── PROFILE SCREEN ──────────────────────────────── */
+function ProfileScreen({user,xp,lvl,level,badges,streak,G,LT,DK}) {
+  const acadLevel=xp>=1500?"Advanced":xp>=500?"Intermediate":"Beginner";
+  const levels=["Beginner","Intermediate","Advanced"];
+  const levelColors={Beginner:"#2D6A4F",Intermediate:"#1565c0",Advanced:"#6a1b9a"};
+  const levelIcons={Beginner:"🌱",Intermediate:"🌿",Advanced:"🌳"};
+  return (
+    <div style={{padding:18}}>
+      <div style={{background:`linear-gradient(135deg,${DK},${G})`,borderRadius:20,padding:24,color:"#fff",textAlign:"center",marginBottom:18}}>
+        <div style={{fontSize:52,marginBottom:8}}>👤</div>
+        <div style={{fontWeight:900,fontSize:20}}>{user?.name}</div>
+        <div style={{opacity:.75,fontSize:13,marginBottom:6}}>{user?.email}</div>
+        <div style={{display:"flex",justifyContent:"center",gap:28,marginTop:8}}>
+          {[["⭐",xp,"XP"],["🔥",streak,"Streak"],["🏅",lvl.name,"Level"]].map(([ic,v,lb])=>(
+            <div key={lb}><div style={{fontWeight:800,fontSize:17}}>{v}</div><div style={{fontSize:11,opacity:.75}}>{lb}</div></div>
+          ))}
+        </div>
+      </div>
+      <h3 style={{color:DK,marginBottom:12}}>🏅 Badges</h3>
+      {levels.map(lv=>{
+        const locked=levels.indexOf(lv)>levels.indexOf(acadLevel);
+        const bdgs=BADGES_DEF[lv];
+        return (
+          <div key={lv} style={{marginBottom:20}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,padding:"8px 14px",borderRadius:12,background:locked?"#f5f5f5":LT,border:`1.5px solid ${locked?"#e0e0e0":levelColors[lv]}`}}>
+              <span style={{fontSize:20}}>{levelIcons[lv]}</span>
+              <span style={{fontWeight:800,color:locked?"#bbb":levelColors[lv],fontSize:15}}>{lv}</span>
+              {locked&&<span style={{fontSize:12,color:"#bbb",marginLeft:"auto"}}>🔒 {lv==="Intermediate"?"Unlock at 500 XP":"Unlock at 1500 XP"}</span>}
+              {!locked&&<span style={{fontSize:12,color:levelColors[lv],marginLeft:"auto",fontWeight:600}}>{bdgs.filter(b=>badges.includes(b.name)).length}/{bdgs.length} earned</span>}
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,opacity:locked?.4:1}}>
+              {bdgs.map(b=>{
+                const earned=badges.includes(b.name);
+                return <div key={b.name} style={{background:earned?"#fff":"#f5f5f5",borderRadius:14,padding:14,boxShadow:earned?"0 2px 8px rgba(0,0,0,0.08)":"none",border:earned?`1.5px solid ${levelColors[lv]}`:"none"}}>
+                  <div style={{fontSize:28}}>{b.icon}</div>
+                  <div style={{fontWeight:700,fontSize:13,color:DK,marginTop:4}}>{b.name}</div>
+                  <div style={{fontSize:11,color:"#777",lineHeight:1.4}}>{b.desc}</div>
+                  {!earned&&!locked&&<div style={{fontSize:10,color:"#bbb",marginTop:4}}>🔒 Not yet earned</div>}
+                  {earned&&<div style={{fontSize:10,color:levelColors[lv],marginTop:4,fontWeight:700}}>✅ Earned</div>}
+                </div>;
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─── LEADERBOARD ─────────────────────────────────── */
+function BoardScreen({userId,myXp,tok,G,LT,DK}) {
+  const [lb,sLb]=useState([]);
+  const [load,sLoad]=useState(true);
+  useEffect(()=>{
+    (async()=>{
+      try{
+        const d=await get("users?select=id,name,xp,level,streak&order=xp.desc&limit=10",tok);
+        if(Array.isArray(d)) sLb(d.map(u=>u.id===userId?{...u,xp:myXp}:u).sort((a,b)=>b.xp-a.xp));
+      }catch{}
+      sLoad(false);
+    })();
+  },[myXp]);
+  const medals=["🥇","🥈","🥉"];
+  return (
+    <div style={{padding:18}}>
+      <h3 style={{color:DK,marginBottom:16}}>🏆 Leaderboard</h3>
+      {load&&<Spinner/>}
+      {!load&&lb.length===0&&<Card style={{textAlign:"center",padding:32}}><div style={{fontSize:40,marginBottom:8}}>🏆</div><p style={{color:"#888"}}>No students yet. Be the first!</p></Card>}
+      {lb.map((l,ix)=>{
+        const isMe=l.id===userId,r=ix+1;
+        return <div key={l.id} style={{background:isMe?LT:"#fff",border:isMe?`2px solid ${G}`:"1px solid #eee",borderRadius:14,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,marginBottom:10,boxShadow:r<=3?"0 2px 12px rgba(0,0,0,0.08)":"none"}}>
+          <div style={{width:36,textAlign:"center",flexShrink:0}}>{r<=3?<span style={{fontSize:24}}>{medals[ix]}</span>:<span style={{fontSize:14,fontWeight:800,color:"#bbb"}}>#{r}</span>}</div>
+          <div style={{width:36,height:36,borderRadius:"50%",background:isMe?G:"#e0e0e0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0,color:isMe?"#fff":"#999"}}>{l.name?.charAt(0)?.toUpperCase()||"?"}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontWeight:isMe?800:600,color:isMe?G:DK,fontSize:14,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{l.name}{isMe?" (You)":""}</div>
+            {l.streak>0&&<span style={{fontSize:11,color:"#888"}}>🔥{l.streak}</span>}
+          </div>
+          <div style={{fontWeight:800,color:G,fontSize:15}}>⭐{isMe?myXp:l.xp}</div>
+        </div>;
+      })}
+    </div>
+  );
+}
+
+/* ─── SETTINGS ────────────────────────────────────── */
+function SettingsScreen({user,xp,onTheme,onLogout,G,LT,DK}) {
+  const [activeT,sAT]=useState("default");
+  const [popup,sPopup]=useState(null);
+  const THEME_LIST=[
+    {k:"default",name:"🌿 Default Green",req:0,   desc:"The original UPGC green theme."},
+    {k:"forest", name:"🌲 Dark Forest",   req:200, desc:"Deep forest green — darker and focused."},
+    {k:"ocean",  name:"🌊 Ocean Blue",    req:1000,desc:"Calm ocean blue for a fresh look."},
+  ];
+  const applyTheme=k=>{sAT(k);onTheme(THEMES[k]);sPopup(null);};
+  return (
+    <div style={{padding:18}}>
+      <h3 style={{color:DK,marginBottom:16}}>⚙️ Settings</h3>
+      <Card style={{marginBottom:14}}>
+        <div style={{fontWeight:700,color:DK,fontSize:15,marginBottom:12}}>🎨 Visual Themes</div>
+        {THEME_LIST.map(t=>{
+          const locked=xp<t.req,isActive=activeT===t.k;
+          return (
+            <div key={t.k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"12px 14px",borderRadius:12,background:isActive?LT:locked?"#f5f5f5":"#fff",border:isActive?`2px solid ${G}`:"1.5px solid #eee",opacity:locked?.5:1}}>
+              <div>
+                <div style={{fontWeight:700,color:DK,fontSize:13}}>{t.name}</div>
+                {locked?<div style={{fontSize:11,color:"#e65100",marginTop:2}}>🔒 Unlocks at {t.req} XP — {t.req-xp} to go</div>
+                :<div style={{fontSize:11,color:"#888",marginTop:2}}>{t.desc}</div>}
+              </div>
+              {!locked&&<button onClick={()=>!isActive&&sPopup(t)} style={{background:isActive?G:"#e0e0e0",color:isActive?"#fff":"#555",border:"none",borderRadius:10,padding:"7px 16px",fontWeight:700,fontSize:12,cursor:isActive?"default":"pointer",fontFamily:"inherit"}}>
+                {isActive?"Active ✓":"Apply"}
+              </button>}
+            </div>
+          );
+        })}
+      </Card>
+      <Card style={{marginBottom:14,padding:"14px 16px"}}>
+        <div style={{fontWeight:600,color:DK,fontSize:14}}>👤 Account</div>
+        <div style={{fontSize:13,color:"#888",marginTop:4}}>{user?.name} · {user?.email}</div>
+      </Card>
+      <Card style={{marginBottom:14,padding:"14px 16px"}}>
+        <div style={{fontWeight:600,color:DK,fontSize:14}}>🔒 Privacy</div>
+        <div style={{fontSize:12,color:"#888",marginTop:4}}>ARTCI compliance · Secured by Supabase</div>
+      </Card>
+      <button onClick={onLogout} style={{width:"100%",marginTop:4,background:"#ffebee",color:"#c62828",border:"1.5px solid #ffcdd2",borderRadius:12,padding:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Log Out</button>
+      {popup&&(
+        <div onClick={()=>sPopup(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.55)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:20,padding:28,maxWidth:340,width:"100%",textAlign:"center"}}>
+            <div style={{fontSize:48,marginBottom:12}}>{popup.name.split(" ")[0]}</div>
+            <h3 style={{color:DK,margin:"0 0 8px"}}>{popup.name}</h3>
+            <p style={{color:"#555",fontSize:14,lineHeight:1.7,margin:"0 0 20px"}}>{popup.desc}<br/>Switch to this theme?</p>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>sPopup(null)} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid #e0e0e0",background:"#fff",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit",color:"#555"}}>Cancel</button>
+              <button onClick={()=>applyTheme(popup.k)} style={{flex:1,padding:"12px",borderRadius:12,border:"none",background:G,color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>Apply ✓</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   MAIN APP
+═══════════════════════════════════════════════════ */
+export default function App() {
+  const [screen,sScreen]=useState("landing");
+  const [user,sUser]=useState(null);
+  const [tok,sTok]=useState(null);
+  const [place,sPlace]=useState(null);
+  const [tab,sTab]=useState("home");
+  const [mod,sMod]=useState(null);
+  const [showCert,sShowCert]=useState(false);
+  const [xp,sXp]=useState(0);
+  const [streak,sStreak]=useState(1);
+  const [done,sDone]=useState([]);
+  const [badges,sBadges]=useState([]);
+  const [enc,sEnc]=useState(null);
+  const [levelUp,sLevelUp]=useState(null);
+  const [theme,sTheme]=useState(THEMES.default);
+
+  const G=theme.G,LT=theme.LT,DK=theme.DK;
+
+  const loadDone=async(uid,tk)=>{
+    try{const d=await get(`daily_progress?user_id=eq.${uid}&date=eq.${dateStr()}&completed=eq.true&select=module`,tk);sDone(Array.isArray(d)?d.map(x=>x.module):[]);}catch{}
+  };
+
+  const loadBadges=async(uid,tk)=>{
+    try{const d=await get(`user_badges?user_id=eq.${uid}&select=badge_name`,tk);if(Array.isArray(d))sBadges(d.map(x=>x.badge_name));}catch{}
+  };
+
+  const afterAuth=async u=>{
+    sUser(u);sTok(u.token);sXp(u.xp||0);sStreak(u.streak||1);
+    if(u.isNew) sScreen("placement");
+    else{
+      sPlace({level:u.level||"Beginner"});
+      await loadDone(u.id,u.token);
+      await loadBadges(u.id,u.token);
+      sScreen("app");
+    }
+  };
+
+  const afterPlace=async r=>{
+    sPlace(r);
+    if(user?.id) await patch(`users?id=eq.${user.id}`,{level:r.level,placement_done:true},tok);
+    sScreen("result");
+  };
+
+  const awardBadge=async name=>{
+    if(badges.includes(name)||!user?.id) return;
+    try{await post("user_badges",{user_id:user.id,badge_name:name},tok);}catch{}
+    sBadges(p=>[...p,name]);
+  };
+
+  const addXp=async(n,modId)=>{
+    if(done.includes(modId)){sEnc(rnd(ENC));return;}
+    const pts=XP_MAP[modId]||n;
+    const nx=xp+pts;
+    const oldLevel=getAcadLevel(xp);
+    const newLevel=getAcadLevel(nx);
+    sXp(nx);sDone(p=>[...p,modId]);
+
+    // Auto level-up
+    if(oldLevel!==newLevel){
+      sPlace(p=>({...p,level:newLevel}));
+      sLevelUp(newLevel);
+      if(user?.id) await patch(`users?id=eq.${user.id}`,{level:newLevel,current_level:newLevel},tok);
+    }
+
+    if(user?.id){
+      try{
+        await upsert("daily_progress",{user_id:user.id,date:dateStr(),module:modId,completed:true,xp_earned:pts},tok);
+        await patch(`users?id=eq.${user.id}`,{xp:nx},tok);
+        // Award badges
+        if(modId==="peel")    awardBadge("First Write");
+        if(modId==="reading") awardBadge("First Reader");
+        if(modId==="quiz")    awardBadge("Quiz Taker");
+        if(streak>=3)  awardBadge("Streak 3");
+        if(streak>=7)  awardBadge("Streak 7");
+        if(streak>=14) awardBadge("Streak 14");
+        if(nx>=1500)   awardBadge("UPGC Champion");
+      }catch(e){console.error(e);}
+    }
+  };
+
+  if(screen==="landing")   return <Landing go={sScreen}/>;
+  if(screen==="login")     return <AuthForm mode="login"    onDone={afterAuth} onSwitch={()=>sScreen("register")}/>;
+  if(screen==="register")  return <AuthForm mode="register" onDone={afterAuth} onSwitch={()=>sScreen("login")}/>;
+  if(screen==="placement") return <PlacementTest onDone={afterPlace}/>;
+  if(screen==="result")    return <LevelResult result={place} onContinue={()=>{loadDone(user?.id,tok);sScreen("app");}}/>;
+
+  const lvl=getLvl(xp);
+  const pct=Math.round(((xp-lvl.min)/(lvl.next-lvl.min))*100);
+  const level=place?.level||"Beginner";
+
+  return (
+    <div style={{maxWidth:440,margin:"0 auto",minHeight:"100vh",background:"#f0f7f4",fontFamily:"'Segoe UI',sans-serif",display:"flex",flexDirection:"column"}}>
+      {/* Header */}
+      {!mod&&!showCert&&(
+        <div style={{background:G,color:"#fff",padding:"12px 18px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontWeight:900,fontSize:16}}>✍️ WriteUP UPGC</div>
+            <div style={{fontSize:11,opacity:.75}}>{user?.name} · {level}</div>
+          </div>
+          <div style={{display:"flex",gap:10,alignItems:"center"}}>
+            <div style={{textAlign:"center"}}><div style={{fontWeight:700,fontSize:13}}>🔥{streak}</div><div style={{fontSize:10,opacity:.7}}>streak</div></div>
+            <div style={{textAlign:"center"}}><div style={{fontWeight:700,fontSize:13}}>⭐{xp}</div><div style={{fontSize:10,opacity:.7}}>XP</div></div>
+            <div style={{background:lvl.color,color:"#000",borderRadius:8,padding:"3px 9px",fontSize:11,fontWeight:800}}>{lvl.name}</div>
+          </div>
+        </div>
+      )}
+
+      <div style={{flex:1,overflowY:"auto",paddingBottom:mod||showCert?0:70}}>
+        {showCert?(
+          <CertificateScreen user={user} xp={xp} level={level} G={G} LT={LT} DK={DK} onBack={()=>sShowCert(false)}/>
+        ):mod?(
+          <div style={{padding:18}}>
+            <button onClick={()=>{sMod(null);loadDone(user?.id,tok);}} style={{background:"none",border:"none",color:G,fontWeight:700,fontSize:15,cursor:"pointer",padding:0,marginBottom:16}}>← Back</button>
+            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:18}}>
+              <div style={{background:mod.color,borderRadius:14,width:52,height:52,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>{mod.icon}</div>
+              <div><h2 style={{margin:0,color:DK,fontSize:18}}>{mod.name}</h2><p style={{margin:0,color:"#888",fontSize:12}}>{mod.sub}</p></div>
+            </div>
+            {mod.id==="grammar"    &&<GrammarMod    addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} userId={user?.id} tok={tok} level={level}/>}
+            {mod.id==="vocabulary" &&<VocabMod      addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} userId={user?.id} tok={tok} level={level}/>}
+            {mod.id==="peel"       &&<PeelMod       addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} level={level} G={G} LT={LT} DK={DK} userId={user?.id} tok={tok}/>}
+            {mod.id==="reading"    &&<ReadingMod    addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} userId={user?.id} tok={tok} level={level}/>}
+            {mod.id==="mistakes"   &&<MistakesMod   addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} userId={user?.id} tok={tok} level={level}/>}
+            {mod.id==="quiz"       &&<QuizMod       addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} userId={user?.id} tok={tok} level={level}/>}
+          </div>
+        ):tab==="home"   ?<HomeScreen setMod={sMod} xp={xp} lvl={lvl} pct={pct} level={level} done={done} G={G} LT={LT} DK={DK} onCertificate={()=>sShowCert(true)}/>
+        :tab==="profile"?<ProfileScreen user={user} xp={xp} lvl={lvl} level={level} badges={badges} streak={streak} G={G} LT={LT} DK={DK}/>
+        :tab==="board"  ?<BoardScreen userId={user?.id} myXp={xp} tok={tok} G={G} LT={LT} DK={DK}/>
+        :<SettingsScreen user={user} xp={xp} onTheme={sTheme} onLogout={()=>{sScreen("landing");sUser(null);sTok(null);}} G={G} LT={LT} DK={DK}/>}
+      </div>
+
+      {/* Level Up Popup */}
+      {levelUp&&(
+        <div onClick={()=>sLevelUp(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.7)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:24,padding:32,maxWidth:360,width:"100%",textAlign:"center",boxShadow:"0 8px 40px rgba(0,0,0,.3)"}}>
+            <div style={{fontSize:64,marginBottom:12}}>{levelUp==="Intermediate"?"🌿":"🌳"}</div>
+            <h2 style={{color:G,margin:"0 0 8px"}}>Level Up! 🎉</h2>
+            <div style={{background:LT,borderRadius:12,padding:"10px 24px",display:"inline-block",margin:"8px 0 16px"}}>
+              <span style={{fontSize:20,fontWeight:900,color:DK}}>{levelUp}</span>
+            </div>
+            <p style={{color:"#555",fontSize:14,lineHeight:1.7,margin:"0 0 8px"}}>
+              {levelUp==="Intermediate"
+                ?"You've reached Intermediate level! New content and badges await you."
+                :"Outstanding! You've reached Advanced level! You're among the elite students."}
+            </p>
+            <p style={{color:"#888",fontSize:13,margin:"0 0 20px"}}>New badges and content are now available!</p>
+            <PBtn onClick={()=>sLevelUp(null)} style={{background:G}}>Continue 🚀</PBtn>
+          </div>
+        </div>
+      )}
+
+      {/* XP already earned popup */}
+      {enc&&(
+        <div onClick={()=>sEnc(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.6)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:24,padding:32,maxWidth:360,width:"100%",textAlign:"center"}}>
+            <div style={{fontSize:60,marginBottom:12}}>🌟</div>
+            <h3 style={{color:G,margin:"0 0 8px"}}>{enc.title}</h3>
+            <p style={{color:"#555",fontSize:14,lineHeight:1.7,margin:"0 0 6px"}}>{enc.body}</p>
+            <p style={{color:"#888",fontSize:13,fontStyle:"italic",margin:"0 0 20px"}}>{enc.sub}</p>
+            <PBtn onClick={()=>sEnc(null)} style={{background:G}}>Keep Practising! 💪</PBtn>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom Nav */}
+      {!mod&&!showCert&&(
+        <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:440,background:"#fff",borderTop:"1px solid #e8f5e9",display:"flex"}}>
+          {[["home","🏠","Home"],["profile","👤","Profile"],["board","🏆","Ranks"],["settings","⚙️","More"]].map(([t,ic,lb])=>(
+            <button key={t} onClick={()=>sTab(t)} style={{flex:1,background:"none",border:"none",padding:"10px 0",cursor:"pointer",color:tab===t?G:"#aaa",fontWeight:tab===t?800:400,fontSize:11,fontFamily:"inherit"}}>
+              <div style={{fontSize:22}}>{ic}</div>{lb}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
