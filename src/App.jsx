@@ -36,15 +36,26 @@ const UNLOCKS = [
   {xp:100, icon:"📝",label:"Advanced PEEL Topics",     desc:"4 challenging writing topics"},
   {xp:200, icon:"🌲",label:"Dark Forest Theme",         desc:"Deep green visual theme"},
   {xp:500, icon:"🌿",label:"Intermediate Level",        desc:"Auto-promotion"},
+  {xp:800, icon:"🎓",label:"Certificate of Achievement",desc:"Download your official certificate"},
   {xp:1000,icon:"🌊",label:"Ocean Blue Theme",          desc:"Blue ocean visual theme"},
   {xp:1500,icon:"🌳",label:"Advanced Level",            desc:"Auto-promotion"},
-  {xp:2000,icon:"🏆",label:"Certificate of Achievement",desc:"Download official PDF"},
 ];
 const ENC = [
   {title:"🔥 Already done today!", body:"XP already earned for this module. Come back tomorrow!", sub:"Extra practice = extra mastery."},
   {title:"💪 Great dedication!",   body:"No XP today — you already earned it! Every session builds skills.", sub:"Consistency is the key."},
 ];
-const ADMIN_PIN = "UPGC2025";
+// ⚠️ SECURITY — PIN stored client-side: upgrade to Supabase RLS for production.
+// Obfuscated: not plaintext but not truly secure. Use Row Level Security for real protection.
+const _AP = [...("5202CGPU")].reverse().join(""); // reversé — changer en RLS dès possible
+let _pinTries=0, _pinLock=0;
+const verifyAdminPin=(pin)=>{
+  const now=Date.now();
+  if(now<_pinLock)return{ok:false,locked:true,wait:Math.ceil((_pinLock-now)/1000)};
+  if(pin===_AP){_pinTries=0;return{ok:true};}
+  _pinTries++;
+  if(_pinTries>=3){_pinLock=now+60000;_pinTries=0;return{ok:false,locked:true,wait:60};}
+  return{ok:false,locked:false,left:3-_pinTries};
+};
 const ADMIN_EMAIL = "admin@upgc.ci";
 
 
@@ -85,6 +96,92 @@ const exportWord = (rows, fname="pretest_submissions.doc") => {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
   a.href=url; a.download=fname; a.click(); URL.revokeObjectURL(url);
+};
+
+/* ─── CERTIFICATE GENERATOR ─────────────────────────── */
+const _rr=(ctx,x,y,w,h,r)=>{ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();};
+const downloadCertificate=(studentName,studentCode,xp,level)=>{
+  const W=1400,H=990;
+  const canvas=document.createElement('canvas');canvas.width=W;canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  // Background crème
+  ctx.fillStyle='#fefdf5';ctx.fillRect(0,0,W,H);
+  // Bordure verte extérieure
+  ctx.strokeStyle='#2D6A4F';ctx.lineWidth=22;ctx.strokeRect(16,16,W-32,H-32);
+  // Bordure or intérieure
+  ctx.strokeStyle='#c9a84c';ctx.lineWidth=3;ctx.strokeRect(38,38,W-76,H-76);
+  // Ornements coins
+  [[55,55],[W-55,55],[55,H-55],[W-55,H-55]].forEach(([x,y])=>{
+    ctx.fillStyle='#2D6A4F';ctx.beginPath();ctx.arc(x,y,9,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#c9a84c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,16,0,Math.PI*2);ctx.stroke();
+  });
+  const mid=W/2;
+  // Nom université
+  ctx.fillStyle='#1b4332';ctx.font='bold 24px Georgia,serif';ctx.textAlign='center';
+  ctx.fillText('UNIVERSITÉ PELEFORO GON COULIBALY · KORHOGO, CÔTE D\'IVOIRE',mid,108);
+  // Séparateur dégradé
+  const grad=ctx.createLinearGradient(200,0,W-200,0);
+  grad.addColorStop(0,'transparent');grad.addColorStop(0.5,'#2D6A4F');grad.addColorStop(1,'transparent');
+  ctx.fillStyle=grad;ctx.fillRect(200,126,W-400,2);
+  // Plateforme
+  ctx.fillStyle='#2D6A4F';ctx.font='bold 19px Georgia,serif';
+  ctx.fillText('WriteUP UPGC — Academic English Platform',mid,162);
+  // Titre principal
+  ctx.fillStyle='#1b4332';ctx.font='bold 65px Georgia,serif';
+  ctx.fillText('Certificate of Achievement',mid,262);
+  ctx.fillStyle=grad;ctx.fillRect(250,282,W-500,2);
+  // This certifies that
+  ctx.fillStyle='#666';ctx.font='italic 28px Georgia,serif';
+  ctx.fillText('This certifies that',mid,348);
+  // Nom étudiant
+  ctx.fillStyle='#1b4332';ctx.font='bold 58px Georgia,serif';
+  ctx.fillText(studentName,mid,438);
+  const nw=ctx.measureText(studentName).width;
+  ctx.fillStyle='#c9a84c';ctx.fillRect(mid-nw/2,455,nw,3);
+  // Texte d'accomplissement
+  ctx.fillStyle='#444';ctx.font='23px Georgia,serif';
+  ctx.fillText('has successfully demonstrated academic English proficiency',mid,512);
+  ctx.fillText('through the WriteUP UPGC Learning Programme',mid,546);
+  // Badges XP + Level
+  const by=592;
+  ctx.fillStyle='#e8f5e9';_rr(ctx,mid-220,by,195,55,10);ctx.fill();
+  ctx.strokeStyle='#2D6A4F';ctx.lineWidth=2;_rr(ctx,mid-220,by,195,55,10);ctx.stroke();
+  ctx.fillStyle='#1b4332';ctx.font='bold 20px Georgia,serif';ctx.textAlign='center';
+  ctx.fillText(`⭐ ${xp} XP Earned`,mid-122,by+34);
+  ctx.fillStyle='#f3e5f5';_rr(ctx,mid+25,by,195,55,10);ctx.fill();
+  ctx.strokeStyle='#6a1b9a';ctx.lineWidth=2;_rr(ctx,mid+25,by,195,55,10);ctx.stroke();
+  ctx.fillStyle='#4a148c';ctx.font='bold 20px Georgia,serif';
+  ctx.fillText(`🎯 ${level} Level`,mid+122,by+34);
+  // Date + code
+  const date=new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  ctx.fillStyle='#777';ctx.font='19px Georgia,serif';ctx.textAlign='center';
+  ctx.fillText(`Date of Issue: ${date}`,mid,690);
+  ctx.font='15px monospace';ctx.fillStyle='#aaa';
+  ctx.fillText(`Student ID: ${studentCode}`,mid,720);
+  // Signatures
+  ctx.fillStyle='#333';ctx.fillRect(150,820,260,2);
+  ctx.font='16px Georgia,serif';ctx.textAlign='center';ctx.fillStyle='#333';
+  ctx.fillText('Platform Director',280,844);
+  ctx.font='italic 13px Georgia,serif';ctx.fillStyle='#888';
+  ctx.fillText('WriteUP UPGC',280,863);
+  // Sceau central
+  ctx.beginPath();ctx.arc(mid,818,58,0,Math.PI*2);ctx.fillStyle='#e8f5e9';ctx.fill();
+  ctx.strokeStyle='#2D6A4F';ctx.lineWidth=3;ctx.stroke();
+  ctx.beginPath();ctx.arc(mid,818,48,0,Math.PI*2);ctx.strokeStyle='#c9a84c';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.fillStyle='#1b4332';ctx.font='bold 30px serif';ctx.textAlign='center';ctx.fillText('✍',mid,830);
+  // Signature droite
+  ctx.fillStyle='#333';ctx.fillRect(W-410,820,260,2);
+  ctx.font='16px Georgia,serif';ctx.fillStyle='#333';ctx.fillText('Academic Coordinator',W-280,844);
+  ctx.font='italic 13px Georgia,serif';ctx.fillStyle='#888';ctx.fillText('Dépt. Anglais — UPGC',W-280,863);
+  // Pied de page
+  ctx.fillStyle=grad;ctx.fillRect(200,920,W-400,1.5);
+  ctx.fillStyle='#bbb';ctx.font='13px Georgia,serif';ctx.textAlign='center';
+  ctx.fillText('WriteUP UPGC · Academic English for L2 Students · Korhogo, Côte d\'Ivoire',mid,944);
+  canvas.toBlob(blob=>{
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');
+    a.href=url;a.download=`Certificat_WriteUP_${studentName.replace(/\s+/g,'_')}.png`;
+    a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  },'image/png');
 };
 
 /* ─── CONTENT BANKS ──────────────────────────────────── */
@@ -237,15 +334,264 @@ function WritingPretest({user,tok,level,onDone}){
 
 /* ═══════════════ ADMIN PANEL ════════════════════════════ */
 function AdminPanel({tok,G,LT,DK,onClose}){
-  const [subs,setSubs]=useState([]);const [loading,setLoading]=useState(true);const [sel,setSel]=useState(null);const [corr,setCorr]=useState("");const [saving,setSaving]=useState(false);const [filter,setFilter]=useState("all");
-  useEffect(()=>{(async()=>{try{const d=await get("writing_pretests?select=*&order=submitted_at.desc",tok);if(Array.isArray(d))setSubs(d);}catch(e){console.error(e);}setLoading(false);})();},[]);
+  const [tab,setTab]=useState("pretests");
+  /* Pretests */
+  const [subs,setSubs]=useState([]);const [subLoad,setSubLoad]=useState(true);const [sel,setSel]=useState(null);const [corr,setCorr]=useState("");const [saving,setSaving]=useState(false);const [filter,setFilter]=useState("all");
+  /* Students */
+  const [users,setUsers]=useState([]);const [usrLoad,setUsrLoad]=useState(false);const [usrLoaded,setUsrLoaded]=useState(false);const [deleting,setDeleting]=useState(null);
+  /* Database */
+  const [dbTab,setDbTab]=useState("users");const [dbData,setDbData]=useState({});const [dbLoad,setDbLoad]=useState(false);
+  /* Stats */
+  const [stats,setStats]=useState(null);const [statsLoad,setStatsLoad]=useState(false);const [statsLoaded,setStatsLoaded]=useState(false);
+
+  useEffect(()=>{(async()=>{try{const d=await get("writing_pretests?select=*&order=submitted_at.desc",tok);if(Array.isArray(d))setSubs(d);}catch(e){console.error(e);}setSubLoad(false);})();},[]);
+
+  const loadUsers=async(force=false)=>{if(usrLoaded&&!force)return;setUsrLoad(true);try{const d=await get("users?select=*&order=xp.desc",tok);if(Array.isArray(d))setUsers(d);}catch(e){console.error(e);}setUsrLoad(false);setUsrLoaded(true);};
+  useEffect(()=>{if(tab==="students")loadUsers();},[tab]);
+
+  const deleteUser=async(uid,name)=>{
+    if(!window.confirm(`Supprimer "${name}" et TOUTES ses données? Irréversible.`))return;
+    setDeleting(uid);
+    try{
+      const del=(tbl,fld)=>fetch(`${SB}/rest/v1/${tbl}?${fld}=eq.${uid}`,{method:"DELETE",headers:h(tok)});
+      await del("seen_content","user_id");await del("daily_progress","user_id");
+      await del("user_badges","user_id");await del("writing_pretests","user_id");await del("users","id");
+      setUsers(u=>u.filter(x=>x.id!==uid));
+    }catch(e){console.error(e);alert("Erreur: "+e.message);}
+    setDeleting(null);
+  };
+
+  const loadDb=async(tbl)=>{
+    if(dbData[tbl])return;setDbLoad(true);
+    const q={users:"?select=*&order=xp.desc&limit=100",writing_pretests:"?select=*&order=submitted_at.desc&limit=100",daily_progress:"?select=*&order=date.desc&limit=100",seen_content:"?select=*&limit=100",user_badges:"?select=*&limit=100"};
+    try{const d=await get(tbl+(q[tbl]||"?select=*&limit=100"),tok);if(Array.isArray(d))setDbData(p=>({...p,[tbl]:d}));}catch(e){console.error(e);}
+    setDbLoad(false);
+  };
+  useEffect(()=>{if(tab==="database")loadDb(dbTab);},[tab,dbTab]);
+
+  const loadStats=async()=>{
+    if(statsLoaded)return;setStatsLoad(true);
+    try{
+      const [all,prog,bdg]=await Promise.all([
+        get("users?select=id,name,xp,level,streak,student_code",tok),
+        get("daily_progress?select=module,date&limit=1000&order=date.desc",tok),
+        get("user_badges?select=badge_name",tok),
+      ]);
+      if(Array.isArray(all)){
+        const levels={Beginner:0,Intermediate:0,Advanced:0};
+        let totalXp=0,maxXp=0;
+        all.forEach(u=>{levels[u.level]=(levels[u.level]||0)+1;totalXp+=u.xp||0;if((u.xp||0)>maxXp)maxXp=u.xp;});
+        const modCount={};if(Array.isArray(prog))prog.forEach(p=>{modCount[p.module]=(modCount[p.module]||0)+1;});
+        const badgeCount={};if(Array.isArray(bdg))bdg.forEach(b=>{badgeCount[b.badge_name]=(badgeCount[b.badge_name]||0)+1;});
+        setStats({total:all.length,totalXp,avgXp:Math.round(totalXp/(all.length||1)),maxXp,levels,top5:all.slice(0,5),modCount,badgeCount});
+      }
+    }catch(e){console.error(e);}
+    setStatsLoad(false);setStatsLoaded(true);
+  };
+  useEffect(()=>{if(tab==="stats")loadStats();},[tab]);
+
   const saveCorr=async()=>{if(!sel||!corr.trim())return;setSaving(true);try{await patch(`writing_pretests?id=eq.${sel.id}`,{correction:corr,status:"corrected"},tok);setSubs(s=>s.map(x=>x.id===sel.id?{...x,correction:corr,status:"corrected"}:x));setSel(s=>({...s,correction:corr,status:"corrected"}));}catch(e){console.error(e);}setSaving(false);};
-  const filtered=subs.filter(s=>filter==="all"||s.status===filter);
-  if(sel)return(<div style={{padding:18}}><button onClick={()=>{setSel(null);setCorr("");}} style={{background:"none",border:"none",color:G,fontWeight:700,fontSize:15,cursor:"pointer",padding:0,marginBottom:16}}>← Back to list</button><Card style={{marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}><div><div style={{fontWeight:800,color:DK,fontSize:16}}>{sel.student_code}</div><div style={{fontSize:12,color:"#888"}}>Level: {sel.level} · {sel.submitted_at?.slice(0,10)}</div></div><span style={{background:sel.status==="corrected"?"#e8f5e9":"#fff3e0",color:sel.status==="corrected"?G:"#e65100",borderRadius:8,padding:"3px 12px",fontSize:12,fontWeight:700}}>{sel.status==="corrected"?"✅ Corrected":"⏳ Pending"}</span></div></Card><Card style={{background:"#f9fbe7",marginBottom:12}}><div style={{fontSize:12,color:"#888",fontWeight:700,marginBottom:6}}>📝 Subject</div><p style={{fontSize:13,color:"#444",margin:0,fontStyle:"italic",lineHeight:1.7}}>{PRETEST_SUBJECT.prompt}</p></Card><Card style={{marginBottom:12}}><div style={{fontSize:12,color:"#888",fontWeight:700,marginBottom:6}}>🧑‍🎓 Student Answer</div><p style={{fontSize:14,color:"#333",margin:0,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{sel.writing_text}</p><div style={{fontSize:12,color:"#aaa",marginTop:8}}>{wc(sel.writing_text)} words</div></Card><Card style={{marginBottom:12}}><div style={{fontSize:12,color:G,fontWeight:700,marginBottom:8}}>✏️ Teacher Correction</div><textarea value={corr||sel.correction||""} onChange={e=>setCorr(e.target.value)} placeholder="Write your correction and feedback here…" rows={6} style={{width:"100%",boxSizing:"border-box",border:`2px solid ${G}`,borderRadius:12,padding:12,fontSize:14,resize:"vertical",outline:"none",fontFamily:"inherit"}}/></Card><div style={{display:"flex",gap:10}}>{saving?<Spinner/>:<PBtn onClick={saveCorr} style={{background:G,flex:1}}>💾 Save Correction</PBtn>}<button onClick={()=>exportWord([{...sel,correction:corr||sel.correction}],`pretest_${sel.student_code}.doc`)} style={{flex:1,background:"#1565c0",color:"#fff",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",marginTop:8}}>📄 Export Word</button></div></div>);
-  return(<div style={{padding:18}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><h3 style={{color:DK,margin:0}}>🗂 Writing Pretests</h3><button onClick={onClose} style={{background:"none",border:"none",color:"#888",fontSize:20,cursor:"pointer"}}>✕</button></div><div style={{display:"flex",gap:8,marginBottom:14}}>{["all","pending","corrected"].map(f=>(<button key={f} onClick={()=>setFilter(f)} style={{flex:1,background:filter===f?G:"#fff",color:filter===f?"#fff":DK,border:`1.5px solid ${filter===f?G:"#ddd"}`,borderRadius:20,padding:"7px 0",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{f==="all"?"All":f==="pending"?"⏳ Pending":"✅ Corrected"}</button>))}</div>{filtered.length>0&&<button onClick={()=>exportWord(filtered,`pretest_all_${dateStr()}.doc`)} style={{width:"100%",background:"#1565c0",color:"#fff",border:"none",borderRadius:12,padding:"11px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",marginBottom:14}}>📄 Export All ({filtered.length}) → Word</button>}{loading&&<Spinner/>}{!loading&&filtered.length===0&&<Card style={{textAlign:"center",padding:32}}><div style={{fontSize:40,marginBottom:8}}>📭</div><p style={{color:"#888"}}>No submissions yet.</p></Card>}{filtered.map(s=>(<div key={s.id} onClick={()=>{setSel(s);setCorr(s.correction||"");}} style={{background:"#fff",border:`1.5px solid ${s.status==="corrected"?"#a5d6a7":"#ffe082"}`,borderRadius:14,padding:"14px 16px",marginBottom:10,cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,0.04)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontWeight:800,color:DK,fontSize:14}}>{s.student_code}</div><div style={{fontSize:12,color:"#888",marginTop:2}}>Level: {s.level} · {s.submitted_at?.slice(0,10)}</div><div style={{fontSize:12,color:"#aaa",marginTop:2}}>{wc(s.writing_text)} words</div></div><span style={{background:s.status==="corrected"?"#e8f5e9":"#fff3e0",color:s.status==="corrected"?G:"#e65100",borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,flexShrink:0}}>{s.status==="corrected"?"✅":"⏳"}</span></div><p style={{fontSize:13,color:"#666",margin:"8px 0 0",lineHeight:1.5,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{s.writing_text}</p></div>))}</div>);
+
+  const TABS=[["pretests","📝 Pretests"],["students","👥 Students"],["database","🗄 Database"],["stats","📈 Stats"],["danger","⚠️ Danger"]];
+
+  return(<div style={{padding:18,paddingBottom:80}}>
+    {/* Nav onglets */}
+    <div style={{display:"flex",gap:5,marginBottom:16,overflowX:"auto",paddingBottom:4}}>
+      {TABS.map(([k,l])=>(
+        <button key={k} onClick={()=>{setTab(k);setSel(null);}} style={{background:tab===k?(k==="danger"?"#c62828":G):"#fff",color:tab===k?"#fff":(k==="danger"?"#c62828":DK),border:`1.5px solid ${tab===k?(k==="danger"?"#c62828":G):k==="danger"?"#ffcdd2":"#ddd"}`,borderRadius:20,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit",flexShrink:0}}>{l}</button>
+      ))}
+      <button onClick={onClose} style={{marginLeft:"auto",background:"none",border:"none",color:"#888",fontSize:20,cursor:"pointer",flexShrink:0}}>✕</button>
+    </div>
+
+    {/* ── PRETESTS ── */}
+    {tab==="pretests"&&(sel?
+      <div>
+        <button onClick={()=>{setSel(null);setCorr("");}} style={{background:"none",border:"none",color:G,fontWeight:700,fontSize:15,cursor:"pointer",padding:0,marginBottom:16}}>← Retour</button>
+        <Card style={{marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}><div><div style={{fontWeight:800,color:DK,fontSize:16}}>{sel.student_code}</div><div style={{fontSize:12,color:"#888"}}>{sel.level} · {sel.submitted_at?.slice(0,10)}</div></div><span style={{background:sel.status==="corrected"?"#e8f5e9":"#fff3e0",color:sel.status==="corrected"?G:"#e65100",borderRadius:8,padding:"3px 12px",fontSize:12,fontWeight:700}}>{sel.status==="corrected"?"✅ Corrected":"⏳ Pending"}</span></div></Card>
+        <Card style={{background:"#f9fbe7",marginBottom:12}}><div style={{fontSize:12,color:"#888",fontWeight:700,marginBottom:6}}>📝 Sujet</div><p style={{fontSize:13,color:"#444",margin:0,fontStyle:"italic",lineHeight:1.7}}>{PRETEST_SUBJECT.prompt}</p></Card>
+        <Card style={{marginBottom:12}}><div style={{fontSize:12,color:"#888",fontWeight:700,marginBottom:6}}>🧑‍🎓 Réponse</div><p style={{fontSize:14,color:"#333",margin:0,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{sel.writing_text}</p><div style={{fontSize:12,color:"#aaa",marginTop:8}}>{wc(sel.writing_text)} mots</div></Card>
+        <Card style={{marginBottom:12}}><div style={{fontSize:12,color:G,fontWeight:700,marginBottom:8}}>✏️ Correction</div><textarea value={corr||sel.correction||""} onChange={e=>setCorr(e.target.value)} placeholder="Écrire la correction ici…" rows={6} style={{width:"100%",boxSizing:"border-box",border:`2px solid ${G}`,borderRadius:12,padding:12,fontSize:14,resize:"vertical",outline:"none",fontFamily:"inherit"}}/></Card>
+        <div style={{display:"flex",gap:10}}>{saving?<Spinner/>:<PBtn onClick={saveCorr} style={{background:G,flex:1}}>💾 Sauvegarder</PBtn>}<button onClick={()=>exportWord([{...sel,correction:corr||sel.correction}],`pretest_${sel.student_code}.doc`)} style={{flex:1,background:"#1565c0",color:"#fff",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",marginTop:8}}>📄 Word</button></div>
+      </div>
+      :<div>
+        <div style={{display:"flex",gap:8,marginBottom:14}}>{["all","pending","corrected"].map(f=>(<button key={f} onClick={()=>setFilter(f)} style={{flex:1,background:filter===f?G:"#fff",color:filter===f?"#fff":DK,border:`1.5px solid ${filter===f?G:"#ddd"}`,borderRadius:20,padding:"7px 0",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{f==="all"?"Tous":f==="pending"?"⏳ Pending":"✅ Corrected"}</button>))}</div>
+        {subs.filter(s=>filter==="all"||s.status===filter).length>0&&<button onClick={()=>exportWord(subs.filter(s=>filter==="all"||s.status===filter),`pretest_all_${dateStr()}.doc`)} style={{width:"100%",background:"#1565c0",color:"#fff",border:"none",borderRadius:12,padding:"11px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",marginBottom:14}}>📄 Exporter tout → Word</button>}
+        {subLoad&&<Spinner/>}
+        {!subLoad&&subs.filter(s=>filter==="all"||s.status===filter).length===0&&<Card style={{textAlign:"center",padding:32}}><div style={{fontSize:40}}>📭</div><p style={{color:"#888"}}>Aucune soumission.</p></Card>}
+        {subs.filter(s=>filter==="all"||s.status===filter).map(s=>(<div key={s.id} onClick={()=>{setSel(s);setCorr(s.correction||"");}} style={{background:"#fff",border:`1.5px solid ${s.status==="corrected"?"#a5d6a7":"#ffe082"}`,borderRadius:14,padding:"14px 16px",marginBottom:10,cursor:"pointer",boxShadow:"0 2px 6px rgba(0,0,0,0.04)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontWeight:800,color:DK,fontSize:14}}>{s.student_code}</div><div style={{fontSize:12,color:"#888",marginTop:2}}>{s.level} · {s.submitted_at?.slice(0,10)} · {wc(s.writing_text)} mots</div></div><span style={{background:s.status==="corrected"?"#e8f5e9":"#fff3e0",color:s.status==="corrected"?G:"#e65100",borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,flexShrink:0}}>{s.status==="corrected"?"✅":"⏳"}</span></div><p style={{fontSize:13,color:"#666",margin:"6px 0 0",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{s.writing_text}</p></div>))}
+      </div>
+    )}
+
+    {/* ── STUDENTS ── */}
+    {tab==="students"&&<div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <h4 style={{color:DK,margin:0}}>👥 Étudiants inscrits ({users.length})</h4>
+        <button onClick={()=>{setUsrLoaded(false);loadUsers(true);}} style={{background:LT,color:G,border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>↻ Rafraîchir</button>
+      </div>
+      {usrLoad&&<Spinner/>}
+      {users.map(u=>(
+        <Card key={u.id} style={{marginBottom:10,padding:"12px 14px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{width:42,height:42,borderRadius:"50%",background:u.level==="Advanced"?"#6a1b9a":u.level==="Intermediate"?"#1565c0":G,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontWeight:800,fontSize:17,flexShrink:0}}>{u.name?.charAt(0)?.toUpperCase()||"?"}</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:800,color:DK,fontSize:14}}>{u.name}</div>
+              <div style={{fontSize:11,color:"#888",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.email}</div>
+              <div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}>
+                <span style={{background:LT,color:G,borderRadius:5,padding:"1px 7px",fontSize:10,fontWeight:700}}>⭐{u.xp}</span>
+                <span style={{background:"#f3e5f5",color:"#6a1b9a",borderRadius:5,padding:"1px 7px",fontSize:10,fontWeight:700}}>{u.level}</span>
+                <span style={{background:"#fff3e0",color:"#e65100",borderRadius:5,padding:"1px 7px",fontSize:10}}>🔥{u.streak}</span>
+                <span style={{background:"#e3f2fd",color:"#1565c0",borderRadius:5,padding:"1px 7px",fontSize:10}}>🎓{u.student_code}</span>
+                <span style={{background:"#f5f5f5",color:"#666",borderRadius:5,padding:"1px 7px",fontSize:10}}>📅{u.last_login?.slice(0,10)||"—"}</span>
+              </div>
+            </div>
+            <button onClick={()=>deleteUser(u.id,u.name)} disabled={deleting===u.id} style={{background:deleting===u.id?"#f5f5f5":"#ffebee",color:"#c62828",border:"1.5px solid #ffcdd2",borderRadius:9,padding:"7px 11px",fontSize:13,fontWeight:700,cursor:deleting===u.id?"not-allowed":"pointer",fontFamily:"inherit",flexShrink:0}}>{deleting===u.id?"…":"🗑"}</button>
+          </div>
+        </Card>
+      ))}
+      {!usrLoad&&users.length===0&&<Card style={{textAlign:"center",padding:32}}><div style={{fontSize:40}}>👥</div><p style={{color:"#888"}}>Aucun étudiant trouvé.</p></Card>}
+    </div>}
+
+    {/* ── DATABASE ── */}
+    {tab==="database"&&<div>
+      <div style={{display:"flex",gap:5,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
+        {["users","writing_pretests","daily_progress","seen_content","user_badges"].map(t=>(
+          <button key={t} onClick={()=>setDbTab(t)} style={{background:dbTab===t?G:"#fff",color:dbTab===t?"#fff":DK,border:`1.5px solid ${dbTab===t?G:"#ddd"}`,borderRadius:14,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit",flexShrink:0}}>{t}</button>
+        ))}
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <span style={{fontSize:12,color:"#888"}}>{dbData[dbTab]?.length||0} enregistrements (max 100)</span>
+        <button onClick={()=>{setDbData(p=>({...p,[dbTab]:undefined}));loadDb(dbTab);}} style={{background:LT,color:G,border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>↻</button>
+      </div>
+      {dbLoad&&<Spinner/>}
+      {(dbData[dbTab]||[]).map((row,ix)=>(
+        <div key={ix} style={{background:"#fff",borderRadius:10,padding:"10px 12px",marginBottom:8,border:"1px solid #eee",fontSize:11,fontFamily:"monospace",wordBreak:"break-all"}}>
+          {Object.entries(row).slice(0,10).map(([k,v])=>(
+            <div key={k} style={{marginBottom:2,display:"flex",gap:8}}><span style={{color:G,fontWeight:700,minWidth:120,flexShrink:0}}>{k}:</span><span style={{color:"#333"}}>{v===null?"null":typeof v==="string"&&v.length>80?v.slice(0,80)+"…":String(v)}</span></div>
+          ))}
+          {Object.keys(row).length>10&&<div style={{color:"#aaa"}}>…+{Object.keys(row).length-10} autres champs</div>}
+        </div>
+      ))}
+      {!dbLoad&&(dbData[dbTab]||[]).length===0&&<Card style={{textAlign:"center",padding:24}}><p style={{color:"#888"}}>Table vide ou non chargée.</p></Card>}
+    </div>}
+
+    {/* ── STATS ── */}
+    {tab==="stats"&&<div>
+      {(statsLoad||!statsLoaded)&&<Spinner/>}
+      {stats&&<>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>
+          {[["👥",stats.total,"Étudiants"],["⭐",stats.totalXp,"Total XP"],["📊",stats.avgXp,"Moy. XP"],["🏆",stats.maxXp,"Max XP"]].map(([ic,v,lb])=>(
+            <Card key={lb} style={{textAlign:"center",padding:"14px 10px"}}><div style={{fontSize:24}}>{ic}</div><div style={{fontWeight:900,fontSize:20,color:DK,margin:"4px 0 2px"}}>{v.toLocaleString()}</div><div style={{fontSize:11,color:"#888"}}>{lb}</div></Card>
+          ))}
+        </div>
+        <Card style={{marginBottom:14}}>
+          <h4 style={{color:DK,margin:"0 0 12px"}}>🎯 Niveaux</h4>
+          {[["🌱 Beginner",stats.levels.Beginner||0,"#2D6A4F"],["🌿 Intermediate",stats.levels.Intermediate||0,"#1565c0"],["🌳 Advanced",stats.levels.Advanced||0,"#6a1b9a"]].map(([lb,cnt,col])=>(
+            <div key={lb} style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4}}><span style={{fontWeight:600}}>{lb}</span><span style={{color:col,fontWeight:700}}>{cnt} ({stats.total?Math.round((cnt/stats.total)*100):0}%)</span></div><div style={{background:"#f0f0f0",borderRadius:99,height:8}}><div style={{background:col,height:8,borderRadius:99,width:`${stats.total?Math.round((cnt/stats.total)*100):0}%`,transition:"width .5s"}}/></div></div>
+          ))}
+        </Card>
+        <Card style={{marginBottom:14}}>
+          <h4 style={{color:DK,margin:"0 0 10px"}}>📚 Activité par module</h4>
+          {Object.entries(stats.modCount).sort((a,b)=>b[1]-a[1]).map(([m,cnt])=>(
+            <div key={m} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"5px 0",borderBottom:"1px solid #f5f5f5"}}><span style={{fontWeight:600,textTransform:"capitalize"}}>{m}</span><span style={{color:G,fontWeight:700}}>{cnt} sessions</span></div>
+          ))}
+        </Card>
+        <Card style={{marginBottom:14}}>
+          <h4 style={{color:DK,margin:"0 0 10px"}}>🏆 Top 5 Étudiants</h4>
+          {stats.top5.map((u,i)=>(
+            <div key={u.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:"1px solid #f5f5f5"}}>
+              <span style={{fontWeight:800,color:i===0?"#f9a825":i===1?"#9e9e9e":i===2?"#cd7f32":"#ccc",fontSize:16,width:24}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":`#${i+1}`}</span>
+              <span style={{flex:1,fontWeight:600,color:DK,fontSize:13}}>{u.name||u.student_code}</span>
+              <span style={{color:G,fontWeight:700}}>⭐{u.xp}</span>
+              <span style={{fontSize:11,color:"#888"}}>{u.level}</span>
+            </div>
+          ))}
+        </Card>
+        {Object.keys(stats.badgeCount).length>0&&<Card style={{marginBottom:14}}>
+          <h4 style={{color:DK,margin:"0 0 10px"}}>🏅 Badges distribués</h4>
+          {Object.entries(stats.badgeCount).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([b,cnt])=>(
+            <div key={b} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",borderBottom:"1px solid #f5f5f5"}}><span>{b}</span><span style={{fontWeight:700,color:"#f9a825"}}>{cnt}×</span></div>
+          ))}
+        </Card>}
+      </>}
+    </div>}
+
+    {/* ── DANGER ZONE ── */}
+    {tab==="danger"&&<div>
+      <Card style={{background:"#fff3f3",border:"2px solid #ffcdd2",marginBottom:16,textAlign:"center"}}>
+        <div style={{fontSize:40,marginBottom:6}}>⚠️</div>
+        <h4 style={{color:"#c62828",margin:"0 0 8px"}}>Zone Danger</h4>
+        <p style={{color:"#666",fontSize:13,margin:0,lineHeight:1.7}}>Ces actions sont <strong>irréversibles</strong>. Aucune donnée ne peut être récupérée.</p>
+      </Card>
+      {[
+        {label:"🔄 Réinitialiser seen_content",desc:"Les étudiants verront à nouveau tout le contenu. Rotation repart de zéro.",tbl:"seen_content"},
+        {label:"📅 Vider daily_progress",desc:"Efface les limites journalières. Tout le monde peut gagner de l'XP immédiatement.",tbl:"daily_progress"},
+        {label:"🏅 Supprimer tous les badges",desc:"Retire tous les badges gagnés par tous les étudiants.",tbl:"user_badges"},
+      ].map(op=>(
+        <Card key={op.tbl} style={{marginBottom:12,border:"1.5px solid #ffcdd2"}}>
+          <div style={{fontWeight:700,color:"#c62828",fontSize:13,marginBottom:4}}>{op.label}</div>
+          <div style={{fontSize:12,color:"#888",marginBottom:10,lineHeight:1.5}}>{op.desc}</div>
+          <button onClick={async()=>{
+            if(!window.confirm(`${op.label}?\n\nCette action est IRRÉVERSIBLE.`))return;
+            try{
+              await fetch(`${SB}/rest/v1/${op.tbl}?id=neq.00000000-0000-0000-0000-000000000000`,{method:"DELETE",headers:h(tok)});
+              alert("✅ Opération réussie.");
+            }catch(e){alert("❌ Erreur: "+e.message);}
+          }} style={{background:"#ffebee",color:"#c62828",border:"1.5px solid #ffcdd2",borderRadius:10,padding:"9px 16px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>Exécuter</button>
+        </Card>
+      ))}
+      <Card style={{border:"2px solid #1565c0",marginBottom:12}}>
+        <div style={{fontWeight:700,color:"#1565c0",fontSize:13,marginBottom:6}}>🔐 Note Sécurité</div>
+        <div style={{fontSize:12,color:"#444",lineHeight:1.8}}>
+          <strong>Failles actuelles identifiées :</strong><br/>
+          • Le PIN admin est stocké côté client → configurer Supabase RLS<br/>
+          • La clé Supabase anon est exposée → utiliser des politiques RLS strictes<br/>
+          • Pas de validation serveur des rôles → ajouter une Edge Function Supabase<br/>
+          <br/>
+          <strong>Recommandation :</strong> Créer un rôle <code>admin</code> dans Supabase Auth et protéger toutes les tables avec RLS <code>auth.uid() = …</code>
+        </div>
+      </Card>
+    </div>}
+  </div>);
 }
 
-/* ═══════════════ AUTH ═══════════════════════════════════ */
+/* ═══════════════ CERTIFICATE MODAL ═════════════════════ */
+function CertificateModal({user,xp,level,onClose,G,LT,DK}){
+  const [name,setName]=useState(user?.name||"");const [done,setDone]=useState(false);
+  const go=()=>{if(!name.trim())return;downloadCertificate(name.trim(),user?.student_code||"",xp,level);setDone(true);};
+  return(
+    <div onClick={onClose} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.8)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:24,padding:32,maxWidth:400,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.4)"}}>
+        <div style={{fontSize:72,marginBottom:8}}>🎓</div>
+        <h2 style={{color:G,margin:"0 0 6px",fontSize:22}}>Certificat prêt !</h2>
+        <p style={{color:"#555",fontSize:14,lineHeight:1.7,margin:"0 0 22px"}}>
+          Félicitations ! Tu as atteint <strong style={{color:G}}>{xp} XP</strong> au niveau <strong>{level}</strong>.<br/>
+          Entre ton nom complet tel qu'il apparaîtra sur le certificat.
+        </p>
+        {!done?(
+          <>
+            <div style={{textAlign:"left",marginBottom:14}}>
+              <label style={{fontSize:13,color:"#666",fontWeight:600,display:"block",marginBottom:6}}>Nom complet officiel :</label>
+              <input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&go()} placeholder="Ex: Kouassi Amos Brou" style={{width:"100%",boxSizing:"border-box",border:`2px solid ${name.trim()?G:"#ddd"}`,borderRadius:10,padding:"12px 14px",fontSize:15,outline:"none",fontFamily:"inherit",transition:"border .2s"}}/>
+            </div>
+            <PBtn onClick={go} disabled={!name.trim()} style={{background:name.trim()?G:"#ccc",marginBottom:8}}>⬇️ Télécharger mon certificat</PBtn>
+            <SBtn onClick={onClose}>Annuler</SBtn>
+          </>
+        ):(
+          <>
+            <div style={{background:LT,borderRadius:14,padding:16,marginBottom:16,border:`1.5px solid ${G}`}}>
+              <p style={{margin:0,color:G,fontWeight:700,fontSize:14}}>✅ Certificat téléchargé !</p>
+              <p style={{margin:"6px 0 0",color:"#555",fontSize:12}}>Fichier PNG dans ton dossier Téléchargements.</p>
+            </div>
+            <PBtn onClick={go} style={{background:G,marginBottom:8}}>⬇️ Télécharger à nouveau</PBtn>
+            <SBtn onClick={onClose}>Fermer</SBtn>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════ AUTH ══════════════════════════════════════════════════════ */
 function Landing({go}){return(<div style={{minHeight:"100vh",background:"linear-gradient(160deg,#1b4332 0%,#2D6A4F 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",padding:"80px 28px 40px",color:"#fff",textAlign:"center",fontFamily:"'Segoe UI',sans-serif"}}><div style={{fontSize:72,marginBottom:16}}>✍️</div><h1 style={{fontSize:36,fontWeight:900,margin:"0 0 10px",color:"#fff",letterSpacing:1}}>WriteUP UPGC</h1><p style={{opacity:.9,fontSize:17,marginBottom:6,color:"#fff"}}>Academic English for L2 Students</p><p style={{opacity:.65,fontSize:13,marginBottom:56,color:"#fff"}}>Université Peleforo Gon Coulibaly · Korhogo, Côte d'Ivoire</p><div style={{display:"flex",flexDirection:"column",gap:14,width:"100%",maxWidth:320,marginBottom:48}}><button onClick={()=>go("login")} style={{background:"#fff",color:"#2D6A4F",border:"none",borderRadius:14,padding:"16px",fontWeight:800,fontSize:16,cursor:"pointer",width:"100%"}}>Log In</button><button onClick={()=>go("register")} style={{background:"transparent",color:"#fff",border:"2px solid rgba(255,255,255,0.7)",borderRadius:14,padding:"16px",fontWeight:800,fontSize:16,cursor:"pointer",width:"100%"}}>Sign Up</button></div><div style={{display:"flex",gap:18,opacity:.6,fontSize:12,flexWrap:"wrap",justifyContent:"center"}}>{["🌐 PWA","🆓 Free","🎯 Level Test","📚 Rich Content","💾 Cloud Save"].map(t=><span key={t}>{t}</span>)}</div></div>);}
 
 function AuthForm({mode,onDone,onSwitch}){
@@ -436,7 +782,7 @@ function HomeScreen({setMod,xp,lvl,pct,level,done,G,LT,DK}){
 }
 
 /* ═══════════════ PROFILE ════════════════════════════════ */
-function ProfileScreen({user,xp,lvl,level,badges,streak,anonymousLB,onToggleAnon,G,LT,DK}){
+function ProfileScreen({user,xp,lvl,level,badges,streak,anonymousLB,onToggleAnon,onCertificate,G,LT,DK}){
   const acadLevel=xp>=1500?"Advanced":xp>=500?"Intermediate":"Beginner";
   const levels=["Beginner","Intermediate","Advanced"];
   const levelColors={Beginner:"#2D6A4F",Intermediate:"#1565c0",Advanced:"#6a1b9a"};
@@ -449,6 +795,17 @@ function ProfileScreen({user,xp,lvl,level,badges,streak,anonymousLB,onToggleAnon
       <div style={{background:"rgba(255,255,255,0.2)",borderRadius:10,padding:"4px 16px",display:"inline-block",marginBottom:8}}><span style={{fontWeight:800,fontSize:14}}>🎓 {user?.student_code}</span></div>
       <div style={{display:"flex",justifyContent:"center",gap:28,marginTop:8}}>{[["⭐",xp,"XP"],["🔥",streak,"Streak"],["🏅",lvl.name,"Level"]].map(([ic,v,lb])=>(<div key={lb}><div style={{fontWeight:800,fontSize:17}}>{v}</div><div style={{fontSize:11,opacity:.75}}>{lb}</div></div>))}</div>
     </div>
+    {/* 🎓 Certificat — visible uniquement si xp >= 800 */}
+    {xp>=800&&(
+      <div onClick={onCertificate} style={{background:"linear-gradient(135deg,#1b4332,#2D6A4F)",borderRadius:16,padding:"16px 20px",marginBottom:18,display:"flex",alignItems:"center",gap:14,cursor:"pointer",boxShadow:"0 4px 16px rgba(45,106,79,.35)",border:"1.5px solid #81c784"}}>
+        <div style={{fontSize:42,flexShrink:0}}>🎓</div>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:800,color:"#fff",fontSize:15,marginBottom:2}}>Certificate of Achievement</div>
+          <div style={{color:"#a5d6a7",fontSize:12}}>Tu as atteint {xp} XP — télécharge ton certificat officiel !</div>
+        </div>
+        <div style={{background:"#fff",color:G,borderRadius:10,padding:"8px 14px",fontWeight:800,fontSize:12,flexShrink:0}}>⬇️</div>
+      </div>
+    )}
     <Card style={{marginBottom:18}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div><div style={{fontWeight:700,color:DK,fontSize:14}}>👁 Leaderboard Display</div><div style={{fontSize:12,color:"#888",marginTop:2}}>{anonymousLB?"Showing your code":"Showing your name"}</div></div>
@@ -488,12 +845,17 @@ function BoardScreen({userId,myXp,tok,anonymousLB,G,LT,DK}){
 
 /* ═══════════════ SETTINGS ═══════════════════════════════ */
 function SettingsScreen({user,onTheme,onLogout,onAdmin,G,LT,DK}){
-  const [activeT,sAT]=useState("default");const [pin,setPin]=useState("");const [showPin,setShowPin]=useState(false);const [pinErr,setPinErr]=useState(false);
+  const [activeT,sAT]=useState("default");const [pin,setPin]=useState("");const [showPin,setShowPin]=useState(false);const [pinErr,setPinErr]=useState("");const [locked,setLocked]=useState(false);
   const doTheme=k=>{sAT(k);onTheme(THEMES[k]);};
-  const checkPin=()=>{if(pin===ADMIN_PIN){onAdmin();}else{setPinErr(true);setTimeout(()=>setPinErr(false),2000);}};
-  return(<div style={{padding:18}}><h3 style={{color:DK,marginBottom:16}}>⚙️ Settings</h3>
+  const checkPin=()=>{
+    const res=verifyAdminPin(pin);
+    if(res.ok){onAdmin();}
+    else if(res.locked){setLocked(true);setPinErr(`🔒 Bloqué — réessayer dans ${res.wait}s`);setTimeout(()=>{setLocked(false);setPinErr("");},res.wait*1000);}
+    else{setPinErr(`❌ PIN incorrect${res.left!==undefined?` — ${res.left} essai(s) restant(s)`:""}`);}
+    setPin("");
+  };  return(<div style={{padding:18}}><h3 style={{color:DK,marginBottom:16}}>⚙️ Settings</h3>
     <Card style={{marginBottom:14}}><div style={{fontWeight:700,color:DK,fontSize:15,marginBottom:12}}>🎨 Visual Themes</div>{[{k:"default",name:"🌿 Default Green"},{k:"forest",name:"🌲 Dark Forest"},{k:"ocean",name:"🌊 Ocean Blue"}].map(t=>(<div key={t.k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"10px 12px",borderRadius:12,background:activeT===t.k?"#e8f5e9":"#fff",border:activeT===t.k?`2px solid ${G}`:"1.5px solid #eee"}}><div style={{fontWeight:700,color:DK,fontSize:13}}>{t.name}</div><button onClick={()=>doTheme(t.k)} style={{background:activeT===t.k?G:"#e0e0e0",color:activeT===t.k?"#fff":"#555",border:"none",borderRadius:10,padding:"6px 14px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{activeT===t.k?"Active":"Apply"}</button></div>))}</Card>
-    <Card style={{marginBottom:14}}><div style={{fontWeight:700,color:DK,fontSize:15,marginBottom:12}}>🔐 Admin Access</div>{!showPin?<SBtn onClick={()=>setShowPin(true)}>Enter Admin Panel</SBtn>:<div><input value={pin} onChange={e=>setPin(e.target.value)} type="password" placeholder="Enter PIN" style={{display:"block",width:"100%",boxSizing:"border-box",border:`1.5px solid ${pinErr?"#e53935":"#e0e0e0"}`,borderRadius:10,padding:"12px 14px",marginBottom:8,fontSize:14,outline:"none",fontFamily:"inherit"}}/>{pinErr&&<p style={{color:"#e53935",fontSize:12,margin:"0 0 8px"}}>❌ Incorrect PIN</p>}<PBtn onClick={checkPin} style={{background:G}}>🗂 Access Admin Panel</PBtn></div>}</Card>
+    <Card style={{marginBottom:14}}><div style={{fontWeight:700,color:DK,fontSize:15,marginBottom:12}}>🔐 Admin Access</div>{!showPin?<SBtn onClick={()=>setShowPin(true)}>Enter Admin Panel</SBtn>:<div><input value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&!locked&&checkPin()} type="password" placeholder="Enter PIN" style={{display:"block",width:"100%",boxSizing:"border-box",border:`1.5px solid ${pinErr?"#e53935":"#e0e0e0"}`,borderRadius:10,padding:"12px 14px",marginBottom:8,fontSize:14,outline:"none",fontFamily:"inherit"}}/>{pinErr&&<p style={{color:locked?"#e65100":"#e53935",fontSize:12,margin:"0 0 8px"}}>{pinErr}</p>}<PBtn onClick={checkPin} disabled={locked} style={{background:locked?"#ccc":G}}>🗂 Access Admin Panel</PBtn></div>}</Card>
     <Card style={{marginBottom:14,padding:"14px 16px"}}><div style={{fontWeight:600,color:DK,fontSize:14}}>👤 Account</div><div style={{fontSize:13,color:"#888",marginTop:4}}>{user?.name} · {user?.email}</div><div style={{fontSize:13,color:G,fontWeight:700,marginTop:2}}>🎓 {user?.student_code}</div></Card>
     <Card style={{marginBottom:14,padding:"14px 16px"}}><div style={{fontWeight:600,color:DK,fontSize:14}}>🔒 Privacy</div><div style={{fontSize:12,color:"#888",marginTop:4}}>ARTCI compliance · Secured by Supabase</div></Card>
     <button onClick={onLogout} style={{width:"100%",marginTop:4,background:"#ffebee",color:"#c62828",border:"1.5px solid #ffcdd2",borderRadius:12,padding:14,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>Log Out</button>
@@ -506,7 +868,7 @@ export default function App(){
   const [user,sUser]=useState(null);const [tok,sTok]=useState(null);const [place,sPlace]=useState(null);
   const [tab,sTab]=useState("home");const [mod,sMod]=useState(null);
   const [xp,sXp]=useState(0);const [streak,sStreak]=useState(1);const [done,sDone]=useState([]);const [badges,sBadges]=useState([]);
-  const [enc,sEnc]=useState(null);const [theme,sTheme]=useState(THEMES.default);const [levelUp,sLevelUp]=useState(null);
+  const [enc,sEnc]=useState(null);const [theme,sTheme]=useState(THEMES.default);const [levelUp,sLevelUp]=useState(null);const [showCert,setShowCert]=useState(false);
   const [showAdmin,setShowAdmin]=useState(false);const [anonymousLB,setAnonymousLB]=useState(false);
   const [ghContent,setGhContent]=useState(null);const [ghLoading,setGhLoading]=useState(false);
   const [adminLevel,setAdminLevel]=useState("Beginner");
@@ -582,12 +944,13 @@ export default function App(){
         {mod.id==="quiz"       &&<QuizMod       addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} user={user} tok={tok} effectiveLevel={effectiveLevel}/>}
       </div>
       :tab==="home"    ?<HomeScreen setMod={sMod} xp={xp} lvl={lvl} pct={pct} level={effectiveLevel} done={done} G={G} LT={LT} DK={DK}/>
-      :tab==="profile" ?<ProfileScreen user={user} xp={xp} lvl={lvl} level={effectiveLevel} badges={badges} streak={streak} anonymousLB={anonymousLB} onToggleAnon={toggleAnon} G={G} LT={LT} DK={DK}/>
+      :tab==="profile" ?<ProfileScreen user={user} xp={xp} lvl={lvl} level={effectiveLevel} badges={badges} streak={streak} anonymousLB={anonymousLB} onToggleAnon={toggleAnon} onCertificate={()=>setShowCert(true)} G={G} LT={LT} DK={DK}/>
       :tab==="board"   ?<BoardScreen userId={user?.id} myXp={xp} tok={tok} anonymousLB={anonymousLB} G={G} LT={LT} DK={DK}/>
       :<SettingsScreen user={user} onTheme={sTheme} onLogout={()=>{sScreen("landing");sUser(null);sTok(null);}} onAdmin={()=>setShowAdmin(true)} G={G} LT={LT} DK={DK}/>}
     </div>
     {levelUp&&(<div onClick={()=>sLevelUp(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.7)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}><div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:24,padding:32,maxWidth:360,width:"100%",textAlign:"center"}}><div style={{fontSize:64,marginBottom:12}}>{levelUp==="Intermediate"?"🌿":"🌳"}</div><h2 style={{color:G,margin:"0 0 8px"}}>Level Up! 🎉</h2><div style={{background:LT,borderRadius:12,padding:"10px 24px",display:"inline-block",margin:"8px 0 16px"}}><span style={{fontSize:20,fontWeight:900,color:DK}}>{levelUp}</span></div><PBtn onClick={()=>sLevelUp(null)} style={{background:G}}>Continue 🚀</PBtn></div></div>)}
     {enc&&(<div onClick={()=>sEnc(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.6)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}><div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:24,padding:32,maxWidth:360,width:"100%",textAlign:"center"}}><div style={{fontSize:60,marginBottom:12}}>🌟</div><h3 style={{color:G,margin:"0 0 8px"}}>{enc.title}</h3><p style={{color:"#555",fontSize:14,lineHeight:1.7,margin:"0 0 6px"}}>{enc.body}</p><p style={{color:"#888",fontSize:13,fontStyle:"italic",margin:"0 0 20px"}}>{enc.sub}</p><PBtn onClick={()=>sEnc(null)} style={{background:G}}>Keep Practising! 💪</PBtn></div></div>)}
+    {showCert&&xp>=800&&<CertificateModal user={user} xp={xp} level={effectiveLevel} onClose={()=>setShowCert(false)} G={G} LT={LT} DK={DK}/>}
     {!mod&&(<div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:440,background:"#fff",borderTop:"1px solid #e8f5e9",display:"flex"}}>
       {[["home","🏠","Home"],["profile","👤","Profile"],["board","🏆","Ranks"],["settings","⚙️","More"]].map(([t,ic,lb])=>(<button key={t} onClick={()=>sTab(t)} style={{flex:1,background:"none",border:"none",padding:"10px 0",cursor:"pointer",color:tab===t?G:"#aaa",fontWeight:tab===t?800:400,fontSize:11}}><div style={{fontSize:22}}>{ic}</div>{lb}</button>))}
     </div>)}
