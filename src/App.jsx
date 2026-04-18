@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { CONTENT, getUnseen } from './content/index.js';
 
 const THEMES = {
   default: { G:"#2D6A4F", LT:"#d8f3dc", DK:"#1b4332" },
@@ -46,39 +47,7 @@ const ENC = [
 const ADMIN_PIN = "UPGC2025";
 const ADMIN_EMAIL = "admin@upgc.ci";
 
-/* ─── GITHUB CONTENT LOADER ──────────────────────────── */
-const GH_BASE = "https://raw.githubusercontent.com/Amoskouassi/writeup-upgc/main/src/content";
-const contentCache = {};
 
-const parseJSExports = (code) => {
-  const result = {};
-  // Match: export const NAME = [...]  or  export const NAME = {...}
-  const re = /export\s+const\s+(\w+)\s*=\s*(\[[\s\S]*?\]|\{[\s\S]*?\})\s*;/g;
-  let m;
-  while ((m = re.exec(code)) !== null) {
-    try {
-      // eslint-disable-next-line no-new-func
-      result[m[1]] = new Function(`return ${m[2]}`)();
-    } catch(e) { console.warn("Parse error for", m[1], e); }
-  }
-  return result;
-};
-
-const loadLevelContent = async (level) => {
-  const key = level.toLowerCase();
-  if (contentCache[key]) return contentCache[key];
-  try {
-    const res = await fetch(`${GH_BASE}/${key}.js`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const code = await res.text();
-    const parsed = parseJSExports(code);
-    contentCache[key] = parsed;
-    return parsed;
-  } catch(e) {
-    console.warn(`Failed to load ${level} content from GitHub:`, e);
-    return null;
-  }
-};
 const PRETEST_SUBJECT = {
   prompt:"Describe a challenge you have faced as a student and explain how you overcame it.",
   instructions:"Write a well-organised paragraph of at least 80 words. Use clear and precise English. Your response will be reviewed and corrected by a teacher.",
@@ -172,7 +141,8 @@ const QUIZ_SETS = [
   [{q:"'Despite ___ tired, she studied.'",opts:["be","to be","been","being"],ans:3,exp:"After 'despite', always use the gerund (-ing)."},{q:"'Fundamental' means:",opts:["Optional","Very difficult","Forming the essential base","Interesting"],ans:2,exp:"Fundamental = forming the foundation."},{q:"'I assisted the conference.' Error:",opts:["'I' → 'We'","'assisted' → 'attended'","'conference' wrong","No error"],ans:1,exp:"'Assist' = help. 'Attend' = be present at."},{q:"Reported speech: 'I am preparing.' → She said she ___ .",opts:["is preparing","was preparing","has prepared","prepares"],ans:1,exp:"Present continuous → past continuous in reported speech."},{q:"Academic synonym for 'show':",opts:["Demonstrate","Tell","Say","Speak"],ans:0,exp:"'Demonstrate' = the academic equivalent of 'show'."}],
 ];
 
- its negative impact makes it far more harmful than helpful."}},
+const PEEL_TOPICS = [
+  {title:"Technology and Students",prompt:"Technology has more negative than positive effects on students' academic performance.",example:{point:"While technology offers useful learning tools, its misuse significantly harms students' academic performance.",explanation:"Students frequently use devices for entertainment rather than study, reducing focus and increasing procrastination. Social media platforms are designed to maximise engagement, making it difficult for students to resist distraction.",evidence:"A 2023 study by the OECD found that students who use smartphones for non-academic purposes during study hours score on average 15% lower on standardised assessments.",link:"For these reasons, students and institutions must establish clear boundaries around technology use to protect academic achievement."}},
   {title:"English in Côte d'Ivoire",prompt:"English is an essential skill for Ivorian university students today.",example:{point:"Mastering English has become an essential skill for Ivorian students who wish to compete in today's globalised professional environment.",explanation:"English is the dominant language of international business, scientific research, and global communication. Graduates who lack English proficiency are immediately at a competitive disadvantage.",evidence:"The African Development Bank estimates that English proficiency can increase an African graduate's starting salary by as much as 25%.",link:"For these compelling reasons, Ivorian students should treat English not as an optional requirement, but as one of the most strategic investments in their professional future."}},
 ];
 
@@ -313,50 +283,51 @@ function DoneScreen({xp,onBack,earn,G}){
   return(<><Confetti active={conf}/><div style={{textAlign:"center",padding:48}}><div style={{fontSize:64,marginBottom:12}}>🎉</div><h2 style={{color:G}}>Well done!</h2><p style={{color:"#555"}}>You earned <strong style={{color:G,fontSize:20}}>+{xp} XP</strong></p><p style={{color:"#aaa",fontSize:13}}>Progress saved ✅</p><PBtn onClick={onBack} style={{background:G}}>← Back to Modules</PBtn></div></>);
 }
 
-function GrammarMod({addXp,onBack,G,LT,DK,ghContent,ghLoading}){
-  const bank = ghContent?.GRAMMAR_ADVANCED || ghContent?.GRAMMAR_INTERMEDIATE || ghContent?.GRAMMAR_BEGINNER || GRAMMAR_BANK;
-  const [c]=useState(()=>rnd(bank));const [sel,sSel]=useState(null);const [done,sDone]=useState(false);
-  if(ghLoading) return <Spinner/>;
-  const conf=sel!==null,correct=sel===c.ans; onBack={onBack} G={G} earn={()=>addXp(XP_MAP.grammar,"grammar")}/>;
+function GrammarMod({addXp,onBack,G,LT,DK,user,tok,effectiveLevel}){
+  const [c,setC]=useState(null);const [sel,sSel]=useState(null);const [done,sDone]=useState(false);
+  useEffect(()=>{if(!user?.id||!tok)return;getUnseen(user.id,tok,effectiveLevel,'grammar').then(setC);},[]);
+  if(!c) return <Spinner/>;
+  const conf=sel!==null,correct=sel===c.ans;
+  if(done)return<DoneScreen xp={XP_MAP.grammar} onBack={onBack} G={G} earn={()=>addXp(XP_MAP.grammar,"grammar")}/>;
   return(<div><Card style={{background:LT,marginBottom:14}}><div style={{fontSize:12,color:"#555"}}>📚 Topic: <strong>{c.title}</strong></div></Card><Card style={{marginBottom:14}}><p style={{fontWeight:600,color:DK,fontSize:15,lineHeight:1.7,margin:0}}>{c.q}</p></Card>{c.opts.map((o,oi)=>{const isC=oi===c.ans,isP=oi===sel;let bg="#fff",br="#e0e0e0";if(conf){if(isP&&isC){bg="#e8f5e9";br=G;}else if(isP&&!isC){bg="#ffebee";br="#e53935";}else if(!isP&&isC&&!correct){bg="#fff9c4";br="#f9a825";}}else if(isP){bg=LT;br=G;}return<button key={oi} onClick={()=>!conf&&sSel(oi)} style={{display:"block",width:"100%",background:bg,border:`2px solid ${br}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:conf?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit"}}>{conf&&isP&&isC?"✅ ":conf&&isP&&!isC?"❌ ":conf&&!isP&&isC&&!correct?"💡 ":""}{o}</button>;})} {conf&&<><Card style={{background:correct?"#e8f5e9":"#fff3e0",marginBottom:10}}><p style={{margin:0,fontSize:13,color:correct?DK:"#e65100",lineHeight:1.7}}>{correct?"✅ Correct! ":"⚠️ Not quite. "}{c.exp}</p></Card><Card style={{background:"#e3f2fd",marginBottom:14}}><p style={{margin:0,fontSize:13,color:"#1565c0"}}>📐 <strong>Rule:</strong> {c.tip}</p></Card>{correct?<PBtn onClick={()=>sDone(true)} style={{background:G}}>Earn +{XP_MAP.grammar} XP →</PBtn>:<SBtn onClick={onBack}>← Try another exercise</SBtn>}</>}</div>);
 }
 
-function VocabMod({addXp,onBack,G,LT,DK,ghContent,ghLoading}){
-  const bank = ghContent?.VOCAB_ADVANCED || ghContent?.VOCAB_INTERMEDIATE || ghContent?.VOCAB_BEGINNER || VOCAB_BANK;
-  const [c]=useState(()=>rnd(bank));
+function VocabMod({addXp,onBack,G,LT,DK,user,tok,effectiveLevel}){
+  const [c,setC]=useState(null);
   const [phase,sPhase]=useState("learn");const [sel,sSel]=useState(null);const [done,sDone]=useState(false);
-  if(ghLoading) return <Spinner/>;
+  useEffect(()=>{if(!user?.id||!tok)return;getUnseen(user.id,tok,effectiveLevel,'vocabulary').then(setC);},[]);
+  if(!c) return <Spinner/>;
   const conf=sel!==null,correct=sel===c.ans;
   if(done)return<DoneScreen xp={XP_MAP.vocabulary} onBack={onBack} G={G} earn={()=>addXp(XP_MAP.vocabulary,"vocabulary")}/>;
   if(phase==="learn")return(<div><Card style={{borderLeft:`4px solid ${G}`,marginBottom:14}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}><div><h2 style={{color:G,margin:"0 0 2px",fontSize:26}}>{c.word}</h2><div style={{color:"#999",fontSize:12}}>{c.ph} · <em>{c.pos}</em></div></div><span style={{background:"#fff3e0",color:"#e65100",borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>{c.fr}</span></div><div style={{background:"#f9fbe7",borderRadius:10,padding:12,marginBottom:10}}><div style={{fontSize:12,color:"#888",marginBottom:4}}>📖 Definition</div><p style={{color:"#333",fontSize:14,margin:0,lineHeight:1.7}}>{c.def}</p></div><div style={{background:"#e8f5e9",borderRadius:10,padding:12}}><div style={{fontSize:12,color:"#888",marginBottom:4}}>🧠 Memory Tip</div><p style={{color:DK,fontSize:13,margin:0,lineHeight:1.6}}>{c.tip}</p></div></Card><PBtn onClick={()=>sPhase("practice")} style={{background:G}}>Practice this word →</PBtn></div>);
   return(<div><Card style={{marginBottom:14}}><div style={{fontSize:12,color:"#888",marginBottom:6}}>💬 Complete the sentence:</div><p style={{fontWeight:600,color:DK,fontSize:15,lineHeight:1.7}}>{c.ex}</p></Card>{c.opts.map((o,oi)=>{const isC=oi===c.ans,isP=oi===sel;let bg="#fff",br="#e0e0e0";if(conf){if(isP&&isC){bg="#e8f5e9";br=G;}else if(isP&&!isC){bg="#ffebee";br="#e53935";}else if(!isP&&isC&&!correct){bg="#fff9c4";br="#f9a825";}}else if(isP){bg=LT;br=G;}return<button key={oi} onClick={()=>!conf&&sSel(oi)} style={{display:"block",width:"100%",background:bg,border:`2px solid ${br}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:conf?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit"}}>{conf&&isP&&isC?"✅ ":conf&&isP&&!isC?"❌ ":conf&&!isP&&isC&&!correct?"💡 ":""}{o}</button>;})} {conf&&<><Card style={{background:correct?"#e8f5e9":"#fff3e0",marginBottom:10}}><p style={{margin:0,fontSize:13,color:correct?DK:"#e65100",lineHeight:1.7}}>{correct?`✅ Correct! "${c.word}" fits perfectly.`:`⚠️ The correct word is "${c.opts[c.ans]}". Review the definition!`}</p></Card>{correct?<PBtn onClick={()=>sDone(true)} style={{background:G}}>Earn +{XP_MAP.vocabulary} XP →</PBtn>:<SBtn onClick={onBack}>← Try another word</SBtn>}</>}</div>);
 }
 
-function ReadingMod({addXp,onBack,G,LT,DK,ghContent,ghLoading}){
-  const bank = ghContent?.READING_ADVANCED || ghContent?.READING_INTERMEDIATE || ghContent?.READING_BEGINNER || READING_BANK;
-  const [c]=useState(()=>rnd(bank));
+function ReadingMod({addXp,onBack,G,LT,DK,user,tok,effectiveLevel}){
+  const [c,setC]=useState(null);
   const [phase,sP]=useState("read");const [ans,sA]=useState([null,null,null]);const [checked,sC]=useState(false);const [done,sD]=useState(false);
-  if(ghLoading) return <Spinner/>;
+  useEffect(()=>{if(!user?.id||!tok)return;getUnseen(user.id,tok,effectiveLevel,'reading').then(setC);},[]);
+  if(!c) return <Spinner/>;
   const score=ans.filter((a,i)=>a===c.qs[i]?.ans).length;
   if(done)return<DoneScreen xp={XP_MAP.reading} onBack={onBack} G={G} earn={()=>addXp(XP_MAP.reading,"reading")}/>;
   if(phase==="read")return(<div><Card style={{marginBottom:14}}><div style={{fontSize:11,color:"#888",marginBottom:4}}>📖 {c.topic}</div><h3 style={{color:G,margin:"0 0 12px"}}>{c.title}</h3>{c.passage.split("\n\n").map((p,i)=><p key={i} style={{lineHeight:1.9,fontSize:14,color:"#333",marginBottom:12}}>{p}</p>)}</Card><Card style={{background:"#fff8e1",marginBottom:14}}><div style={{fontWeight:700,color:"#e65100",marginBottom:10,fontSize:13}}>📖 Glossary</div>{c.gloss.map(g=><div key={g.w} style={{display:"flex",gap:8,marginBottom:8,fontSize:13}}><strong style={{color:DK,minWidth:110,flexShrink:0}}>{g.w}</strong><span style={{color:"#555",lineHeight:1.5}}>{g.d}</span></div>)}</Card><PBtn onClick={()=>sP("quiz")} style={{background:G}}>Answer Questions →</PBtn></div>);
   return(<div><h4 style={{color:DK,marginBottom:14}}>📝 Comprehension Questions</h4>{c.qs.map((q,qi)=>(<Card key={qi} style={{marginBottom:14}}><p style={{fontWeight:600,color:DK,fontSize:14,marginBottom:10,lineHeight:1.6}}>{qi+1}. {q.q}</p>{q.opts.map((o,oi)=>{const isC=oi===q.ans,isP=oi===ans[qi];let bg="#f9f9f9",br="#e0e0e0";if(checked){if(isP&&isC){bg="#e8f5e9";br=G;}else if(isP&&!isC){bg="#ffebee";br="#e53935";}else if(!isP&&isC){bg="#fff9c4";br="#f9a825";}}else if(isP){bg=LT;br=G;}return<button key={oi} onClick={()=>{if(!checked)sA(a=>{const n=[...a];n[qi]=oi;return n;})}} style={{display:"block",width:"100%",background:bg,border:`1.5px solid ${br}`,borderRadius:10,padding:"10px 14px",marginBottom:8,cursor:checked?"default":"pointer",textAlign:"left",fontSize:13,fontFamily:"inherit"}}>{checked&&isP&&isC?"✅ ":checked&&isP&&!isC?"❌ ":checked&&!isP&&isC?"💡 ":""}{o}</button>;})} </Card>))}{!checked?<PBtn onClick={()=>sC(true)} disabled={ans.includes(null)} style={{background:ans.includes(null)?"#ccc":G}}>Check Answers</PBtn>:<div><Card style={{background:score===3?LT:"#fff3e0",textAlign:"center",marginBottom:14}}><strong style={{color:score===3?G:"#e65100",fontSize:16}}>{score}/3 correct {score===3?"🎉":"— keep reading!"}</strong></Card><PBtn onClick={()=>sD(true)} style={{background:G}}>Earn +{XP_MAP.reading} XP</PBtn></div>}</div>);
 }
 
-function MistakesMod({addXp,onBack,G,LT,DK,ghContent,ghLoading}){
-  const bank = ghContent?.MISTAKES_ADVANCED || ghContent?.MISTAKES_INTERMEDIATE || ghContent?.MISTAKES_BEGINNER || MISTAKES_BANK;
-  const [c]=useState(()=>rnd(bank));
+function MistakesMod({addXp,onBack,G,LT,DK,user,tok,effectiveLevel}){
+  const [c,setC]=useState(null);
   const [done,sD]=useState(false);
-  if(ghLoading) return <Spinner/>;
+  useEffect(()=>{if(!user?.id||!tok)return;getUnseen(user.id,tok,effectiveLevel,'mistakes').then(setC);},[]);
+  if(!c) return <Spinner/>;
   if(done)return<DoneScreen xp={XP_MAP.mistakes} onBack={onBack} G={G} earn={()=>addXp(XP_MAP.mistakes,"mistakes")}/>;
   return(<div><Card style={{borderLeft:"4px solid #ff9800",marginBottom:14}}><span style={{background:"#fff3e0",color:"#e65100",borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>{c.title}</span><div style={{display:"flex",alignItems:"center",gap:8,marginTop:12}}><span style={{fontSize:18}}>🇫🇷</span><span style={{fontSize:13,color:"#666",fontStyle:"italic"}}>French pattern: <strong>{c.fr}</strong></span></div></Card><Card style={{background:"#ffebee",marginBottom:10}}><div style={{fontSize:12,color:"#c62828",fontWeight:700,marginBottom:8}}>❌ Common Error</div><p style={{color:"#333",fontSize:14,margin:0,fontStyle:"italic"}}>"{c.wrong}"</p></Card><Card style={{background:"#e8f5e9",marginBottom:10}}><div style={{fontSize:12,color:G,fontWeight:700,marginBottom:8}}>✅ Correct English</div><p style={{color:"#333",fontSize:14,margin:0,fontStyle:"italic"}}>"{c.right}"</p></Card><Card style={{background:"#e3f2fd",marginBottom:14}}><div style={{fontSize:12,color:"#1565c0",fontWeight:700,marginBottom:8}}>📐 Rule</div><p style={{color:"#333",fontSize:13,margin:0,lineHeight:1.8}}>{c.rule}</p></Card><Card style={{marginBottom:14}}><div style={{fontSize:13,fontWeight:700,color:DK,marginBottom:12}}>📝 More Examples</div>{c.ex.map((e,i)=><div key={i} style={{marginBottom:12,paddingBottom:12,borderBottom:i<c.ex.length-1?"1px solid #f0f0f0":"none"}}><div style={{fontSize:13,color:"#c62828",marginBottom:4}}>❌ {e.w}</div><div style={{fontSize:13,color:G}}>✅ {e.r}</div></div>)}</Card><PBtn onClick={()=>sD(true)} style={{background:G}}>Got it! Earn +{XP_MAP.mistakes} XP</PBtn></div>);
 }
 
-function QuizMod({addXp,onBack,G,LT,DK,ghContent,ghLoading}){
-  const bank = ghContent?.QUIZ_ADVANCED || ghContent?.QUIZ_INTERMEDIATE || ghContent?.QUIZ_BEGINNER || QUIZ_SETS;
-  const [qs]=useState(()=>rnd(Array.isArray(bank[0])?bank:[bank]));
+function QuizMod({addXp,onBack,G,LT,DK,user,tok,effectiveLevel}){
+  const [qs,setQs]=useState(null);
   const [i,sI]=useState(0);const [sel,sSel]=useState(null);const [score,sScore]=useState(0);const [review,sReview]=useState(false);const [done,sDone]=useState(false);
-  if(ghLoading) return <Spinner/>;
+  useEffect(()=>{if(!user?.id||!tok)return;getUnseen(user.id,tok,effectiveLevel,'quiz').then(item=>{if(item){const arr=item.questions||item;setQs(Array.isArray(arr)?arr:[arr]);}});},[]);
+  if(!qs) return <Spinner/>;
   const q=qs[i],conf=sel!==null,correct=sel===q?.ans;
   if(done)return<DoneScreen xp={score*6} onBack={onBack} G={G} earn={()=>addXp(score*6,"quiz")}/>;
   if(review)return(<div><Card style={{textAlign:"center",marginBottom:16}}><div style={{fontSize:52}}>{score>=4?"🏆":score>=2?"👏":"💪"}</div><h3 style={{color:G,margin:"8px 0 4px"}}>Quiz Complete!</h3><p style={{color:"#555",fontSize:14}}>Score: <strong style={{color:G,fontSize:20}}>{score}/{qs.length}</strong></p></Card>{score>0?<PBtn onClick={()=>sDone(true)} style={{background:G}}>Claim +{score*6} XP →</PBtn>:<SBtn onClick={onBack}>← No XP — Try again tomorrow</SBtn>}</div>);
@@ -364,9 +335,10 @@ function QuizMod({addXp,onBack,G,LT,DK,ghContent,ghLoading}){
   return(<div><div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#888",marginBottom:8}}><span>Q {i+1}/{qs.length}</span><span style={{color:G,fontWeight:700}}>Score: {score}/{i+(conf?1:0)}</span></div><div style={{background:"#e8f5e9",borderRadius:8,height:6,marginBottom:14}}><div style={{background:G,height:6,borderRadius:8,width:`${(i/qs.length)*100}%`,transition:"width .4s"}}/></div><Card style={{marginBottom:14}}><p style={{fontWeight:700,color:DK,fontSize:15,lineHeight:1.6,margin:0}}>{q.q}</p></Card>{q.opts.map((o,oi)=>{const isC=oi===q.ans,isP=oi===sel;let bg="#fff",br="#e0e0e0";if(conf){if(isP&&isC){bg="#e8f5e9";br=G;}else if(isP&&!isC){bg="#ffebee";br="#e53935";}else if(!isP&&isC&&!correct){bg="#fff9c4";br="#f9a825";}}else if(isP){bg=LT;br=G;}return<button key={oi} onClick={()=>{if(!conf){sSel(oi);if(oi===q.ans)sScore(s=>s+1);}}} style={{display:"block",width:"100%",background:bg,border:`2px solid ${br}`,borderRadius:12,padding:"12px 16px",marginBottom:10,cursor:conf?"default":"pointer",textAlign:"left",fontSize:14,fontFamily:"inherit"}}>{conf&&isP&&isC?"✅ ":conf&&isP&&!isC?"❌ ":conf&&!isP&&isC&&!correct?"💡 ":""}{o}</button>;})} {conf&&<><Card style={{background:correct?"#e8f5e9":"#fff3e0",marginBottom:10}}><p style={{margin:0,fontSize:13,color:correct?DK:"#e65100",lineHeight:1.7}}>{correct?"✅ Correct! ":"⚠️ Not quite. "}{q.exp}</p></Card><PBtn onClick={next} style={{background:G}}>{i<qs.length-1?"Next →":"See Results"}</PBtn></>}</div>);
 }
 
-function PeelMod({addXp,onBack,level,G,LT,DK,ghContent,ghLoading}){
-  const bank = ghContent?.PEEL_ADVANCED || ghContent?.PEEL_INTERMEDIATE || ghContent?.PEEL_BEGINNER || PEEL_TOPICS;
-  const [phase,sPhase]=useState("intro");const [tTab,sTTab]=useState(0);const [c]=useState(()=>rnd(bank));const [step,sStep]=useState(0);const [vals,sVals]=useState({point:"",explanation:"",evidence:"",link:""});const [fb,sFb]=useState(null);const [aiLoad,sAiLoad]=useState(false);const [attempts,sAtt]=useState(0);
+function PeelMod({addXp,onBack,level,G,LT,DK,user,tok,effectiveLevel}){
+  const [phase,sPhase]=useState("intro");const [tTab,sTTab]=useState(0);const [c,setC]=useState(null);const [step,sStep]=useState(0);const [vals,sVals]=useState({point:"",explanation:"",evidence:"",link:""});const [fb,sFb]=useState(null);const [aiLoad,sAiLoad]=useState(false);const [attempts,sAtt]=useState(0);
+  useEffect(()=>{if(!user?.id||!tok)return;getUnseen(user.id,tok,effectiveLevel,'peel').then(setC);},[]);
+  if(!c) return <Spinner/>;
   const keys=["point","explanation","evidence","link"];const labels=["📌 Point","💬 Explanation","📚 Evidence","🔗 Link"];const minW=WMIN[level]||WMIN.Beginner;
   const PARTS=[
     {letter:"P",name:"Point",color:"#e3f2fd",icon:"📌",role:"Your opening sentence — state your main argument clearly.",dos:"Start with a strong, confident statement. Be specific.",donts:"Do not begin with a question. Do not be vague."},
@@ -542,12 +514,12 @@ export default function App(){
   const isAdmin = user?.email===ADMIN_EMAIL;
   const effectiveLevel = isAdmin ? adminLevel : (place?.level||"Beginner");
 
-  // Load GitHub content when level changes
+  // Load content from local modules — no fetch needed
   useEffect(()=>{
-    if(screen!=="app") return;
-    setGhLoading(true);
-    loadLevelContent(effectiveLevel).then(c=>{setGhContent(c);setGhLoading(false);});
-  },[effectiveLevel, screen]);
+    if(screen!=="app"||!user?.id) return;
+    setGhContent(CONTENT[effectiveLevel]);
+    setGhLoading(false);
+  },[effectiveLevel, screen, user?.id]);
 
   const loadDone=async(uid,tk)=>{
     if(isAdmin){sDone([]);return;} // admin: no restrictions
@@ -602,12 +574,12 @@ export default function App(){
       {mod?<div style={{padding:18}}>
         <button onClick={()=>{sMod(null);loadDone(user?.id,tok);}} style={{background:"none",border:"none",color:G,fontWeight:700,fontSize:15,cursor:"pointer",padding:0,marginBottom:16}}>← Back</button>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:18}}><div style={{background:mod.color,borderRadius:14,width:52,height:52,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26}}>{mod.icon}</div><div><h2 style={{margin:0,color:DK,fontSize:18}}>{mod.name}</h2><p style={{margin:0,color:"#888",fontSize:12}}>{mod.sub}</p></div></div>
-        {mod.id==="grammar"    &&<GrammarMod    addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} ghContent={ghContent} ghLoading={ghLoading}/>}
-        {mod.id==="vocabulary" &&<VocabMod      addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} ghContent={ghContent} ghLoading={ghLoading}/>}
-        {mod.id==="peel"       &&<PeelMod       addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} level={effectiveLevel} G={G} LT={LT} DK={DK} ghContent={ghContent} ghLoading={ghLoading}/>}
-        {mod.id==="reading"    &&<ReadingMod    addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} ghContent={ghContent} ghLoading={ghLoading}/>}
-        {mod.id==="mistakes"   &&<MistakesMod   addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} ghContent={ghContent} ghLoading={ghLoading}/>}
-        {mod.id==="quiz"       &&<QuizMod       addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} ghContent={ghContent} ghLoading={ghLoading}/>}
+        {mod.id==="grammar"    &&<GrammarMod    addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} user={user} tok={tok} effectiveLevel={effectiveLevel}/>}
+        {mod.id==="vocabulary" &&<VocabMod      addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} user={user} tok={tok} effectiveLevel={effectiveLevel}/>}
+        {mod.id==="peel"       &&<PeelMod       addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} level={effectiveLevel} G={G} LT={LT} DK={DK} user={user} tok={tok} effectiveLevel={effectiveLevel}/>}
+        {mod.id==="reading"    &&<ReadingMod    addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} user={user} tok={tok} effectiveLevel={effectiveLevel}/>}
+        {mod.id==="mistakes"   &&<MistakesMod   addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} user={user} tok={tok} effectiveLevel={effectiveLevel}/>}
+        {mod.id==="quiz"       &&<QuizMod       addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} user={user} tok={tok} effectiveLevel={effectiveLevel}/>}
       </div>
       :tab==="home"    ?<HomeScreen setMod={sMod} xp={xp} lvl={lvl} pct={pct} level={effectiveLevel} done={done} G={G} LT={LT} DK={DK}/>
       :tab==="profile" ?<ProfileScreen user={user} xp={xp} lvl={lvl} level={effectiveLevel} badges={badges} streak={streak} anonymousLB={anonymousLB} onToggleAnon={toggleAnon} G={G} LT={LT} DK={DK}/>
