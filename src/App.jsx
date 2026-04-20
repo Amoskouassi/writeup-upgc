@@ -315,31 +315,113 @@ const MODS = [
   {id:"essay",     icon:"📄",name:"Essay Writing",    sub:"Opinion & Argumentative essays",  color:"#f1f8e9"},
 ];
 
+/* ─── BADGE RARITY SYSTEM ──────────────────────────────── */
+const RARITY = {
+  common:    {label:"Common",    icon:"🥉", color:"#cd7f32", bg:"#fff8f3", glow:"rgba(205,127,50,.25)",  xpBonus:5},
+  rare:      {label:"Rare",      icon:"🥈", color:"#9e9e9e", bg:"#f5f5f5", glow:"rgba(158,158,158,.25)", xpBonus:10},
+  epic:      {label:"Epic",      icon:"🥇", color:"#f9a825", bg:"#fff8e1", glow:"rgba(249,168,37,.3)",   xpBonus:20},
+  legendary: {label:"Legendary", icon:"💎", color:"#26c6da", bg:"#e0f7fa", glow:"rgba(38,198,218,.35)",  xpBonus:50},
+};
+
 const BADGES_DEF = {
   Beginner:[
-    {icon:"✍️",name:"First Write",   desc:"Submit your first PEEL paragraph"},
-    {icon:"📖",name:"First Reader",  desc:"Complete 1 reading passage"},
-    {icon:"🔥",name:"Streak 3",      desc:"Log in 3 days in a row"},
-    {icon:"✏️",name:"Grammar Start", desc:"Complete 5 grammar exercises"},
-    {icon:"🔤",name:"Word Learner",  desc:"Learn 5 vocabulary words"},
-    {icon:"🧪",name:"Quiz Taker",    desc:"Complete your first quiz"},
+    {icon:"✍️",name:"First Write",   desc:"Submit your first PEEL paragraph",       rarity:"common"},
+    {icon:"📖",name:"First Reader",  desc:"Complete 1 reading passage",              rarity:"common"},
+    {icon:"🔥",name:"Streak 3",      desc:"Log in 3 days in a row",                 rarity:"common"},
+    {icon:"✏️",name:"Grammar Start", desc:"Complete 5 grammar exercises",            rarity:"rare"},
+    {icon:"🔤",name:"Word Learner",  desc:"Learn 5 vocabulary words",               rarity:"rare"},
+    {icon:"🧪",name:"Quiz Taker",    desc:"Complete your first quiz",               rarity:"common"},
   ],
   Intermediate:[
-    {icon:"📝",name:"PEEL Improver",   desc:"Submit 3 PEEL with score ≥10/20"},
-    {icon:"🔥",name:"Streak 7",        desc:"Log in 7 days in a row"},
-    {icon:"📚",name:"Avid Reader",     desc:"Complete 5 reading passages"},
-    {icon:"✏️",name:"Grammar Pro",     desc:"Complete 15 grammar exercises"},
-    {icon:"🎯",name:"Quiz Champion",   desc:"Score 5/5 on a quiz"},
-    {icon:"🇫🇷",name:"Mistake Hunter", desc:"Complete 5 Common Mistakes"},
+    {icon:"📝",name:"PEEL Improver",   desc:"Submit 3 PEEL with score ≥10/20",     rarity:"rare"},
+    {icon:"🔥",name:"Streak 7",        desc:"Log in 7 days in a row",               rarity:"rare"},
+    {icon:"📚",name:"Avid Reader",     desc:"Complete 5 reading passages",          rarity:"rare"},
+    {icon:"✏️",name:"Grammar Pro",     desc:"Complete 15 grammar exercises",        rarity:"epic"},
+    {icon:"🎯",name:"Quiz Champion",   desc:"Score 5/5 on a quiz",                 rarity:"epic"},
+    {icon:"🇫🇷",name:"Mistake Hunter", desc:"Complete 5 Common Mistakes",          rarity:"rare"},
   ],
   Advanced:[
-    {icon:"🏆",name:"PEEL Master",       desc:"Submit 5 PEEL with score ≥15/20"},
-    {icon:"🔥",name:"Streak 14",         desc:"Log in 14 days in a row"},
-    {icon:"🌍",name:"African Reader",    desc:"Complete 10 reading passages"},
-    {icon:"💎",name:"Perfect Quiz",      desc:"Get 3 perfect quizzes"},
-    {icon:"🎓",name:"Academic Writer",   desc:"Earn 500 XP through PEEL"},
-    {icon:"👑",name:"UPGC Champion",     desc:"Reach 1500 XP"},
+    {icon:"🏆",name:"PEEL Master",       desc:"Submit 5 PEEL with score ≥15/20",   rarity:"epic"},
+    {icon:"🔥",name:"Streak 14",         desc:"Log in 14 days in a row",            rarity:"epic"},
+    {icon:"🌍",name:"African Reader",    desc:"Complete 10 reading passages",       rarity:"epic"},
+    {icon:"💎",name:"Perfect Quiz",      desc:"Get 3 perfect quizzes",             rarity:"legendary"},
+    {icon:"🎓",name:"Academic Writer",   desc:"Earn 500 XP through PEEL",         rarity:"legendary"},
+    {icon:"👑",name:"UPGC Champion",     desc:"Reach 1500 XP",                     rarity:"legendary"},
   ],
+  // Badges Complétiste — débloqués automatiquement
+  Completist:[
+    {icon:"🌟",name:"Beginner Complete",      desc:"Earned all 6 Beginner badges",      rarity:"epic"},
+    {icon:"⭐",name:"Intermediate Complete",  desc:"Earned all 6 Intermediate badges",  rarity:"legendary"},
+    {icon:"🌠",name:"Advanced Complete",      desc:"Earned all 6 Advanced badges",      rarity:"legendary"},
+  ],
+};
+
+// Lookup rapide badge → rareté
+const getBadgeRarity = (badgeName) => {
+  for(const [, arr] of Object.entries(BADGES_DEF)){
+    const found = arr.find(b=>b.name===badgeName);
+    if(found) return RARITY[found.rarity]||RARITY.common;
+  }
+  return RARITY.common;
+};
+
+/* ─── BADGE CARD GENERATOR (Canvas → PNG) ──────────────── */
+const downloadBadgeCard = (studentName, studentCode, earnedBadges) => {
+  const W=900, H=580;
+  const canvas=document.createElement('canvas'); canvas.width=W; canvas.height=H;
+  const ctx=canvas.getContext('2d');
+  // Fond dégradé
+  const grad=ctx.createLinearGradient(0,0,W,H);
+  grad.addColorStop(0,'#1b4332'); grad.addColorStop(1,'#2D6A4F');
+  ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+  // Bordure or
+  ctx.strokeStyle='#c9a84c'; ctx.lineWidth=3;
+  ctx.strokeRect(14,14,W-28,H-28);
+  ctx.strokeStyle='rgba(255,255,255,0.12)'; ctx.lineWidth=1;
+  ctx.strokeRect(22,22,W-44,H-44);
+  // Titre
+  ctx.fillStyle='#fff'; ctx.font='bold 28px Georgia,serif'; ctx.textAlign='center';
+  ctx.fillText('WriteUP UPGC — Badge Showcase',W/2,62);
+  ctx.fillStyle='#a5d6a7'; ctx.font='16px Georgia,serif';
+  ctx.fillText(`${studentName}  ·  ${studentCode}`,W/2,90);
+  // Séparateur
+  ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.fillRect(60,104,W-120,1);
+  // Badges
+  const cols=6, rows=Math.ceil(earnedBadges.length/cols);
+  const bW=120, bH=110, startX=(W-cols*bW)/2+bW/2, startY=130;
+  earnedBadges.forEach((b,i)=>{
+    const col=i%cols, row=Math.floor(i/cols);
+    const cx=startX+col*bW, cy=startY+row*bH;
+    const rar=RARITY[b.rarity]||RARITY.common;
+    // Fond badge
+    ctx.fillStyle='rgba(255,255,255,0.1)';
+    ctx.beginPath(); ctx.roundRect(cx-46,cy-46,92,88,10); ctx.fill();
+    ctx.strokeStyle=rar.color; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.roundRect(cx-46,cy-46,92,88,10); ctx.stroke();
+    // Emoji
+    ctx.font='34px serif'; ctx.textAlign='center'; ctx.fillStyle='#fff';
+    ctx.fillText(b.icon,cx,cy);
+    // Nom
+    ctx.font='bold 10px sans-serif'; ctx.fillStyle='#fff';
+    ctx.fillText(b.name.length>14?b.name.slice(0,13)+'…':b.name,cx,cy+26);
+    // Rareté
+    ctx.font='10px sans-serif'; ctx.fillStyle=rar.color;
+    ctx.fillText(rar.icon+' '+rar.label,cx,cy+40);
+  });
+  if(earnedBadges.length===0){
+    ctx.fillStyle='rgba(255,255,255,0.5)'; ctx.font='italic 18px Georgia,serif'; ctx.textAlign='center';
+    ctx.fillText('No badges earned yet — keep learning!',W/2,280);
+  }
+  // Total
+  ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.fillRect(60,H-80,W-120,1);
+  ctx.fillStyle='#c9a84c'; ctx.font='bold 14px Georgia,serif'; ctx.textAlign='center';
+  ctx.fillText(`${earnedBadges.length} badge${earnedBadges.length!==1?'s':''} earned  ·  WriteUP UPGC  ·  ${new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'})}`,W/2,H-48);
+  canvas.toBlob(blob=>{
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url; a.download=`badges_${studentName.replace(/\s+/g,'_')}.png`; a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  },'image/png');
 };
 
 /* ─── UI COMPONENTS ──────────────────────────────────── */
@@ -348,6 +430,36 @@ function Confetti({active}){if(!active)return null;const pieces=Array.from({leng
 function Card({children,style}){return<div style={{background:"#fff",borderRadius:16,padding:18,boxShadow:"0 2px 10px rgba(0,0,0,0.06)",...style}}>{children}</div>;}
 function PBtn({onClick,children,disabled,style}){return<button onClick={onClick} disabled={disabled} style={{display:"block",width:"100%",padding:"13px",borderRadius:12,border:"none",background:disabled?"#ccc":"#2D6A4F",color:"#fff",fontWeight:700,fontSize:14,cursor:disabled?"not-allowed":"pointer",fontFamily:"inherit",marginTop:8,...style}}>{children}</button>;}
 function SBtn({onClick,children,style}){return<button onClick={onClick} style={{display:"block",width:"100%",padding:"12px",borderRadius:12,border:"2px solid #2D6A4F",background:"transparent",color:"#2D6A4F",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit",marginTop:8,...style}}>{children}</button>;}
+
+/* ─── BADGE UNLOCK POPUP ─────────────────────────────────── */
+function BadgeUnlockPopup({badge,onClose,G,LT,DK}){
+  const [show,setShow]=useState(false);
+  useEffect(()=>{const t=setTimeout(()=>setShow(true),50);return()=>clearTimeout(t);},[]);
+  if(!badge)return null;
+  const rar=getBadgeRarity(badge.name);
+  return(
+    <div onClick={onClose} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.75)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <style>{`@keyframes badge-pop{0%{transform:scale(0.3) rotate(-10deg);opacity:0}60%{transform:scale(1.12) rotate(2deg);opacity:1}80%{transform:scale(0.95)}100%{transform:scale(1) rotate(0deg);opacity:1}}@keyframes badge-glow{0%,100%{box-shadow:0 0 30px ${rar.glow},0 0 60px ${rar.glow}}50%{box-shadow:0 0 60px ${rar.glow},0 0 120px ${rar.glow}}}`}</style>
+      <Confetti active/>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:28,padding:36,maxWidth:340,width:"100%",textAlign:"center",animation:show?"badge-pop 0.6s ease forwards":"none",border:`3px solid ${rar.color}`,boxShadow:`0 20px 60px rgba(0,0,0,.4),0 0 40px ${rar.glow}`}}>
+        {/* Badge principal */}
+        <div style={{width:100,height:100,margin:"0 auto 16px",borderRadius:"50%",background:rar.bg,border:`3px solid ${rar.color}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:48,animation:"badge-glow 2s ease-in-out infinite"}}>
+          {badge.icon}
+        </div>
+        <div style={{background:rar.bg,border:`1px solid ${rar.color}`,borderRadius:20,padding:"3px 14px",display:"inline-block",marginBottom:8}}>
+          <span style={{fontSize:12,fontWeight:800,color:rar.color}}>{rar.icon} {rar.label.toUpperCase()}</span>
+        </div>
+        <h2 style={{color:DK,margin:"8px 0 4px",fontSize:22}}>Badge Unlocked! 🎉</h2>
+        <div style={{fontWeight:800,color:rar.color,fontSize:20,marginBottom:6}}>{badge.icon} {badge.name}</div>
+        <p style={{color:"#555",fontSize:14,lineHeight:1.6,margin:"0 0 14px"}}>{badge.desc}</p>
+        <div style={{background:`linear-gradient(135deg,${DK},${G})`,borderRadius:12,padding:"10px 20px",display:"inline-block",marginBottom:20}}>
+          <span style={{color:"#fff",fontWeight:800,fontSize:16}}>+{RARITY[Object.keys(RARITY).find(k=>RARITY[k]===getBadgeRarity(badge.name))||"common"].xpBonus} XP Bonus! ⭐</span>
+        </div>
+        <PBtn onClick={onClose} style={{background:G}}>Awesome! 🚀</PBtn>
+      </div>
+    </div>
+  );
+}
 
 /* ═══════════════ PLACEMENT TEST ═══════════════════════ */
 function PlacementTest({onDone}){
@@ -378,9 +490,13 @@ function WritingPretest({user,tok,level,onDone}){
 }
 
 /* ═══════════════ WRITING POST-TEST ══════════════════════ */
+// Thème : indigo profond + accent violet + or — distinct du pré-test (vert)
+const PT_THEME={bg:"#0d1b4b",card:"#132060",accent:"#7c4dff",gold:"#f9a825",border:"rgba(124,77,255,.35)",text:"#e8eaf6",sub:"#9fa8da"};
+
 function WritingPosttest({user,tok,level,onDone}){
   const [text,setText]=useState("");const [loading,setLoading]=useState(false);const [submitted,setSubmitted]=useState(false);
   const words=wc(text),enough=words>=POSTTEST_SUBJECT.minWords;
+  const T=PT_THEME;
   const submit=async()=>{
     if(!enough||!user?.id)return;
     setLoading(true);
@@ -391,42 +507,59 @@ function WritingPosttest({user,tok,level,onDone}){
     setLoading(false);
   };
   if(submitted)return(
-    <div style={{minHeight:"100vh",background:"#f0f7f4",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',sans-serif"}}>
+    <div style={{minHeight:"100vh",background:`linear-gradient(160deg,${T.bg} 0%,#1a237e 100%)`,display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',sans-serif"}}>
       <div style={{width:"100%",maxWidth:440,textAlign:"center"}}>
-        <Card>
-          <div style={{fontSize:64,marginBottom:12}}>📬</div>
-          <h2 style={{color:"#2D6A4F",margin:"0 0 8px"}}>Post-test Submitted!</h2>
-          <p style={{color:"#555",fontSize:14,lineHeight:1.8}}>Your post-test has been sent for teacher review. Well done for completing the programme!</p>
-          <div style={{background:"#d8f3dc",borderRadius:12,padding:"10px 20px",display:"inline-block",margin:"12px 0"}}>
-            <span style={{fontWeight:800,color:"#1b4332",fontSize:15}}>Code: {user?.student_code}</span>
+        <div style={{background:"rgba(255,255,255,.07)",borderRadius:24,padding:36,border:`1px solid ${T.border}`}}>
+          <div style={{fontSize:72,marginBottom:12}}>🎓</div>
+          <h2 style={{color:T.gold,margin:"0 0 10px",fontSize:22}}>Post-test Submitted!</h2>
+          <p style={{color:T.sub,fontSize:14,lineHeight:1.8,margin:"0 0 18px"}}>Your final writing assessment has been sent for teacher review. Congratulations on completing the WriteUP UPGC programme!</p>
+          <div style={{background:"rgba(249,168,37,.15)",borderRadius:12,padding:"10px 20px",display:"inline-block",margin:"0 0 22px",border:`1px solid ${T.gold}`}}>
+            <span style={{fontWeight:800,color:T.gold,fontSize:15}}>🎓 {user?.student_code}</span>
           </div>
-          <PBtn onClick={onDone} style={{background:"#2D6A4F"}}>Back to App →</PBtn>
-        </Card>
+          <button onClick={onDone} style={{display:"block",width:"100%",padding:"14px",borderRadius:12,border:"none",background:T.accent,color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer",fontFamily:"inherit"}}>Back to App →</button>
+        </div>
       </div>
     </div>
   );
   return(
-    <div style={{minHeight:"100vh",background:"#f0f7f4",display:"flex",flexDirection:"column",alignItems:"center",padding:20,fontFamily:"'Segoe UI',sans-serif"}}>
+    <div style={{minHeight:"100vh",background:`linear-gradient(160deg,${T.bg} 0%,#1a237e 100%)`,display:"flex",flexDirection:"column",alignItems:"center",padding:20,fontFamily:"'Segoe UI',sans-serif"}}>
+      <style>{`.pt-textarea{background:rgba(255,255,255,.06)!important;color:#e8eaf6!important;caret-color:#7c4dff}`}</style>
       <div style={{width:"100%",maxWidth:440,paddingTop:16}}>
-        <div style={{textAlign:"center",marginBottom:20}}>
-          <div style={{fontSize:36}}>📝</div>
-          <h2 style={{color:"#1b4332",margin:"6px 0 2px"}}>Writing Post-test</h2>
-          <p style={{color:"#888",fontSize:13}}>Final assessment — your answer will be reviewed by a teacher</p>
-        </div>
-        <Card style={{background:"#e3f2fd",borderLeft:"4px solid #1565c0",marginBottom:14}}>
-          <div style={{fontSize:12,color:"#1565c0",fontWeight:700,marginBottom:6}}>📝 Subject</div>
-          <p style={{fontWeight:600,color:"#1b4332",fontSize:15,lineHeight:1.7,margin:"0 0 8px"}}>{POSTTEST_SUBJECT.prompt}</p>
-          <p style={{fontSize:12,color:"#666",margin:0,lineHeight:1.6,fontStyle:"italic"}}>{POSTTEST_SUBJECT.instructions}</p>
-        </Card>
-        <Card style={{marginBottom:14}}>
-          <div style={{fontSize:12,color:"#888",marginBottom:8}}>Your answer (min. {POSTTEST_SUBJECT.minWords} words)</div>
-          <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Write your paragraph here…" rows={8} style={{width:"100%",boxSizing:"border-box",border:`2px solid ${enough?"#1565c0":words>0?"#f57c00":"#ddd"}`,borderRadius:12,padding:12,fontSize:14,resize:"vertical",outline:"none",fontFamily:"inherit",transition:"border .2s"}}/>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginTop:6}}>
-            <span style={{color:enough?"#1565c0":words>0?"#f57c00":"#aaa",fontWeight:600}}>{words} / {POSTTEST_SUBJECT.minWords} words {enough?"✅":words>0?"⚠️ Keep writing…":""}</span>
-            {enough&&<span style={{color:"#1565c0"}}>Ready!</span>}
+        {/* Header */}
+        <div style={{textAlign:"center",marginBottom:24}}>
+          <div style={{width:70,height:70,borderRadius:"50%",background:"rgba(124,77,255,.2)",border:`2px solid ${T.accent}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:36,margin:"0 auto 14px"}}>📝</div>
+          <div style={{display:"inline-block",background:"rgba(249,168,37,.15)",border:`1px solid ${T.gold}`,borderRadius:20,padding:"3px 14px",marginBottom:10}}>
+            <span style={{fontSize:11,fontWeight:800,color:T.gold,letterSpacing:1}}>FINAL ASSESSMENT</span>
           </div>
-        </Card>
-        {loading?<Spinner/>:<PBtn onClick={submit} disabled={!enough} style={{background:enough?"#1565c0":"#ccc"}}>Submit Post-test ✍️</PBtn>}
+          <h2 style={{color:T.text,margin:"8px 0 4px",fontSize:24,fontWeight:900}}>Writing Post-test</h2>
+          <p style={{color:T.sub,fontSize:13,margin:0}}>Level: <strong style={{color:T.accent}}>{level}</strong> · Reviewed by your teacher</p>
+        </div>
+        {/* Sujet */}
+        <div style={{background:"rgba(255,255,255,.06)",borderRadius:16,padding:18,marginBottom:14,border:`1px solid ${T.border}`}}>
+          <div style={{fontSize:11,color:T.accent,fontWeight:800,letterSpacing:.5,marginBottom:8}}>📋 WRITING PROMPT</div>
+          <p style={{fontWeight:600,color:T.text,fontSize:15,lineHeight:1.8,margin:"0 0 10px"}}>{POSTTEST_SUBJECT.prompt}</p>
+          <div style={{height:1,background:"rgba(255,255,255,.1)",margin:"10px 0"}}/>
+          <p style={{fontSize:12,color:T.sub,margin:0,lineHeight:1.6,fontStyle:"italic"}}>{POSTTEST_SUBJECT.instructions}</p>
+        </div>
+        {/* Textarea */}
+        <div style={{background:"rgba(255,255,255,.06)",borderRadius:16,padding:18,marginBottom:14,border:`1px solid ${enough?T.accent:words>0?"#f57c00":T.border}`}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+            <div style={{fontSize:11,color:T.accent,fontWeight:800,letterSpacing:.5}}>✍️ YOUR ANSWER</div>
+            <span style={{fontSize:12,fontWeight:700,color:enough?T.accent:words>0?"#f57c00":T.sub}}>{words}/{POSTTEST_SUBJECT.minWords} words {enough?"✅":words>0?"⚠️":""}</span>
+          </div>
+          <textarea className="pt-textarea" value={text} onChange={e=>setText(e.target.value)} placeholder="Write your paragraph here…" rows={9} style={{width:"100%",boxSizing:"border-box",border:`1.5px solid ${enough?T.accent:words>0?"#f57c00":"rgba(255,255,255,.15)"}`,borderRadius:10,padding:14,fontSize:14,resize:"vertical",outline:"none",fontFamily:"Georgia,serif",lineHeight:1.9,transition:"border .2s",background:"rgba(255,255,255,.06)",color:"#e8eaf6"}}/>
+          {/* Barre de progression */}
+          <div style={{background:"rgba(255,255,255,.08)",borderRadius:99,height:4,marginTop:10}}>
+            <div style={{background:enough?T.accent:"#f57c00",height:4,borderRadius:99,width:`${Math.min(100,Math.round((words/POSTTEST_SUBJECT.minWords)*100))}%`,transition:"width .3s"}}/>
+          </div>
+        </div>
+        {/* Bouton */}
+        {loading?<Spinner/>:(
+          <button onClick={submit} disabled={!enough} style={{display:"block",width:"100%",padding:"15px",borderRadius:12,border:"none",background:enough?T.accent:"rgba(255,255,255,.15)",color:enough?"#fff":"rgba(255,255,255,.4)",fontWeight:800,fontSize:15,cursor:enough?"pointer":"not-allowed",fontFamily:"inherit",letterSpacing:.3,boxShadow:enough?`0 4px 20px rgba(124,77,255,.4)`:"none",transition:"all .2s"}}>
+            Submit Final Assessment ✍️
+          </button>
+        )}
+        <p style={{textAlign:"center",color:T.sub,fontSize:11,marginTop:14,lineHeight:1.6}}>Your writing will be reviewed and corrected by your teacher.<br/>This is your final evaluation for the WriteUP UPGC programme.</p>
       </div>
     </div>
   );
@@ -1128,67 +1261,165 @@ function HomeScreen({setMod,xp,lvl,pct,level,done,G,LT,DK,postTestEnabled,postTe
   return(<div style={{padding:18}}>
     {/* ── Bannière Post-test — visible uniquement si activé par l'admin ── */}
     {postTestEnabled&&(
-      <div onClick={postTestSubmitted?undefined:onPostTest} style={{background:postTestSubmitted?"linear-gradient(135deg,#1b4332,#2D6A4F)":"linear-gradient(135deg,#1565c0,#1976d2)",borderRadius:16,padding:"16px 20px",marginBottom:14,display:"flex",alignItems:"center",gap:14,cursor:postTestSubmitted?"default":"pointer",boxShadow:"0 4px 14px rgba(0,0,0,.18)",border:`1.5px solid ${postTestSubmitted?"#81c784":"#90caf9"}`}}>
+      <div onClick={postTestSubmitted?undefined:onPostTest} style={{background:postTestSubmitted?`linear-gradient(135deg,${DK},${G})`:`linear-gradient(135deg,${G},${DK})`,borderRadius:16,padding:"16px 20px",marginBottom:14,display:"flex",alignItems:"center",gap:14,cursor:postTestSubmitted?"default":"pointer",boxShadow:`0 4px 14px rgba(0,0,0,.18)`,border:`1.5px solid ${postTestSubmitted?"rgba(255,255,255,.4)":"rgba(255,255,255,.25)"}`}}>
         <div style={{fontSize:38,flexShrink:0}}>{postTestSubmitted?"✅":"📝"}</div>
         <div style={{flex:1}}>
           <div style={{fontWeight:800,color:"#fff",fontSize:15,marginBottom:2}}>
             {postTestSubmitted?"Post-test Submitted":"Writing Post-test Available"}
           </div>
-          <div style={{color:postTestSubmitted?"#a5d6a7":"#bbdefb",fontSize:12,lineHeight:1.5}}>
+          <div style={{color:"rgba(255,255,255,.8)",fontSize:12,lineHeight:1.5}}>
             {postTestSubmitted?"Your post-test has been sent for teacher review. Well done!":"Your teacher has opened the final writing test. Tap to complete it now."}
           </div>
         </div>
-        {!postTestSubmitted&&<div style={{background:"#fff",color:"#1565c0",borderRadius:10,padding:"8px 14px",fontWeight:800,fontSize:12,flexShrink:0}}>Start →</div>}
+        {!postTestSubmitted&&<div style={{background:"rgba(255,255,255,.25)",color:"#fff",borderRadius:10,padding:"8px 14px",fontWeight:800,fontSize:12,flexShrink:0,border:"1.5px solid rgba(255,255,255,.4)"}}>Start →</div>}
       </div>
     )}
     <Card style={{marginBottom:14,background:`linear-gradient(135deg,${DK},${G})`,color:"#fff"}}><div style={{fontSize:12,opacity:.8,marginBottom:4}}>📅 {dateStr()}</div><div style={{fontWeight:800,fontSize:16,marginBottom:2}}>{done.length>=MODS.length?"🎉 All done today!":"Today's Activities"}</div><div style={{fontSize:12,opacity:.75}}>{done.length}/{MODS.length} completed · {level}</div><div style={{display:"flex",gap:6,marginTop:10}}>{MODS.map(m=><div key={m.id} style={{width:28,height:28,borderRadius:"50%",background:done.includes(m.id)?"#fff":"rgba(255,255,255,.25)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>{done.includes(m.id)?m.icon:"·"}</div>)}</div></Card><Card style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:6}}><span style={{fontWeight:700,color:G}}>{lvl.name} · {level}</span><span style={{color:"#888"}}>{xp}/{lvl.next} XP</span></div><div style={{background:"#e8f5e9",borderRadius:99,height:10}}><div style={{background:G,height:10,borderRadius:99,width:`${pct}%`,transition:"width .5s"}}/></div><p style={{color:"#888",fontSize:12,marginTop:6}}>{lvl.next-xp} XP to next level</p></Card>{next&&<Card style={{marginBottom:14,background:"#fff8e1",borderLeft:"3px solid #f9a825"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:12,color:"#e65100",fontWeight:700,marginBottom:2}}>🔓 Next Unlock — {next.xp} XP</div><div style={{fontWeight:700,color:DK,fontSize:13}}>{next.icon} {next.label}</div><div style={{fontSize:12,color:"#666"}}>{next.desc}</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:800,color:"#e65100",fontSize:16}}>{next.xp-xp}</div><div style={{fontSize:10,color:"#888"}}>XP away</div></div></div><div style={{background:"#ffe082",borderRadius:99,height:6,marginTop:8}}><div style={{background:"#f9a825",height:6,borderRadius:99,width:`${Math.min(100,Math.round(((xp-(prev?.xp||0))/(next.xp-(prev?.xp||0)))*100))}%`,transition:"width .5s"}}/></div></Card>}{MODS.map(m=>(<button key={m.id} onClick={()=>setMod(m)} style={{width:"100%",background:"#fff",border:`1.5px solid ${LT}`,borderRadius:16,padding:"14px 16px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,0.04)",textAlign:"left",marginBottom:10}}><div style={{background:m.color,borderRadius:12,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{m.icon}</div><div style={{flex:1}}><div style={{fontWeight:700,color:DK,fontSize:14}}>{m.name}</div><div style={{color:"#888",fontSize:12,marginTop:2}}>{m.sub}</div></div>{done.includes(m.id)?<span style={{background:"#e8f5e9",color:G,borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:700}}>✅ Done</span>:<span style={{background:LT,color:G,borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>+{XP_MAP[m.id]} XP</span>}</button>))}</div>);
 }
 
 /* ═══════════════ PROFILE ════════════════════════════════ */
-function ProfileScreen({user,xp,lvl,level,badges,streak,anonymousLB,onToggleAnon,onCertificate,G,LT,DK}){
+function ProfileScreen({user,xp,lvl,level,badges,streak,anonymousLB,onToggleAnon,onCertificate,onToggleShowcase,showcase,G,LT,DK}){
   const acadLevel=xp>=1500?"Advanced":xp>=500?"Intermediate":"Beginner";
   const levels=["Beginner","Intermediate","Advanced"];
   const levelColors={Beginner:"#2D6A4F",Intermediate:"#1565c0",Advanced:"#6a1b9a"};
   const levelIcons={Beginner:"🌱",Intermediate:"🌿",Advanced:"🌳"};
+
+  // Tous les badges définis (y compris Complétiste)
+  const allBadges=[...BADGES_DEF.Beginner,...BADGES_DEF.Intermediate,...BADGES_DEF.Advanced,...BADGES_DEF.Completist];
+  const earnedBadges=allBadges.filter(b=>badges.includes(b.name));
+  const showcaseBadges=showcase.map(name=>allBadges.find(b=>b.name===name)).filter(Boolean);
+
   return(<div style={{padding:18}}>
+    {/* ── Hero ── */}
     <div style={{background:`linear-gradient(135deg,${DK},${G})`,borderRadius:20,padding:24,color:"#fff",textAlign:"center",marginBottom:18}}>
       <div style={{fontSize:52,marginBottom:8}}>👤</div>
       <div style={{fontWeight:900,fontSize:20}}>{user?.name}</div>
       <div style={{opacity:.75,fontSize:13,marginBottom:4}}>{user?.email}</div>
-      <div style={{background:"rgba(255,255,255,0.2)",borderRadius:10,padding:"4px 16px",display:"inline-block",marginBottom:8}}><span style={{fontWeight:800,fontSize:14}}>🎓 {user?.student_code}</span></div>
-      <div style={{display:"flex",justifyContent:"center",gap:28,marginTop:8}}>{[["⭐",xp,"XP"],["🔥",streak,"Streak"],["🏅",lvl.name,"Level"]].map(([ic,v,lb])=>(<div key={lb}><div style={{fontWeight:800,fontSize:17}}>{v}</div><div style={{fontSize:11,opacity:.75}}>{lb}</div></div>))}</div>
+      <div style={{background:"rgba(255,255,255,0.2)",borderRadius:10,padding:"4px 16px",display:"inline-block",marginBottom:10}}>
+        <span style={{fontWeight:800,fontSize:14}}>🎓 {user?.student_code}</span>
+      </div>
+      <div style={{display:"flex",justifyContent:"center",gap:24,marginTop:6}}>
+        {[["⭐",xp,"XP"],["🔥",streak,"Streak"],["🏅",earnedBadges.length,"Badges"],["🎖",lvl.name,"Rank"]].map(([ic,v,lb])=>(
+          <div key={lb}><div style={{fontWeight:800,fontSize:16}}>{v}</div><div style={{fontSize:10,opacity:.75}}>{lb}</div></div>
+        ))}
+      </div>
     </div>
-    {/* 🎓 Certificat — visible uniquement si xp >= 800 */}
+
+    {/* ── Certificat ── */}
     {xp>=800&&(
-      <div onClick={onCertificate} style={{background:"linear-gradient(135deg,#1b4332,#2D6A4F)",borderRadius:16,padding:"16px 20px",marginBottom:18,display:"flex",alignItems:"center",gap:14,cursor:"pointer",boxShadow:"0 4px 16px rgba(45,106,79,.35)",border:"1.5px solid #81c784"}}>
-        <div style={{fontSize:42,flexShrink:0}}>🎓</div>
-        <div style={{flex:1}}>
-          <div style={{fontWeight:800,color:"#fff",fontSize:15,marginBottom:2}}>Certificate of Achievement</div>
-          <div style={{color:"#a5d6a7",fontSize:12}}>Tu as atteint {xp} XP — télécharge ton certificat officiel !</div>
-        </div>
-        <div style={{background:"#fff",color:G,borderRadius:10,padding:"8px 14px",fontWeight:800,fontSize:12,flexShrink:0}}>⬇️</div>
+      <div onClick={onCertificate} style={{background:"linear-gradient(135deg,#1b4332,#2D6A4F)",borderRadius:16,padding:"14px 18px",marginBottom:14,display:"flex",alignItems:"center",gap:14,cursor:"pointer",boxShadow:"0 4px 16px rgba(45,106,79,.35)",border:"1.5px solid #81c784"}}>
+        <div style={{fontSize:38,flexShrink:0}}>🎓</div>
+        <div style={{flex:1}}><div style={{fontWeight:800,color:"#fff",fontSize:14,marginBottom:2}}>Certificate of Achievement</div><div style={{color:"#a5d6a7",fontSize:12}}>Télécharge ton certificat officiel !</div></div>
+        <div style={{background:"#fff",color:G,borderRadius:10,padding:"6px 12px",fontWeight:800,fontSize:12,flexShrink:0}}>⬇️</div>
       </div>
     )}
-    <Card style={{marginBottom:18}}>
+
+    {/* ── Leaderboard toggle ── */}
+    <Card style={{marginBottom:16}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div><div style={{fontWeight:700,color:DK,fontSize:14}}>👁 Leaderboard Display</div><div style={{fontSize:12,color:"#888",marginTop:2}}>{anonymousLB?"Showing your code":"Showing your name"}</div></div>
         <button onClick={onToggleAnon} style={{background:anonymousLB?G:"#e0e0e0",color:anonymousLB?"#fff":"#555",border:"none",borderRadius:20,padding:"8px 16px",fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{anonymousLB?"🔒 Code":"👤 Name"}</button>
       </div>
     </Card>
+
+    {/* ── SHOWCASE (vedette) ── */}
+    <div style={{marginBottom:16}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <h3 style={{color:DK,margin:0}}>⭐ Showcase</h3>
+        <span style={{fontSize:11,color:"#aaa"}}>Tap any badge below to pin ({showcase.length}/3)</span>
+      </div>
+      <div style={{display:"flex",gap:10}}>
+        {[0,1,2].map(i=>{
+          const b=showcaseBadges[i];
+          const rar=b?getBadgeRarity(b.name):null;
+          return(
+            <div key={i} onClick={b?()=>onToggleShowcase(b.name):undefined} style={{flex:1,minHeight:86,borderRadius:16,border:b?`2px solid ${rar.color}`:"2px dashed #ddd",background:b?rar.bg:"#fafafa",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,cursor:b?"pointer":"default",transition:"all .2s",boxShadow:b?`0 0 16px ${rar.glow}`:"none"}}>
+              {b?(
+                <>
+                  <div style={{fontSize:30}}>{b.icon}</div>
+                  <div style={{fontSize:10,fontWeight:700,color:rar.color,textAlign:"center",padding:"0 4px"}}>{b.name}</div>
+                  <div style={{fontSize:9,color:rar.color}}>{rar.icon} {rar.label}</div>
+                </>
+              ):(
+                <div style={{fontSize:22,color:"#ddd"}}>＋</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+
+    {/* ── Badge Card download ── */}
+    <button onClick={()=>downloadBadgeCard(user?.name||"Student",user?.student_code||"",earnedBadges)} style={{width:"100%",background:"linear-gradient(135deg,#1b4332,#2D6A4F)",color:"#fff",border:"none",borderRadius:12,padding:"12px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+      🖼 Download My Badge Card ({earnedBadges.length} badges)
+    </button>
+
+    {/* ── Badges par niveau ── */}
     <h3 style={{color:DK,marginBottom:12}}>🏅 Badges</h3>
     {levels.map(lv=>{
       const locked=levels.indexOf(lv)>levels.indexOf(acadLevel);
       const bdgs=BADGES_DEF[lv];
+      const completistBadge=BADGES_DEF.Completist.find(b=>b.name===`${lv} Complete`);
+      const allEarned=bdgs.every(b=>badges.includes(b.name));
       return(<div key={lv} style={{marginBottom:20}}>
+        {/* En-tête niveau */}
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10,padding:"8px 14px",borderRadius:12,background:locked?"#f5f5f5":LT,border:`1.5px solid ${locked?"#e0e0e0":levelColors[lv]}`}}>
           <span style={{fontSize:20}}>{levelIcons[lv]}</span>
           <span style={{fontWeight:800,color:locked?"#bbb":levelColors[lv],fontSize:15}}>{lv}</span>
-          {locked&&<span style={{fontSize:12,color:"#bbb",marginLeft:"auto"}}>🔒 {lv==="Intermediate"?"Unlock at 500 XP":"Unlock at 1500 XP"}</span>}
-          {!locked&&<span style={{fontSize:12,color:levelColors[lv],marginLeft:"auto",fontWeight:600}}>{bdgs.filter(b=>badges.includes(b.name)).length}/{bdgs.length} earned</span>}
+          {locked&&<span style={{fontSize:12,color:"#bbb",marginLeft:"auto"}}>🔒 {lv==="Intermediate"?"500 XP":"1500 XP"}</span>}
+          {!locked&&<>
+            <span style={{fontSize:12,color:levelColors[lv],marginLeft:"auto",fontWeight:600}}>{bdgs.filter(b=>badges.includes(b.name)).length}/{bdgs.length}</span>
+            {allEarned&&badges.includes(completistBadge?.name)&&<span style={{fontSize:11,background:levelColors[lv],color:"#fff",borderRadius:8,padding:"2px 8px",fontWeight:700}}>🌟 Complete!</span>}
+          </>}
         </div>
+        {/* Grille badges */}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,opacity:locked?.4:1}}>
-          {bdgs.map(b=>{const earned=badges.includes(b.name);return<div key={b.name} style={{background:earned?"#fff":"#f5f5f5",borderRadius:14,padding:14,boxShadow:earned?"0 2px 8px rgba(0,0,0,0.08)":"none",border:earned?`1.5px solid ${levelColors[lv]}`:"none"}}><div style={{fontSize:28}}>{b.icon}</div><div style={{fontWeight:700,fontSize:13,color:DK,marginTop:4}}>{b.name}</div><div style={{fontSize:11,color:"#777",lineHeight:1.4}}>{b.desc}</div>{!earned&&!locked&&<div style={{fontSize:10,color:"#bbb",marginTop:4}}>🔒 Not yet earned</div>}{earned&&<div style={{fontSize:10,color:levelColors[lv],marginTop:4,fontWeight:700}}>✅ Earned</div>}</div>;})}
+          {bdgs.map(b=>{
+            const earned=badges.includes(b.name);
+            const rar=RARITY[b.rarity]||RARITY.common;
+            const inShowcase=showcase.includes(b.name);
+            return(
+              <div key={b.name} onClick={earned?()=>onToggleShowcase(b.name):undefined}
+                style={{background:earned?rar.bg:"#f5f5f5",borderRadius:14,padding:"14px 12px",
+                  boxShadow:earned?`0 2px 12px ${rar.glow}`:"none",
+                  border:earned?`2px solid ${rar.color}`:"1.5px solid #eee",
+                  cursor:earned?"pointer":"default",
+                  transition:"all .2s",
+                  transform:earned&&inShowcase?"scale(0.97)":"scale(1)"}}>
+                {/* Icône + badge rareté */}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+                  <div style={{fontSize:30}}>{b.icon}</div>
+                  <div style={{background:earned?rar.bg:"transparent",border:earned?`1px solid ${rar.color}`:"none",borderRadius:8,padding:"2px 6px"}}>
+                    <span style={{fontSize:9,fontWeight:800,color:earned?rar.color:"#ccc"}}>{earned?rar.icon+" "+rar.label:"🔒"}</span>
+                  </div>
+                </div>
+                <div style={{fontWeight:700,fontSize:13,color:earned?DK:"#aaa"}}>{b.name}</div>
+                <div style={{fontSize:11,color:"#777",lineHeight:1.4,marginTop:2}}>{b.desc}</div>
+                {earned&&<div style={{marginTop:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontSize:10,color:rar.color,fontWeight:700}}>+{rar.xpBonus} XP bonus</span>
+                  <span style={{fontSize:10,color:inShowcase?rar.color:"#bbb",fontWeight:700}}>{inShowcase?"⭐ Showcase":"Tap to pin"}</span>
+                </div>}
+                {!earned&&!locked&&<div style={{fontSize:10,color:"#bbb",marginTop:4}}>🔒 Not yet earned</div>}
+              </div>
+            );
+          })}
         </div>
+        {/* Badge Complétiste */}
+        {!locked&&completistBadge&&(()=>{
+          const earned=badges.includes(completistBadge.name);
+          const rar=RARITY[completistBadge.rarity]||RARITY.epic;
+          return(
+            <div style={{marginTop:10,background:earned?rar.bg:"#f5f5f5",borderRadius:14,padding:"12px 16px",border:earned?`2px solid ${rar.color}`:"1.5px solid #eee",display:"flex",alignItems:"center",gap:12,boxShadow:earned?`0 2px 16px ${rar.glow}`:"none"}}>
+              <div style={{fontSize:32}}>{completistBadge.icon}</div>
+              <div style={{flex:1}}>
+                <div style={{fontWeight:800,fontSize:13,color:earned?rar.color:"#aaa"}}>{completistBadge.name}</div>
+                <div style={{fontSize:11,color:"#777"}}>{completistBadge.desc}</div>
+              </div>
+              {earned?<div style={{fontSize:10,fontWeight:800,color:rar.color,textAlign:"right"}}>{rar.icon}<br/>{rar.label}<br/>+{rar.xpBonus} XP</div>
+                :<div style={{fontSize:11,color:"#bbb",textAlign:"right"}}>Earn all<br/>{lv} badges</div>}
+            </div>
+          );
+        })()}
       </div>);
     })}
   </div>);
@@ -1231,6 +1462,7 @@ export default function App(){
   const [user,sUser]=useState(null);const [tok,sTok]=useState(null);const [place,sPlace]=useState(null);
   const [tab,sTab]=useState("home");const [mod,sMod]=useState(null);
   const [xp,sXp]=useState(0);const [streak,sStreak]=useState(1);const [done,sDone]=useState([]);const [badges,sBadges]=useState([]);
+  const [newBadge,setNewBadge]=useState(null);const [showcase,setShowcase]=useState([]);
   const [enc,sEnc]=useState(null);const [theme,sTheme]=useState(THEMES.default);const [levelUp,sLevelUp]=useState(null);const [showCert,setShowCert]=useState(false);
   const [showAdmin,setShowAdmin]=useState(false);const [anonymousLB,setAnonymousLB]=useState(false);
   const [ghContent,setGhContent]=useState(null);const [ghLoading,setGhLoading]=useState(false);
@@ -1249,28 +1481,77 @@ export default function App(){
   },[effectiveLevel, screen, user?.id]);
 
   // Vérifier si post-test activé + déjà soumis
+  // → check immédiat au login, puis polling toutes les 30s sur l'onglet Home
+  const checkPostTest=async()=>{
+    if(!user?.id||isAdmin)return;
+    const enabled=await getAppSetting("post_test_enabled",tok);
+    setPostTestEnabled(enabled==="true");
+    if(enabled==="true"){
+      const existing=await get(`writing_posttests?user_id=eq.${user.id}&select=id`,tok);
+      setPostTestSubmitted(Array.isArray(existing)&&existing.length>0);
+    } else {
+      setPostTestSubmitted(false);
+    }
+  };
+  // Premier check à l'entrée dans l'app
   useEffect(()=>{
-    if(screen!=="app"||!user?.id||isAdmin) return;
-    (async()=>{
-      const enabled = await getAppSetting("post_test_enabled", tok);
-      setPostTestEnabled(enabled==="true");
-      if(enabled==="true"){
-        const existing = await get(`writing_posttests?user_id=eq.${user.id}&select=id`, tok);
-        setPostTestSubmitted(Array.isArray(existing)&&existing.length>0);
-      }
-    })();
-  },[screen, user?.id]);
+    if(screen!=="app"||!user?.id||isAdmin)return;
+    checkPostTest();
+  },[screen,user?.id]);
+  // Polling 30s actif uniquement sur l'onglet Home
+  useEffect(()=>{
+    if(screen!=="app"||!user?.id||isAdmin||tab!=="home")return;
+    const id=setInterval(checkPostTest,30000);
+    return()=>clearInterval(id);
+  },[screen,user?.id,tab,isAdmin]);
 
   const loadDone=async(uid,tk)=>{
     if(isAdmin){sDone([]);return;} // admin: no restrictions
     try{const d=await get(`daily_progress?user_id=eq.${uid}&date=eq.${dateStr()}&completed=eq.true&select=module`,tk);sDone(Array.isArray(d)?d.map(x=>x.module):[]);}catch{}
   };
-  const afterAuth=async u=>{sUser(u);sTok(u.token);sXp(u.xp||0);sStreak(u.streak||1);setAnonymousLB(u.anonymous_leaderboard||false);if(u.isNew)sScreen("placement");else{sPlace({level:u.level||"Beginner"});await loadDone(u.id,u.token);sScreen("app");}};
+  const afterAuth=async u=>{
+    sUser(u);sTok(u.token);sXp(u.xp||0);sStreak(u.streak||1);setAnonymousLB(u.anonymous_leaderboard||false);
+    if(u.isNew){sScreen("placement");}
+    else{
+      sPlace({level:u.level||"Beginner"});
+      await loadDone(u.id,u.token);
+      // Charger badges
+      try{const bd=await get(`user_badges?user_id=eq.${u.id}&select=badge_name`,u.token);if(Array.isArray(bd))sBadges(bd.map(x=>x.badge_name));}catch{}
+      // Charger showcase
+      try{const sc=await getAppSetting(`showcase_${u.id}`,u.token);if(sc)setShowcase(JSON.parse(sc));}catch{}
+      sScreen("app");
+    }
+  };
   const afterPlace=async r=>{sPlace(r);if(user?.id)await patch(`users?id=eq.${user.id}`,{level:r.level,placement_done:true},tok);sScreen("result");};
   const afterWritingPretest=async()=>{await loadDone(user?.id,tok);sScreen("app");};
   const afterWritingPosttest=async()=>{setPostTestSubmitted(true);sScreen("app");};
   const getAcademicLevel=x=>x>=1500?"Advanced":x>=500?"Intermediate":"Beginner";
-  const awardBadge=async name=>{if(badges.includes(name)||!user?.id)return;try{await post("user_badges",{user_id:user.id,badge_name:name},tok);}catch{}sBadges(p=>[...p,name]);};
+  const awardBadge=async name=>{
+    if(badges.includes(name)||!user?.id)return;
+    try{await post("user_badges",{user_id:user.id,badge_name:name},tok);}catch{}
+    const newBadges=[...badges,name];
+    sBadges(newBadges);
+    // Trouver la définition du badge pour le popup
+    let badgeDef=null;
+    for(const arr of Object.values(BADGES_DEF)){const f=arr.find(b=>b.name===name);if(f){badgeDef=f;break;}}
+    if(badgeDef){setNewBadge(badgeDef);}
+    // XP bonus selon la rareté
+    if(badgeDef&&user?.id){
+      const rar=getBadgeRarity(name);
+      const bonus=rar.xpBonus;
+      const nx=xp+bonus; sXp(nx);
+      try{await patch(`users?id=eq.${user.id}`,{xp:nx},tok);}catch{}
+    }
+    // Vérifier badges Complétiste
+    const bNames=newBadges;
+    const bDef=BADGES_DEF;
+    if(bDef.Beginner.every(b=>bNames.includes(b.name))&&!bNames.includes("Beginner Complete"))
+      setTimeout(()=>awardBadge("Beginner Complete"),800);
+    if(bDef.Intermediate.every(b=>bNames.includes(b.name))&&!bNames.includes("Intermediate Complete"))
+      setTimeout(()=>awardBadge("Intermediate Complete"),800);
+    if(bDef.Advanced.every(b=>bNames.includes(b.name))&&!bNames.includes("Advanced Complete"))
+      setTimeout(()=>awardBadge("Advanced Complete"),800);
+  };
   const addXp=async(n,modId)=>{
     if(!isAdmin && done.includes(modId)){sEnc(rnd(ENC));return;}
     if(isAdmin){sDone(p=>[...p,modId]);return;} // admin: no XP saved, no restrictions
@@ -1282,13 +1563,25 @@ export default function App(){
   };
   const toggleAnon=async()=>{const nv=!anonymousLB;setAnonymousLB(nv);if(user?.id)await patch(`users?id=eq.${user.id}`,{anonymous_leaderboard:nv},tok);sUser(u=>({...u,anonymous_leaderboard:nv}));};
 
+  const toggleShowcase=async(badgeName)=>{
+    let next;
+    if(showcase.includes(badgeName)){
+      next=showcase.filter(b=>b!==badgeName);
+    } else {
+      if(showcase.length>=3){next=[...showcase.slice(1),badgeName];}
+      else{next=[...showcase,badgeName];}
+    }
+    setShowcase(next);
+    if(user?.id) await setAppSetting(`showcase_${user.id}`,JSON.stringify(next),tok);
+  };;
+
   if(screen==="landing")  return<Landing go={sScreen}/>;
   if(screen==="login")    return<AuthForm mode="login"    onDone={afterAuth} onSwitch={()=>sScreen("register")}/>;
   if(screen==="register") return<AuthForm mode="register" onDone={afterAuth} onSwitch={()=>sScreen("login")}/>;
   if(screen==="placement")return<PlacementTest onDone={afterPlace}/>;
   if(screen==="result")   return<LevelResult result={place} onContinue={()=>sScreen("writing_pretest")}/>;
   if(screen==="writing_pretest") return<WritingPretest user={user} tok={tok} level={place?.level||"Beginner"} onDone={afterWritingPretest}/>;
-  if(screen==="writing_posttest")return<WritingPosttest user={user} tok={tok} level={place?.level||"Beginner"} onDone={afterWritingPosttest}/>;
+  if(screen==="writing_posttest")return<WritingPosttest user={user} tok={tok} level={place?.level||"Beginner"} onDone={afterWritingPosttest} G={G} LT={LT} DK={DK}/>;
 
   const lvl=getLvl(xp),pct=Math.round(((xp-lvl.min)/(lvl.next-lvl.min))*100),level=place?.level||"Beginner";
 
@@ -1325,13 +1618,14 @@ export default function App(){
         {mod.id==="essay"      &&<EssayMod      addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} effectiveLevel={effectiveLevel}/>}
       </div>
       :tab==="home"    ?<HomeScreen setMod={sMod} xp={xp} lvl={lvl} pct={pct} level={effectiveLevel} done={done} G={G} LT={LT} DK={DK} postTestEnabled={postTestEnabled&&!isAdmin} postTestSubmitted={postTestSubmitted} onPostTest={()=>sScreen("writing_posttest")}/>
-      :tab==="profile" ?<ProfileScreen user={user} xp={xp} lvl={lvl} level={effectiveLevel} badges={badges} streak={streak} anonymousLB={anonymousLB} onToggleAnon={toggleAnon} onCertificate={()=>setShowCert(true)} G={G} LT={LT} DK={DK}/>
+      :tab==="profile" ?<ProfileScreen user={user} xp={xp} lvl={lvl} level={effectiveLevel} badges={badges} streak={streak} anonymousLB={anonymousLB} onToggleAnon={toggleAnon} onCertificate={()=>setShowCert(true)} onToggleShowcase={toggleShowcase} showcase={showcase} G={G} LT={LT} DK={DK}/>
       :tab==="board"   ?<BoardScreen userId={user?.id} myXp={xp} tok={tok} anonymousLB={anonymousLB} G={G} LT={LT} DK={DK}/>
       :<SettingsScreen user={user} onTheme={sTheme} onLogout={()=>{sScreen("landing");sUser(null);sTok(null);}} onAdmin={()=>setShowAdmin(true)} G={G} LT={LT} DK={DK}/>}
     </div>
     {levelUp&&(<div onClick={()=>sLevelUp(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.7)",zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}><div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:24,padding:32,maxWidth:360,width:"100%",textAlign:"center"}}><div style={{fontSize:64,marginBottom:12}}>{levelUp==="Intermediate"?"🌿":"🌳"}</div><h2 style={{color:G,margin:"0 0 8px"}}>Level Up! 🎉</h2><div style={{background:LT,borderRadius:12,padding:"10px 24px",display:"inline-block",margin:"8px 0 16px"}}><span style={{fontSize:20,fontWeight:900,color:DK}}>{levelUp}</span></div><PBtn onClick={()=>sLevelUp(null)} style={{background:G}}>Continue 🚀</PBtn></div></div>)}
     {enc&&(<div onClick={()=>sEnc(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,.6)",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}><div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:24,padding:32,maxWidth:360,width:"100%",textAlign:"center"}}><div style={{fontSize:60,marginBottom:12}}>🌟</div><h3 style={{color:G,margin:"0 0 8px"}}>{enc.title}</h3><p style={{color:"#555",fontSize:14,lineHeight:1.7,margin:"0 0 6px"}}>{enc.body}</p><p style={{color:"#888",fontSize:13,fontStyle:"italic",margin:"0 0 20px"}}>{enc.sub}</p><PBtn onClick={()=>sEnc(null)} style={{background:G}}>Keep Practising! 💪</PBtn></div></div>)}
     {showCert&&xp>=800&&<CertificateModal user={user} xp={xp} level={effectiveLevel} onClose={()=>setShowCert(false)} G={G} LT={LT} DK={DK}/>}
+    {newBadge&&<BadgeUnlockPopup badge={newBadge} onClose={()=>setNewBadge(null)} G={G} LT={LT} DK={DK}/>}
     {!mod&&(<div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:440,background:"#fff",borderTop:"1px solid #e8f5e9",display:"flex"}}>
       {[["home","🏠","Home"],["profile","👤","Profile"],["board","🏆","Ranks"],["settings","⚙️","More"]].map(([t,ic,lb])=>(<button key={t} onClick={()=>sTab(t)} style={{flex:1,background:"none",border:"none",padding:"10px 0",cursor:"pointer",color:tab===t?G:"#aaa",fontWeight:tab===t?800:400,fontSize:11}}><div style={{fontSize:22}}>{ic}</div>{lb}</button>))}
     </div>)}
