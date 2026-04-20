@@ -65,6 +65,50 @@ const PRETEST_SUBJECT = {
   minWords:80,
 };
 
+/* ─── POST-TEST ─────────────────────────────────────────── */
+// Le sujet sera défini ultérieurement par l'administrateur
+const POSTTEST_SUBJECT = {
+  prompt:"[Subject to be defined by the administrator]",
+  instructions:"Write a well-organised paragraph of at least 80 words. Use clear and precise English. Your response will be reviewed and corrected by a teacher.",
+  minWords:80,
+};
+
+/* ─── APP SETTINGS (Supabase table: app_settings) ────────
+   Structure: id TEXT (primary key), value TEXT
+   SQL à exécuter dans Supabase:
+   CREATE TABLE IF NOT EXISTS app_settings (
+     id TEXT PRIMARY KEY,
+     value TEXT NOT NULL DEFAULT 'false'
+   );
+   INSERT INTO app_settings (id, value) VALUES ('post_test_enabled', 'false')
+   ON CONFLICT (id) DO NOTHING;
+   CREATE TABLE IF NOT EXISTS writing_posttests (
+     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+     student_code TEXT,
+     level TEXT,
+     writing_text TEXT,
+     submitted_at TIMESTAMPTZ DEFAULT now(),
+     status TEXT DEFAULT 'pending',
+     correction TEXT
+   );
+*/
+const getAppSetting = async(key, tok) => {
+  try {
+    const d = await get(`app_settings?id=eq.${key}&select=value`, tok);
+    return Array.isArray(d) && d[0] ? d[0].value : null;
+  } catch { return null; }
+};
+const setAppSetting = async(key, value, tok) => {
+  try {
+    await fetch(`${SB}/rest/v1/app_settings`, {
+      method:"POST",
+      headers:{...h(tok),"Prefer":"resolution=merge-duplicates,return=representation"},
+      body:JSON.stringify({id:key, value:String(value)}),
+    });
+  } catch(e) { console.error("setAppSetting error:", e); }
+};
+
 /* ─── PEEL SCORING (sans longueur) ──────────────────── */
 // POINT(5) + EXPLANATION(5) + EVIDENCE(5) + LINK(3) + GRAMMAR(2) = 20
 const PEEL_SCORE_PROMPT = `Scoring criteria (Total = 20 points, NO length criterion):
@@ -333,11 +377,70 @@ function WritingPretest({user,tok,level,onDone}){
   return(<div style={{minHeight:"100vh",background:"#f0f7f4",display:"flex",flexDirection:"column",alignItems:"center",padding:20,fontFamily:"'Segoe UI',sans-serif"}}><div style={{width:"100%",maxWidth:440,paddingTop:16}}><div style={{textAlign:"center",marginBottom:20}}><div style={{fontSize:36}}>✍️</div><h2 style={{color:"#1b4332",margin:"6px 0 2px"}}>Writing Pretest</h2><p style={{color:"#888",fontSize:13}}>Your answer will be reviewed by a teacher</p></div><Card style={{background:"#e8f5e9",borderLeft:"4px solid #2D6A4F",marginBottom:14}}><div style={{fontSize:12,color:"#555",fontWeight:700,marginBottom:6}}>📝 Subject</div><p style={{fontWeight:600,color:"#1b4332",fontSize:15,lineHeight:1.7,margin:"0 0 8px"}}>{PRETEST_SUBJECT.prompt}</p><p style={{fontSize:12,color:"#666",margin:0,lineHeight:1.6,fontStyle:"italic"}}>{PRETEST_SUBJECT.instructions}</p></Card><Card style={{marginBottom:14}}><div style={{fontSize:12,color:"#888",marginBottom:8}}>Your answer (min. {PRETEST_SUBJECT.minWords} words)</div><textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Write your paragraph here…" rows={8} style={{width:"100%",boxSizing:"border-box",border:`2px solid ${enough?"#2D6A4F":words>0?"#f57c00":"#ddd"}`,borderRadius:12,padding:12,fontSize:14,resize:"vertical",outline:"none",fontFamily:"inherit",transition:"border .2s"}}/><div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginTop:6}}><span style={{color:enough?"#2D6A4F":words>0?"#f57c00":"#aaa",fontWeight:600}}>{words} / {PRETEST_SUBJECT.minWords} words {enough?"✅":words>0?"⚠️ Keep writing…":""}</span>{enough&&<span style={{color:"#2D6A4F"}}>Ready!</span>}</div></Card>{loading?<Spinner/>:<PBtn onClick={submit} disabled={!enough} style={{background:enough?"#2D6A4F":"#ccc"}}>Submit Writing ✍️</PBtn>}</div></div>);
 }
 
+/* ═══════════════ WRITING POST-TEST ══════════════════════ */
+function WritingPosttest({user,tok,level,onDone}){
+  const [text,setText]=useState("");const [loading,setLoading]=useState(false);const [submitted,setSubmitted]=useState(false);
+  const words=wc(text),enough=words>=POSTTEST_SUBJECT.minWords;
+  const submit=async()=>{
+    if(!enough||!user?.id)return;
+    setLoading(true);
+    try{
+      await post("writing_posttests",{user_id:user.id,student_code:user.student_code,level,writing_text:text,submitted_at:new Date().toISOString(),status:"pending",correction:null},tok);
+      setSubmitted(true);
+    }catch(e){console.error(e);}
+    setLoading(false);
+  };
+  if(submitted)return(
+    <div style={{minHeight:"100vh",background:"#f0f7f4",display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'Segoe UI',sans-serif"}}>
+      <div style={{width:"100%",maxWidth:440,textAlign:"center"}}>
+        <Card>
+          <div style={{fontSize:64,marginBottom:12}}>📬</div>
+          <h2 style={{color:"#2D6A4F",margin:"0 0 8px"}}>Post-test Submitted!</h2>
+          <p style={{color:"#555",fontSize:14,lineHeight:1.8}}>Your post-test has been sent for teacher review. Well done for completing the programme!</p>
+          <div style={{background:"#d8f3dc",borderRadius:12,padding:"10px 20px",display:"inline-block",margin:"12px 0"}}>
+            <span style={{fontWeight:800,color:"#1b4332",fontSize:15}}>Code: {user?.student_code}</span>
+          </div>
+          <PBtn onClick={onDone} style={{background:"#2D6A4F"}}>Back to App →</PBtn>
+        </Card>
+      </div>
+    </div>
+  );
+  return(
+    <div style={{minHeight:"100vh",background:"#f0f7f4",display:"flex",flexDirection:"column",alignItems:"center",padding:20,fontFamily:"'Segoe UI',sans-serif"}}>
+      <div style={{width:"100%",maxWidth:440,paddingTop:16}}>
+        <div style={{textAlign:"center",marginBottom:20}}>
+          <div style={{fontSize:36}}>📝</div>
+          <h2 style={{color:"#1b4332",margin:"6px 0 2px"}}>Writing Post-test</h2>
+          <p style={{color:"#888",fontSize:13}}>Final assessment — your answer will be reviewed by a teacher</p>
+        </div>
+        <Card style={{background:"#e3f2fd",borderLeft:"4px solid #1565c0",marginBottom:14}}>
+          <div style={{fontSize:12,color:"#1565c0",fontWeight:700,marginBottom:6}}>📝 Subject</div>
+          <p style={{fontWeight:600,color:"#1b4332",fontSize:15,lineHeight:1.7,margin:"0 0 8px"}}>{POSTTEST_SUBJECT.prompt}</p>
+          <p style={{fontSize:12,color:"#666",margin:0,lineHeight:1.6,fontStyle:"italic"}}>{POSTTEST_SUBJECT.instructions}</p>
+        </Card>
+        <Card style={{marginBottom:14}}>
+          <div style={{fontSize:12,color:"#888",marginBottom:8}}>Your answer (min. {POSTTEST_SUBJECT.minWords} words)</div>
+          <textarea value={text} onChange={e=>setText(e.target.value)} placeholder="Write your paragraph here…" rows={8} style={{width:"100%",boxSizing:"border-box",border:`2px solid ${enough?"#1565c0":words>0?"#f57c00":"#ddd"}`,borderRadius:12,padding:12,fontSize:14,resize:"vertical",outline:"none",fontFamily:"inherit",transition:"border .2s"}}/>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginTop:6}}>
+            <span style={{color:enough?"#1565c0":words>0?"#f57c00":"#aaa",fontWeight:600}}>{words} / {POSTTEST_SUBJECT.minWords} words {enough?"✅":words>0?"⚠️ Keep writing…":""}</span>
+            {enough&&<span style={{color:"#1565c0"}}>Ready!</span>}
+          </div>
+        </Card>
+        {loading?<Spinner/>:<PBtn onClick={submit} disabled={!enough} style={{background:enough?"#1565c0":"#ccc"}}>Submit Post-test ✍️</PBtn>}
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════ ADMIN PANEL ════════════════════════════ */
 function AdminPanel({tok,G,LT,DK,onClose}){
   const [tab,setTab]=useState("pretests");
   /* Pretests */
   const [subs,setSubs]=useState([]);const [subLoad,setSubLoad]=useState(true);const [sel,setSel]=useState(null);const [corr,setCorr]=useState("");const [saving,setSaving]=useState(false);const [filter,setFilter]=useState("all");
+  /* Post-tests */
+  const [ptsubs,setPtsubs]=useState([]);const [ptLoad,setPtLoad]=useState(false);const [ptLoaded,setPtLoaded]=useState(false);const [ptSel,setPtSel]=useState(null);const [ptCorr,setPtCorr]=useState("");const [ptSaving,setPtSaving]=useState(false);const [ptFilter,setPtFilter]=useState("all");
+  /* Post-test config */
+  const [ptEnabled,setPtEnabled]=useState(false);const [ptConfigLoad,setPtConfigLoad]=useState(false);const [ptToggling,setPtToggling]=useState(false);
   /* Students */
   const [users,setUsers]=useState([]);const [usrLoad,setUsrLoad]=useState(false);const [usrLoaded,setUsrLoaded]=useState(false);const [deleting,setDeleting]=useState(null);
   /* Database */
@@ -346,6 +449,30 @@ function AdminPanel({tok,G,LT,DK,onClose}){
   const [stats,setStats]=useState(null);const [statsLoad,setStatsLoad]=useState(false);const [statsLoaded,setStatsLoaded]=useState(false);
 
   useEffect(()=>{(async()=>{try{const d=await get("writing_pretests?select=*&order=submitted_at.desc",tok);if(Array.isArray(d))setSubs(d);}catch(e){console.error(e);}setSubLoad(false);})();},[]);
+
+  // Charger config post-test
+  useEffect(()=>{(async()=>{setPtConfigLoad(true);const v=await getAppSetting("post_test_enabled",tok);setPtEnabled(v==="true");setPtConfigLoad(false);})();},[]);
+
+  // Charger post-tests quand onglet actif
+  const loadPostTests=async(force=false)=>{
+    if(ptLoaded&&!force)return;setPtLoad(true);
+    try{const d=await get("writing_posttests?select=*&order=submitted_at.desc",tok);if(Array.isArray(d))setPtsubs(d);}catch(e){console.error(e);}
+    setPtLoad(false);setPtLoaded(true);
+  };
+  useEffect(()=>{if(tab==="posttests")loadPostTests();},[tab]);
+
+  // Toggle post-test
+  const togglePostTest=async()=>{
+    if(!window.confirm(`${ptEnabled?"Désactiver":"Activer"} le post-test pour TOUS les étudiants ?`))return;
+    setPtToggling(true);
+    const newVal=!ptEnabled;
+    await setAppSetting("post_test_enabled",newVal,tok);
+    setPtEnabled(newVal);
+    setPtToggling(false);
+  };
+
+  // Sauvegarder correction post-test
+  const savePtCorr=async()=>{if(!ptSel||!ptCorr.trim())return;setPtSaving(true);try{await patch(`writing_posttests?id=eq.${ptSel.id}`,{correction:ptCorr,status:"corrected"},tok);setPtsubs(s=>s.map(x=>x.id===ptSel.id?{...x,correction:ptCorr,status:"corrected"}:x));setPtSel(s=>({...s,correction:ptCorr,status:"corrected"}));}catch(e){console.error(e);}setPtSaving(false);};
 
   const loadUsers=async(force=false)=>{if(usrLoaded&&!force)return;setUsrLoad(true);try{const d=await get("users?select=*&order=xp.desc",tok);if(Array.isArray(d))setUsers(d);}catch(e){console.error(e);}setUsrLoad(false);setUsrLoaded(true);};
   useEffect(()=>{if(tab==="students")loadUsers();},[tab]);
@@ -356,7 +483,8 @@ function AdminPanel({tok,G,LT,DK,onClose}){
     try{
       const del=(tbl,fld)=>fetch(`${SB}/rest/v1/${tbl}?${fld}=eq.${uid}`,{method:"DELETE",headers:h(tok)});
       await del("seen_content","user_id");await del("daily_progress","user_id");
-      await del("user_badges","user_id");await del("writing_pretests","user_id");await del("users","id");
+      await del("user_badges","user_id");await del("writing_pretests","user_id");
+      await del("writing_posttests","user_id");await del("users","id");
       setUsers(u=>u.filter(x=>x.id!==uid));
     }catch(e){console.error(e);alert("Erreur: "+e.message);}
     setDeleting(null);
@@ -364,7 +492,7 @@ function AdminPanel({tok,G,LT,DK,onClose}){
 
   const loadDb=async(tbl)=>{
     if(dbData[tbl])return;setDbLoad(true);
-    const q={users:"?select=*&order=xp.desc&limit=100",writing_pretests:"?select=*&order=submitted_at.desc&limit=100",daily_progress:"?select=*&order=date.desc&limit=100",seen_content:"?select=*&limit=100",user_badges:"?select=*&limit=100"};
+    const q={users:"?select=*&order=xp.desc&limit=100",writing_pretests:"?select=*&order=submitted_at.desc&limit=100",writing_posttests:"?select=*&order=submitted_at.desc&limit=100",daily_progress:"?select=*&order=date.desc&limit=100",seen_content:"?select=*&limit=100",user_badges:"?select=*&limit=100",app_settings:"?select=*"};
     try{const d=await get(tbl+(q[tbl]||"?select=*&limit=100"),tok);if(Array.isArray(d))setDbData(p=>({...p,[tbl]:d}));}catch(e){console.error(e);}
     setDbLoad(false);
   };
@@ -393,7 +521,7 @@ function AdminPanel({tok,G,LT,DK,onClose}){
 
   const saveCorr=async()=>{if(!sel||!corr.trim())return;setSaving(true);try{await patch(`writing_pretests?id=eq.${sel.id}`,{correction:corr,status:"corrected"},tok);setSubs(s=>s.map(x=>x.id===sel.id?{...x,correction:corr,status:"corrected"}:x));setSel(s=>({...s,correction:corr,status:"corrected"}));}catch(e){console.error(e);}setSaving(false);};
 
-  const TABS=[["pretests","📝 Pretests"],["students","👥 Students"],["database","🗄 Database"],["stats","📈 Stats"],["danger","⚠️ Danger"]];
+  const TABS=[["pretests","📝 Pré-test"],["posttests","📋 Post-test"],["students","👥 Students"],["database","🗄 Database"],["stats","📈 Stats"],["danger","⚠️ Danger"]];
 
   return(<div style={{padding:18,paddingBottom:80}}>
     {/* Nav onglets */}
@@ -403,6 +531,51 @@ function AdminPanel({tok,G,LT,DK,onClose}){
       ))}
       <button onClick={onClose} style={{marginLeft:"auto",background:"none",border:"none",color:"#888",fontSize:20,cursor:"pointer",flexShrink:0}}>✕</button>
     </div>
+
+    {/* ── POST-TESTS ── */}
+    {tab==="posttests"&&<div>
+      {/* Toggle activation */}
+      <Card style={{marginBottom:16,border:`2px solid ${ptEnabled?"#2D6A4F":"#e0e0e0"}`,background:ptEnabled?"#f1f8f4":"#fafafa"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontWeight:800,color:ptEnabled?"#2D6A4F":"#555",fontSize:15}}>
+              {ptEnabled?"🟢 Post-test ACTIF":"⚪ Post-test INACTIF"}
+            </div>
+            <div style={{fontSize:12,color:"#888",marginTop:3}}>
+              {ptEnabled?"Les étudiants peuvent voir et soumettre le post-test.":"Le post-test est invisible pour les étudiants."}
+            </div>
+          </div>
+          <button onClick={togglePostTest} disabled={ptToggling||ptConfigLoad} style={{background:ptEnabled?"#c62828":"#2D6A4F",color:"#fff",border:"none",borderRadius:12,padding:"10px 18px",fontWeight:800,fontSize:13,cursor:ptToggling?"not-allowed":"pointer",fontFamily:"inherit",flexShrink:0,opacity:ptToggling?0.6:1}}>
+            {ptToggling?"…":ptEnabled?"Désactiver":"Activer"}
+          </button>
+        </div>
+        {ptEnabled&&<div style={{marginTop:10,fontSize:12,color:"#2D6A4F",fontWeight:600,background:"#e8f5e9",borderRadius:8,padding:"6px 10px"}}>
+          ⚠️ Pour changer le sujet du post-test, modifier <code>POSTTEST_SUBJECT.prompt</code> dans App.jsx puis redéployer.
+        </div>}
+      </Card>
+
+      {/* Soumissions */}
+      {ptSel?
+        <div>
+          <button onClick={()=>{setPtSel(null);setPtCorr("");}} style={{background:"none",border:"none",color:G,fontWeight:700,fontSize:15,cursor:"pointer",padding:0,marginBottom:16}}>← Retour</button>
+          <Card style={{marginBottom:12}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}><div><div style={{fontWeight:800,color:DK,fontSize:16}}>{ptSel.student_code}</div><div style={{fontSize:12,color:"#888"}}>{ptSel.level} · {ptSel.submitted_at?.slice(0,10)}</div></div><span style={{background:ptSel.status==="corrected"?"#e8f5e9":"#fff3e0",color:ptSel.status==="corrected"?G:"#e65100",borderRadius:8,padding:"3px 12px",fontSize:12,fontWeight:700}}>{ptSel.status==="corrected"?"✅ Corrected":"⏳ Pending"}</span></div></Card>
+          <Card style={{background:"#e3f2fd",marginBottom:12}}><div style={{fontSize:12,color:"#1565c0",fontWeight:700,marginBottom:6}}>📝 Sujet Post-test</div><p style={{fontSize:13,color:"#444",margin:0,fontStyle:"italic",lineHeight:1.7}}>{POSTTEST_SUBJECT.prompt}</p></Card>
+          <Card style={{marginBottom:12}}><div style={{fontSize:12,color:"#888",fontWeight:700,marginBottom:6}}>🧑‍🎓 Réponse</div><p style={{fontSize:14,color:"#333",margin:0,lineHeight:1.8,whiteSpace:"pre-wrap"}}>{ptSel.writing_text}</p><div style={{fontSize:12,color:"#aaa",marginTop:8}}>{wc(ptSel.writing_text)} mots</div></Card>
+          <Card style={{marginBottom:12}}><div style={{fontSize:12,color:G,fontWeight:700,marginBottom:8}}>✏️ Correction</div><textarea value={ptCorr||ptSel.correction||""} onChange={e=>setPtCorr(e.target.value)} placeholder="Écrire la correction ici…" rows={6} style={{width:"100%",boxSizing:"border-box",border:`2px solid ${G}`,borderRadius:12,padding:12,fontSize:14,resize:"vertical",outline:"none",fontFamily:"inherit"}}/></Card>
+          <div style={{display:"flex",gap:10}}>{ptSaving?<Spinner/>:<PBtn onClick={savePtCorr} style={{background:G,flex:1}}>💾 Sauvegarder</PBtn>}<button onClick={()=>{const rows=[{...ptSel,correction:ptCorr||ptSel.correction}];exportWord(rows,`posttest_${ptSel.student_code}.doc`);}} style={{flex:1,background:"#1565c0",color:"#fff",border:"none",borderRadius:12,padding:"13px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",marginTop:8}}>📄 Word</button></div>
+        </div>
+      :<div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <span style={{fontSize:13,color:"#888"}}>{ptsubs.length} soumission(s)</span>
+          <button onClick={()=>loadPostTests(true)} style={{background:LT,color:G,border:"none",borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>↻</button>
+        </div>
+        <div style={{display:"flex",gap:8,marginBottom:14}}>{["all","pending","corrected"].map(f=>(<button key={f} onClick={()=>setPtFilter(f)} style={{flex:1,background:ptFilter===f?G:"#fff",color:ptFilter===f?"#fff":DK,border:`1.5px solid ${ptFilter===f?G:"#ddd"}`,borderRadius:20,padding:"7px 0",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>{f==="all"?"Tous":f==="pending"?"⏳ Pending":"✅ Corrected"}</button>))}</div>
+        {ptsubs.filter(s=>ptFilter==="all"||s.status===ptFilter).length>0&&<button onClick={()=>exportWord(ptsubs.filter(s=>ptFilter==="all"||s.status===ptFilter),`posttest_all_${dateStr()}.doc`)} style={{width:"100%",background:"#1565c0",color:"#fff",border:"none",borderRadius:12,padding:"11px",fontWeight:700,fontSize:13,cursor:"pointer",fontFamily:"inherit",marginBottom:14}}>📄 Exporter tout → Word</button>}
+        {ptLoad&&<Spinner/>}
+        {!ptLoad&&ptsubs.filter(s=>ptFilter==="all"||s.status===ptFilter).length===0&&<Card style={{textAlign:"center",padding:32}}><div style={{fontSize:40}}>📭</div><p style={{color:"#888"}}>{ptEnabled?"Aucune soumission encore.":"Activez le post-test pour que les étudiants puissent le soumettre."}</p></Card>}
+        {ptsubs.filter(s=>ptFilter==="all"||s.status===ptFilter).map(s=>(<div key={s.id} onClick={()=>{setPtSel(s);setPtCorr(s.correction||"");}} style={{background:"#fff",border:`1.5px solid ${s.status==="corrected"?"#a5d6a7":"#ffe082"}`,borderRadius:14,padding:"14px 16px",marginBottom:10,cursor:"pointer",boxShadow:"0 2px 6px rgba(0,0,0,0.04)"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontWeight:800,color:DK,fontSize:14}}>{s.student_code}</div><div style={{fontSize:12,color:"#888",marginTop:2}}>{s.level} · {s.submitted_at?.slice(0,10)} · {wc(s.writing_text)} mots</div></div><span style={{background:s.status==="corrected"?"#e8f5e9":"#fff3e0",color:s.status==="corrected"?G:"#e65100",borderRadius:8,padding:"3px 10px",fontSize:11,fontWeight:700,flexShrink:0}}>{s.status==="corrected"?"✅":"⏳"}</span></div><p style={{fontSize:13,color:"#666",margin:"6px 0 0",overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{s.writing_text}</p></div>))}
+      </div>}
+    </div>}
 
     {/* ── PRETESTS ── */}
     {tab==="pretests"&&(sel?
@@ -455,7 +628,7 @@ function AdminPanel({tok,G,LT,DK,onClose}){
     {/* ── DATABASE ── */}
     {tab==="database"&&<div>
       <div style={{display:"flex",gap:5,marginBottom:12,overflowX:"auto",paddingBottom:4}}>
-        {["users","writing_pretests","daily_progress","seen_content","user_badges"].map(t=>(
+        {["users","writing_pretests","writing_posttests","daily_progress","seen_content","user_badges","app_settings"].map(t=>(
           <button key={t} onClick={()=>setDbTab(t)} style={{background:dbTab===t?G:"#fff",color:dbTab===t?"#fff":DK,border:`1.5px solid ${dbTab===t?G:"#ddd"}`,borderRadius:14,padding:"4px 10px",fontSize:10,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap",fontFamily:"inherit",flexShrink:0}}>{t}</button>
         ))}
       </div>
@@ -950,9 +1123,25 @@ function EssayMod({addXp,onBack,G,LT,DK,effectiveLevel}){
 }
 
 /* ═══════════════ HOME ═══════════════════════════════════ */
-function HomeScreen({setMod,xp,lvl,pct,level,done,G,LT,DK}){
+function HomeScreen({setMod,xp,lvl,pct,level,done,G,LT,DK,postTestEnabled,postTestSubmitted,onPostTest}){
   const next=UNLOCKS.find(u=>u.xp>xp);const prev=[...UNLOCKS].reverse().find(u=>u.xp<=xp);
-  return(<div style={{padding:18}}><Card style={{marginBottom:14,background:`linear-gradient(135deg,${DK},${G})`,color:"#fff"}}><div style={{fontSize:12,opacity:.8,marginBottom:4}}>📅 {dateStr()}</div><div style={{fontWeight:800,fontSize:16,marginBottom:2}}>{done.length>=MODS.length?"🎉 All done today!":"Today's Activities"}</div><div style={{fontSize:12,opacity:.75}}>{done.length}/{MODS.length} completed · {level}</div><div style={{display:"flex",gap:6,marginTop:10}}>{MODS.map(m=><div key={m.id} style={{width:28,height:28,borderRadius:"50%",background:done.includes(m.id)?"#fff":"rgba(255,255,255,.25)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>{done.includes(m.id)?m.icon:"·"}</div>)}</div></Card><Card style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:6}}><span style={{fontWeight:700,color:G}}>{lvl.name} · {level}</span><span style={{color:"#888"}}>{xp}/{lvl.next} XP</span></div><div style={{background:"#e8f5e9",borderRadius:99,height:10}}><div style={{background:G,height:10,borderRadius:99,width:`${pct}%`,transition:"width .5s"}}/></div><p style={{color:"#888",fontSize:12,marginTop:6}}>{lvl.next-xp} XP to next level</p></Card>{next&&<Card style={{marginBottom:14,background:"#fff8e1",borderLeft:"3px solid #f9a825"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:12,color:"#e65100",fontWeight:700,marginBottom:2}}>🔓 Next Unlock — {next.xp} XP</div><div style={{fontWeight:700,color:DK,fontSize:13}}>{next.icon} {next.label}</div><div style={{fontSize:12,color:"#666"}}>{next.desc}</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:800,color:"#e65100",fontSize:16}}>{next.xp-xp}</div><div style={{fontSize:10,color:"#888"}}>XP away</div></div></div><div style={{background:"#ffe082",borderRadius:99,height:6,marginTop:8}}><div style={{background:"#f9a825",height:6,borderRadius:99,width:`${Math.min(100,Math.round(((xp-(prev?.xp||0))/(next.xp-(prev?.xp||0)))*100))}%`,transition:"width .5s"}}/></div></Card>}{MODS.map(m=>(<button key={m.id} onClick={()=>setMod(m)} style={{width:"100%",background:"#fff",border:`1.5px solid ${LT}`,borderRadius:16,padding:"14px 16px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,0.04)",textAlign:"left",marginBottom:10}}><div style={{background:m.color,borderRadius:12,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{m.icon}</div><div style={{flex:1}}><div style={{fontWeight:700,color:DK,fontSize:14}}>{m.name}</div><div style={{color:"#888",fontSize:12,marginTop:2}}>{m.sub}</div></div>{done.includes(m.id)?<span style={{background:"#e8f5e9",color:G,borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:700}}>✅ Done</span>:<span style={{background:LT,color:G,borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>+{XP_MAP[m.id]} XP</span>}</button>))}</div>);
+  return(<div style={{padding:18}}>
+    {/* ── Bannière Post-test — visible uniquement si activé par l'admin ── */}
+    {postTestEnabled&&(
+      <div onClick={postTestSubmitted?undefined:onPostTest} style={{background:postTestSubmitted?"linear-gradient(135deg,#1b4332,#2D6A4F)":"linear-gradient(135deg,#1565c0,#1976d2)",borderRadius:16,padding:"16px 20px",marginBottom:14,display:"flex",alignItems:"center",gap:14,cursor:postTestSubmitted?"default":"pointer",boxShadow:"0 4px 14px rgba(0,0,0,.18)",border:`1.5px solid ${postTestSubmitted?"#81c784":"#90caf9"}`}}>
+        <div style={{fontSize:38,flexShrink:0}}>{postTestSubmitted?"✅":"📝"}</div>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:800,color:"#fff",fontSize:15,marginBottom:2}}>
+            {postTestSubmitted?"Post-test Submitted":"Writing Post-test Available"}
+          </div>
+          <div style={{color:postTestSubmitted?"#a5d6a7":"#bbdefb",fontSize:12,lineHeight:1.5}}>
+            {postTestSubmitted?"Your post-test has been sent for teacher review. Well done!":"Your teacher has opened the final writing test. Tap to complete it now."}
+          </div>
+        </div>
+        {!postTestSubmitted&&<div style={{background:"#fff",color:"#1565c0",borderRadius:10,padding:"8px 14px",fontWeight:800,fontSize:12,flexShrink:0}}>Start →</div>}
+      </div>
+    )}
+    <Card style={{marginBottom:14,background:`linear-gradient(135deg,${DK},${G})`,color:"#fff"}}><div style={{fontSize:12,opacity:.8,marginBottom:4}}>📅 {dateStr()}</div><div style={{fontWeight:800,fontSize:16,marginBottom:2}}>{done.length>=MODS.length?"🎉 All done today!":"Today's Activities"}</div><div style={{fontSize:12,opacity:.75}}>{done.length}/{MODS.length} completed · {level}</div><div style={{display:"flex",gap:6,marginTop:10}}>{MODS.map(m=><div key={m.id} style={{width:28,height:28,borderRadius:"50%",background:done.includes(m.id)?"#fff":"rgba(255,255,255,.25)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14}}>{done.includes(m.id)?m.icon:"·"}</div>)}</div></Card><Card style={{marginBottom:10}}><div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:6}}><span style={{fontWeight:700,color:G}}>{lvl.name} · {level}</span><span style={{color:"#888"}}>{xp}/{lvl.next} XP</span></div><div style={{background:"#e8f5e9",borderRadius:99,height:10}}><div style={{background:G,height:10,borderRadius:99,width:`${pct}%`,transition:"width .5s"}}/></div><p style={{color:"#888",fontSize:12,marginTop:6}}>{lvl.next-xp} XP to next level</p></Card>{next&&<Card style={{marginBottom:14,background:"#fff8e1",borderLeft:"3px solid #f9a825"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:12,color:"#e65100",fontWeight:700,marginBottom:2}}>🔓 Next Unlock — {next.xp} XP</div><div style={{fontWeight:700,color:DK,fontSize:13}}>{next.icon} {next.label}</div><div style={{fontSize:12,color:"#666"}}>{next.desc}</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:800,color:"#e65100",fontSize:16}}>{next.xp-xp}</div><div style={{fontSize:10,color:"#888"}}>XP away</div></div></div><div style={{background:"#ffe082",borderRadius:99,height:6,marginTop:8}}><div style={{background:"#f9a825",height:6,borderRadius:99,width:`${Math.min(100,Math.round(((xp-(prev?.xp||0))/(next.xp-(prev?.xp||0)))*100))}%`,transition:"width .5s"}}/></div></Card>}{MODS.map(m=>(<button key={m.id} onClick={()=>setMod(m)} style={{width:"100%",background:"#fff",border:`1.5px solid ${LT}`,borderRadius:16,padding:"14px 16px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",boxShadow:"0 2px 8px rgba(0,0,0,0.04)",textAlign:"left",marginBottom:10}}><div style={{background:m.color,borderRadius:12,width:48,height:48,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>{m.icon}</div><div style={{flex:1}}><div style={{fontWeight:700,color:DK,fontSize:14}}>{m.name}</div><div style={{color:"#888",fontSize:12,marginTop:2}}>{m.sub}</div></div>{done.includes(m.id)?<span style={{background:"#e8f5e9",color:G,borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:700}}>✅ Done</span>:<span style={{background:LT,color:G,borderRadius:8,padding:"3px 10px",fontSize:12,fontWeight:600}}>+{XP_MAP[m.id]} XP</span>}</button>))}</div>);
 }
 
 /* ═══════════════ PROFILE ════════════════════════════════ */
@@ -1046,6 +1235,8 @@ export default function App(){
   const [showAdmin,setShowAdmin]=useState(false);const [anonymousLB,setAnonymousLB]=useState(false);
   const [ghContent,setGhContent]=useState(null);const [ghLoading,setGhLoading]=useState(false);
   const [adminLevel,setAdminLevel]=useState("Beginner");
+  const [postTestEnabled,setPostTestEnabled]=useState(false);
+  const [postTestSubmitted,setPostTestSubmitted]=useState(false);
   const G=theme.G,LT=theme.LT,DK=theme.DK;
   const isAdmin = user?.email===ADMIN_EMAIL;
   const effectiveLevel = isAdmin ? adminLevel : (place?.level||"Beginner");
@@ -1057,6 +1248,19 @@ export default function App(){
     setGhLoading(false);
   },[effectiveLevel, screen, user?.id]);
 
+  // Vérifier si post-test activé + déjà soumis
+  useEffect(()=>{
+    if(screen!=="app"||!user?.id||isAdmin) return;
+    (async()=>{
+      const enabled = await getAppSetting("post_test_enabled", tok);
+      setPostTestEnabled(enabled==="true");
+      if(enabled==="true"){
+        const existing = await get(`writing_posttests?user_id=eq.${user.id}&select=id`, tok);
+        setPostTestSubmitted(Array.isArray(existing)&&existing.length>0);
+      }
+    })();
+  },[screen, user?.id]);
+
   const loadDone=async(uid,tk)=>{
     if(isAdmin){sDone([]);return;} // admin: no restrictions
     try{const d=await get(`daily_progress?user_id=eq.${uid}&date=eq.${dateStr()}&completed=eq.true&select=module`,tk);sDone(Array.isArray(d)?d.map(x=>x.module):[]);}catch{}
@@ -1064,6 +1268,7 @@ export default function App(){
   const afterAuth=async u=>{sUser(u);sTok(u.token);sXp(u.xp||0);sStreak(u.streak||1);setAnonymousLB(u.anonymous_leaderboard||false);if(u.isNew)sScreen("placement");else{sPlace({level:u.level||"Beginner"});await loadDone(u.id,u.token);sScreen("app");}};
   const afterPlace=async r=>{sPlace(r);if(user?.id)await patch(`users?id=eq.${user.id}`,{level:r.level,placement_done:true},tok);sScreen("result");};
   const afterWritingPretest=async()=>{await loadDone(user?.id,tok);sScreen("app");};
+  const afterWritingPosttest=async()=>{setPostTestSubmitted(true);sScreen("app");};
   const getAcademicLevel=x=>x>=1500?"Advanced":x>=500?"Intermediate":"Beginner";
   const awardBadge=async name=>{if(badges.includes(name)||!user?.id)return;try{await post("user_badges",{user_id:user.id,badge_name:name},tok);}catch{}sBadges(p=>[...p,name]);};
   const addXp=async(n,modId)=>{
@@ -1082,7 +1287,8 @@ export default function App(){
   if(screen==="register") return<AuthForm mode="register" onDone={afterAuth} onSwitch={()=>sScreen("login")}/>;
   if(screen==="placement")return<PlacementTest onDone={afterPlace}/>;
   if(screen==="result")   return<LevelResult result={place} onContinue={()=>sScreen("writing_pretest")}/>;
-  if(screen==="writing_pretest")return<WritingPretest user={user} tok={tok} level={place?.level||"Beginner"} onDone={afterWritingPretest}/>;
+  if(screen==="writing_pretest") return<WritingPretest user={user} tok={tok} level={place?.level||"Beginner"} onDone={afterWritingPretest}/>;
+  if(screen==="writing_posttest")return<WritingPosttest user={user} tok={tok} level={place?.level||"Beginner"} onDone={afterWritingPosttest}/>;
 
   const lvl=getLvl(xp),pct=Math.round(((xp-lvl.min)/(lvl.next-lvl.min))*100),level=place?.level||"Beginner";
 
@@ -1118,7 +1324,7 @@ export default function App(){
         {mod.id==="quiz"       &&<QuizMod       addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} user={user} tok={tok} effectiveLevel={effectiveLevel}/>}
         {mod.id==="essay"      &&<EssayMod      addXp={addXp} onBack={()=>{sMod(null);loadDone(user?.id,tok);}} G={G} LT={LT} DK={DK} effectiveLevel={effectiveLevel}/>}
       </div>
-      :tab==="home"    ?<HomeScreen setMod={sMod} xp={xp} lvl={lvl} pct={pct} level={effectiveLevel} done={done} G={G} LT={LT} DK={DK}/>
+      :tab==="home"    ?<HomeScreen setMod={sMod} xp={xp} lvl={lvl} pct={pct} level={effectiveLevel} done={done} G={G} LT={LT} DK={DK} postTestEnabled={postTestEnabled&&!isAdmin} postTestSubmitted={postTestSubmitted} onPostTest={()=>sScreen("writing_posttest")}/>
       :tab==="profile" ?<ProfileScreen user={user} xp={xp} lvl={lvl} level={effectiveLevel} badges={badges} streak={streak} anonymousLB={anonymousLB} onToggleAnon={toggleAnon} onCertificate={()=>setShowCert(true)} G={G} LT={LT} DK={DK}/>
       :tab==="board"   ?<BoardScreen userId={user?.id} myXp={xp} tok={tok} anonymousLB={anonymousLB} G={G} LT={LT} DK={DK}/>
       :<SettingsScreen user={user} onTheme={sTheme} onLogout={()=>{sScreen("landing");sUser(null);sTok(null);}} onAdmin={()=>setShowAdmin(true)} G={G} LT={LT} DK={DK}/>}
